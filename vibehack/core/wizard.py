@@ -146,7 +146,10 @@ def _setup_wizard():
             
         console.print(f"\n[bold green]✓ Configuration saved to {cfg.GLOBAL_ENV}[/bold green]")
         
-        # Sync runtime config
+        # Sync runtime config & environment
+        for k, v in final_env.items():
+            os.environ[k] = str(v)
+            
         cfg.API_KEY = final_env.get("VH_API_KEY", "")
         cfg.MODEL = final_env.get("VH_MODEL", "")
         cfg.PROVIDER = final_env.get("VH_PROVIDER", "custom")

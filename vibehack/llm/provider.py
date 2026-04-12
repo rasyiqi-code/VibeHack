@@ -77,18 +77,24 @@ class UniversalHandler:
         self.api_key = api_key or cfg.API_KEY
         
         # Determine model
-        self.model = model or os.getenv("VH_MODEL") or cfg.MODEL
-        if not self.model:
+        # Determine model - Prioritize CFG over potentially stale ENV in a running REPL
+        self.model = model or cfg.MODEL or os.getenv("VH_MODEL")
+        if not self.model or self.model == "auto":
             # Defaults per provider if none specified
             defaults = {
                 "openrouter": "openrouter/anthropic/claude-3.5-sonnet",
-                "google": "gemini/gemini-1.5-pro-latest",
+                "google": "vertex_ai/gemini-1.5-pro-latest" if self.auth_type == "oauth" else "gemini/gemini-1.5-pro-latest",
                 "anthropic": "anthropic/claude-3-5-sonnet-20240620",
                 "openai": "openai/gpt-4o",
-                "github": "openai/gpt-4o", # Model for copilot usually via litellm
+                "github": "openai/gpt-4o",
                 "opencode": "opencode/main"
             }
             self.model = defaults.get(self.provider, "openrouter/anthropic/claude-3.5-sonnet")
+
+        # Ensure LiteLLM routing if provider is Google
+        if self.provider == "google" and not ("/" in self.model):
+             prefix = "vertex_ai/" if self.auth_type == "oauth" else "gemini/"
+             self.model = f"{prefix}{self.model}"
 
         # Determine base API. If not set, litellm defaults appropriately per provider prefix.
         self.api_base = cfg.API_BASE if cfg.API_BASE else None
