@@ -169,6 +169,16 @@ pytest tests/test_shell.py -v
 
 ---
 
+## 🗑️ Uninstallation
+
+If you wish to completely remove VibeHack:
+```bash
+curl -fsSL https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/uninstall.sh | bash
+```
+This will remove the core engine, the isolated environment, and your local memory database.
+
+---
+
 ## ⚠️ Legal Notice
 
 Vibe_Hack is a **gated, professional security research tool**. Use only on systems you own or have explicit written authorization to test. Unauthorized use against third-party systems is illegal in most jurisdictions. The developers are not liable for misuse.
