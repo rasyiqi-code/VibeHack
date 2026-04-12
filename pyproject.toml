@@ -1,6 +1,6 @@
 [project]
 name = "vibehack"
-version = "2.2.2"
+version = "2.3.0"
 description = "Raw Shell / HitL Agentic Security Co-Pilot"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -15,6 +15,7 @@ dependencies = [
     "fpdf2>=2.7.9",
     "playwright>=1.40.0",
     "nest-asyncio>=1.6.0",
+    "prompt-toolkit>=3.0.0",
 ]
 
 [project.optional-dependencies]

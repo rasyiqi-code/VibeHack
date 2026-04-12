@@ -16,6 +16,12 @@ import uuid
 from datetime import datetime
 from typing import List, Dict, Optional
 
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.styles import Style
+from prompt_toolkit.formatted_text import HTML
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
@@ -89,6 +95,22 @@ class VibehackREPL:
         self.env = get_toolkit_env()
         self._system_built = False
         self._available_tools: List[str] = []  # §6.2 Dynamic discovery
+
+        # ── Prompt Toolkit Setup ──────────────────────────────────────────
+        self.completer = WordCompleter(
+            list(SLASH_COMMANDS.keys()),
+            ignore_case=True,
+            pattern=re.compile(r"^/[a-z]*"),  # Only trigger on slash
+        )
+        self.session = PromptSession(
+            history=FileHistory(os.path.join(cfg.HOME, ".history")),
+            completer=self.completer,
+            complete_while_typing=True,
+        )
+        self.style = Style.from_dict({
+            'bottom-toolbar': '#aaaaaa bg:#222222',
+            'prompt': 'bold #00ff00',
+        })
 
     # ── Internals ─────────────────────────────────────────────────────────
 
@@ -471,7 +493,19 @@ class VibehackREPL:
         self._trim_history()
         self._persist()
 
-    # ── Entry point ───────────────────────────────────────────────────────
+    def _get_bottom_toolbar(self):
+        """Dynamic metadata bar for prompt-toolkit."""
+        target = self.target or "no target"
+        mode = self.persona
+        unchained = "UNCHAINED 🔓" if self.unchained else "GUARDED 🔒"
+        findings = len(self.key_findings)
+        
+        return HTML(
+            f' <b>VibeHack</b> | Target: <ansicyan>{target}</ansicyan> | '
+            f'Mode: {mode} | {unchained} | Findings: <b>{findings}f</b>'
+        )
+
+    # ── Main Entry Point ──────────────────────────────────────────────────
 
     async def run(self):
         display_banner()
@@ -500,28 +534,22 @@ class VibehackREPL:
 
         self._rebuild_system_prompt()
 
-        display_session_info(
-            self.target or "not set",
-            self.persona,
-            self.unchained,
-            self.session_id,
-            len(self._available_tools),
-        )
         console.print(
             f"[dim]🔍 Tools: {len(self._available_tools)} discovered in $PATH[/dim]"
         )
         console.print(
-            "[dim]Chat naturally or use /help. Set target with /target <url> or mention it in chat.[/dim]\n"
+            "[dim]Chat naturally or use /help. Autocomplete slash commands with Alt+Enter or TAB.[/dim]\n"
         )
 
         # ── ReAct REPL loop (§6.1) ────────────────────────────────────────
         while True:
             try:
-                console.print()
-                self._print_status_bar()
-
                 try:
-                    user_input = Prompt.ask("[bold green]you[/bold green]")
+                    user_input = await self.session.prompt_async(
+                        "you: ",
+                        bottom_toolbar=self._get_bottom_toolbar,
+                        style=self.style
+                    )
                 except (EOFError, KeyboardInterrupt):
                     console.print("\n[bold yellow]Saving...[/bold yellow]")
                     break
