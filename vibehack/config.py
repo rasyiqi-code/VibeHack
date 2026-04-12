@@ -19,26 +19,26 @@ class Config:
         self.load()
 
     def load(self):
-        # ── LLM ───────────────────────────────────────────────────────────────
+        # ── LLM Core ──────────────────────────────────────────────────────────
         self.PROVIDER = os.getenv("VH_PROVIDER", "openrouter")
         self.API_KEY = os.getenv("VH_API_KEY", "")
         self.API_BASE = os.getenv("VH_API_BASE", "")
-        self.MODEL = os.getenv("VH_MODEL", "")  # Default model will depend on provider
+        self.MODEL = os.getenv("VH_MODEL", "google/gemini-2.0-flash-exp:free")
         self.API_TIMEOUT = int(os.getenv("VH_API_TIMEOUT", "60"))
         self.MAX_RETRIES = int(os.getenv("VH_MAX_RETRIES", "3"))
 
-        # Auth Metadata (v2.5)
+        # Auth Metadata
         self.AUTH_TYPE = os.getenv("VH_AUTH_TYPE", "key") # 'key' or 'oauth'
         self.AUTH_FILE = os.getenv("VH_AUTH_FILE", "")
 
-        # Provider-specific keys (stored in env but can be mapped to API_KEY)
+        # Provider Keys
         self.OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
         self.GOOGLE_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
         self.ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
         self.OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
         self.GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN", "")
 
-        # ── Session ───────────────────────────────────────────────────────────
+        # ── Token Economy & Context (v2.6) ───────────────────────────────────
         self.MAX_TURN_MEMORY = int(os.getenv("VH_MAX_TURNS", "10"))
         self.TRUNCATE_LIMIT = int(os.getenv("VH_TRUNCATE_LIMIT", "2500"))
         self.CMD_TIMEOUT = int(os.getenv("VH_CMD_TIMEOUT", "120"))
@@ -51,9 +51,8 @@ class Config:
         self.MEMORY_DB = self.HOME / "memory.db"
         self.GLOBAL_ENV = GLOBAL_ENV
 
-        # ── Features ──────────────────────────────────────────────────────────
+        # ── Feature Toggles ──────────────────────────────────────────────────
         self.MEMORY_ENABLED = os.getenv("VH_NO_MEMORY", "false").lower() != "true"
-        self.TELEMETRY_ENABLED = os.getenv("VH_TELEMETRY", "false").lower() == "true"
         self.SANDBOX_ENABLED = os.getenv("VH_SANDBOX", "false").lower() == "true"
 
 cfg = Config()

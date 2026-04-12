@@ -1,9 +1,14 @@
 import json
-import os
+import uuid
+from datetime import datetime
 from pathlib import Path
 from vibehack.toolkit.manager import VIBEHACK_HOME
 
 SESSIONS_DIR = VIBEHACK_HOME / "sessions"
+
+def generate_session_id() -> str:
+    """Creates a unique, timestamped session identifier."""
+    return datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6]
 
 def save_session(session_id: str, state: dict):
     """Saves the current session state to disk."""

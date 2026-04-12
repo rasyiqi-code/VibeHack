@@ -10,8 +10,6 @@ Orchestrates:
 """
 import asyncio
 import os
-import uuid
-from datetime import datetime
 from typing import List, Dict
 from rich.console import Console
 from rich.prompt import Prompt
@@ -20,16 +18,24 @@ from vibehack.config import cfg
 from vibehack.core.shell import execute_shell
 from vibehack.llm.provider import UniversalHandler, AgentResponse, Finding
 from vibehack.agent.prompts import get_system_prompt
+from vibehack.agent.prompts.tactical import (
+    get_loop_recovery, get_truncation_note, get_block_note, 
+    get_finding_note, get_memory_feedback, detect_logic_loop
+)
 from vibehack.guardrails.regex_engine import check_command, check_target
 from vibehack.guardrails.waiver import verify_unchained_access
 from vibehack.memory.db import init_memory, get_memory_context, get_memory_stats
 from vibehack.memory.ingestion import ingest_session, detect_technology
-from vibehack.session.persistence import save_session
+from vibehack.session.persistence import save_session, generate_session_id
 from vibehack.toolkit.discovery import discover_tools
+from vibehack.toolkit.manager import get_toolkit_env
+from vibehack.ui.tui import (
+    display_banner, display_output, display_session_info, 
+    display_thought, display_education, display_finding, 
+    display_command, ask_approval
+)
 
-# Re-exported for legacy compat (cli.py check command)
-# Will be removed when cli.py check is fully migrated to discovery
-KNOWN_TOOLS: list[str] = []  # Populated at runtime via discover_tools()
+
 
 
 console = Console()
@@ -48,11 +54,11 @@ class AgentLoop:
         self.persona = persona
         self.unchained = unchained
         self.no_memory = no_memory
-        self.handler = UniversalHandler(api_key, model=os.getenv("VH_MODEL", cfg.MODEL))
+        self.handler = UniversalHandler(api_key, model=cfg.MODEL)
         self.history: List[Dict[str, str]] = []
         self.auto_allow: bool = False
         self.key_findings: List[Finding] = []
-        self.session_id = session_id or datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6]
+        self.session_id = session_id or generate_session_id()
         self.env = get_toolkit_env()
         self._tech_hint = "web"  # Refined dynamically from AI thoughts
 
@@ -84,17 +90,26 @@ class AgentLoop:
         if len(self.history) > limit + 1:
             self.history = [self.history[0]] + self.history[-limit:]
 
+    def _detect_loop(self) -> str:
+        """Detects if the last 3 commands are identical."""
+        cmds = [
+            msg.get("content", "") for msg in self.history[-3:] 
+            if msg.get("role") == "user" and "COMMAND:" in msg.get("content", "")
+        ]
+        if len(cmds) == 3 and len(set(cmds)) == 1:
+            return cmds[0].split("COMMAND:")[1].split("\n")[0].strip()
+        return None
+
+    def _handle_memory_tool(self, cmd: str):
+        """Handle internal memory management commands."""
+        self.history.append({"role": "user", "content": get_memory_feedback("Memory command processed.")})
+        self._persist()
+
     def _refine_tech_hint(self, text: str):
         """Update tech hint from any rich text (AI thoughts + tool output)."""
         detected = detect_technology(text)
         if detected != "unknown":
             self._tech_hint = detected
-
-    def _build_finding_feedback(self, finding: Finding) -> str:
-        return (
-            f"[VIBEHACK] Finding recorded: [{finding.severity.upper()}] {finding.title}. "
-            "Do not re-test this. Continue to next attack surface."
-        )
 
     # ── Main run loop ─────────────────────────────────────────────────────
 
@@ -114,8 +129,6 @@ class AgentLoop:
 
         # ── §6.2 Dynamic Tool Discovery ───────────────────────────────────
         available_tools = discover_tools()
-        global KNOWN_TOOLS
-        KNOWN_TOOLS = available_tools  # Keep export in sync for legacy callers
 
         # ── LTM memory context ────────────────────────────────────────────
         if not self.no_memory:
@@ -135,6 +148,7 @@ class AgentLoop:
             tools_available=available_tools,
             tech_hint=self._tech_hint,
             existing_findings=self.key_findings if self.key_findings else None,
+            sandbox=cfg.SANDBOX_ENABLED
         )
 
         # Only prepend system prompt if this is a fresh session
@@ -150,6 +164,11 @@ class AgentLoop:
         # ── Agentic loop ──────────────────────────────────────────────────
         while True:
             try:
+                # Loop Detection (Tactical)
+                duplicate_cmd = detect_logic_loop(self.history)
+                if duplicate_cmd:
+                    self.history.append({"role": "user", "content": get_loop_recovery(f"Command '{duplicate_cmd}' repeated 3x")})
+
                 # 1. LLM call
                 with console.status("[bold green]🤖 AI is thinking...[/bold green]", spinner="dots"):
                     response: AgentResponse = await self.handler.complete(self.history)
@@ -173,7 +192,7 @@ class AgentLoop:
                     self.key_findings.append(response.finding)
                     self.history.append({
                         "role": "user",
-                        "content": self._build_finding_feedback(response.finding),
+                        "content": get_finding_note(response.finding.title),
                     })
                     self._persist()
                     continue  # Finding recorded — let AI propose next step
@@ -181,6 +200,10 @@ class AgentLoop:
                 # 3. Process command
                 if response.raw_command:
                     cmd = response.raw_command.strip()
+                    
+                    if cmd.startswith("vibehack-memory "):
+                        self._handle_memory_tool(cmd)
+                        continue
 
                     # 3a. Guardrail check
                     block_reason = check_command(cmd, self.unchained)
@@ -188,7 +211,7 @@ class AgentLoop:
                         console.print(f"\n[bold red]🛡 GUARDRAIL BLOCKED:[/bold red] {block_reason}\n")
                         self.history.append({
                             "role": "user",
-                            "content": f"GUARDRAIL BLOCKED: {block_reason}. Rethink — propose a safer alternative.",
+                            "content": get_block_note(block_reason),
                         })
                         self._persist()
                         continue
@@ -201,12 +224,12 @@ class AgentLoop:
                         console.print(
                             "[bold red]⚠  DESTRUCTIVE COMMAND — Auto-Allow suspended. Manual approval required.[/bold red]"
                         )
-                        approval = ask_approval()
+                        approval = await ask_approval()
                     elif self.auto_allow:
                         approval = "y"
                         console.print("[dim]⚡ Auto-Allow: executing...[/dim]")
                     else:
-                        approval = ask_approval()
+                        approval = await ask_approval()
 
                     if approval == "n":
                         note = Prompt.ask("[dim]Optional hint / alternative for the AI[/dim]", default="")
@@ -226,7 +249,7 @@ class AgentLoop:
                     result = execute_shell(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=self.env)
 
                     if result.truncated:
-                        console.print("[dim]ℹ Output truncated to 2,500 chars.[/dim]")
+                        console.print(f"[dim]ℹ Output truncated to {cfg.TRUNCATE_LIMIT} chars.[/dim]")
 
                     display_output(result.stdout)
                     if result.stderr:
@@ -244,7 +267,8 @@ class AgentLoop:
                     if result.stderr:
                         feedback += f"\nSTDERR:\n{result.stderr}"
                     if result.truncated:
-                        feedback += "\n[Note: Output truncated. Request specific fields if needed.]"
+                        feedback += get_truncation_note(cfg.TRUNCATE_LIMIT)
+                        console.print(f"[dim]ℹ Output truncated to {cfg.TRUNCATE_LIMIT} chars.[/dim]")
 
                     self.history.append({"role": "user", "content": feedback})
 
@@ -293,3 +317,13 @@ class AgentLoop:
                 f"{len(self.key_findings)} finding(s). Generate report:\n"
                 f"[cyan]  vibehack report {self.session_id}[/cyan]\n"
             )
+
+    def _handle_memory_tool(self, cmd: str):
+        """Internal tool for AI to search past experiences."""
+        from vibehack.memory.db import get_memory_context
+        parts = cmd.strip().split()
+        keyword = parts[2] if len(parts) > 2 else "web"
+        console.print(f"[dim]🧠 AI is searching Long-Term Memory for: [cyan]{keyword}[/cyan][/dim]")
+        memory_ctx = get_memory_context(keyword)
+        self.history.append({"role": "user", "content": get_memory_feedback(keyword, memory_ctx)})
+        self._persist()

@@ -93,6 +93,7 @@ def default(
 
     if model:
         os.environ["VH_MODEL"] = model
+        cfg.MODEL = model
 
     if sandbox:
         cfg.SANDBOX_ENABLED = True
@@ -127,6 +128,7 @@ def start(
     """Start a quick session directly against a target (non-REPL mode)."""
     if model:
         os.environ["VH_MODEL"] = model
+        cfg.MODEL = model
 
     if sandbox:
         cfg.SANDBOX_ENABLED = True
@@ -165,6 +167,7 @@ def resume(
 
     if model:
         os.environ["VH_MODEL"] = model
+        cfg.MODEL = model
 
     repl = VibehackREPL(
         target=state.get("target") or None,

@@ -4,6 +4,9 @@
 VibeHack supports multiple providers simultaneously. You can switch models mid-session without re-entering credentials.
 - **Automatic key detection**: VibeHack scans your environment.
 - **Fast switching**: Use `/auth` to swap between Gemini, OpenAI, and Anthropic in seconds.
+- **Provider Status (Auth CLI Path)**:
+  - 🟢 **Google Gemini**: Full Bridge & Seamless OAuth Hijacking.
+  - 🟡 **Claude / GitHub / Codex**: Token discovery integration (API access).
 
 ## 🎮 The Interactive TUI
 The VibeHack interface is designed to reduce cognitive load while maintaining maximum control.

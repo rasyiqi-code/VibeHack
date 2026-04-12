@@ -23,13 +23,17 @@ These commands are used **inside** the VibeHack interaction loop.
 | Command | Description |
 | :--- | :--- |
 | `/help` | Show REPL command help. |
-| `/target <url>` | Set or change the current attack target. |
-| `/map` | Visualise the discovered attack surface as a Tree. |
-| `/auth` | Reconfigure or switch AI providers (Fast Switching). |
-| `/install <tool>` | Install a missing security tool. |
+| /target <url> | Set or change the current attack target. |
+| /status | **[New]** Show current session & system status. |
+| /map | Visualise the discovered attack surface as a Tree. |
+| /auth | Reconfigure AI provider / API keys (Wizard mode). |
+| /switch | **[New]** Seamlessly swap AI model without losing context. |
+| /install <tool> | Install a missing security tool. |
 | `/findings` | List all confirmed security vulnerabilities. |
 | `/knowledge` | Show raw extracted intelligence (ports, tech, etc.). |
 | `/unchained` | Toggle restricted/unrestricted mode. |
 | `/clear` | Clear conversation history (keeps knowledge). |
 | `/report` | Generate report from the current active session. |
+| `/memory` | Browse or search Long-Term Memory (`list` \| `search <tech>`). |
+| `/tools` | Show discovered security and LotL tools in PATH. |
 | `/exit` | Save session and quit. |

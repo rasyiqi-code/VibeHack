@@ -1,23 +1,19 @@
 """
 Tests for the Long-Term Memory (LTM) SQLite backend.
+Updated to match v2.6 schema (5 fields in search results).
 """
 import pytest
-import os
-import tempfile
 from pathlib import Path
 from unittest.mock import patch
-
 
 @pytest.fixture(autouse=True)
 def temp_memory_db(tmp_path):
     """
-    Redirects the memory DB to a temp path so tests don't pollute
-    the user's real ~/.vibehack/memory.db.
+    Redirects the memory DB to a temp path.
     """
     mock_db = tmp_path / "memory.db"
     with patch("vibehack.memory.db.MEMORY_DB", mock_db):
         yield mock_db
-
 
 class TestMemoryDB:
 
@@ -40,7 +36,9 @@ class TestMemoryDB:
 
         results = search_experience("express")
         assert len(results) == 1
-        payload, score, summary = results[0]
+        target, tech, payload, score, summary = results[0]
+        assert target == "http://localhost:3000"
+        assert tech == "express.js"
         assert "upload" in payload
         assert score == 1
         assert "Unrestricted" in summary
@@ -58,7 +56,8 @@ class TestMemoryDB:
         )
 
         results = search_experience("nginx")
-        assert any(r[1] == -1 for r in results)
+        # index 3 is score
+        assert any(r[3] == -1 for r in results)
 
     def test_no_match_returns_empty(self, temp_memory_db):
         from vibehack.memory.db import init_memory, search_experience
@@ -75,4 +74,4 @@ class TestMemoryDB:
             record_experience("target", "django", f"payload_{i}", 1, f"Finding {i}")
 
         results = search_experience("django")
-        assert len(results) <= 5
+        assert len(results) == 5

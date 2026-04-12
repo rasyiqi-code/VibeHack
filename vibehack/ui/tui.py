@@ -207,3 +207,34 @@ def display_mission(goals: list):
         table.add_row(f"[{color}]{clean_goal}[/{color}]", status)
         
     console.print(Panel(table, title="🏁 Active Mission Plan", border_style="magenta", expand=False))
+
+def display_ask_response(raw_resp: str):
+    """Render the AI response beautifully, handling both JSON and Markdown."""
+    import json
+    
+    # Try parsing as JSON first
+    try:
+        # Clean potential markdown code blocks if AI wrapped JSON in ```json
+        clean_json = raw_resp.strip()
+        if clean_json.startswith("```json"):
+            clean_json = clean_json[7:]
+        if clean_json.endswith("```"):
+            clean_json = clean_json[:-3]
+        
+        data = json.loads(clean_json.strip())
+        thought = data.get("thought", "")
+        education = data.get("education", "")
+        command = data.get("raw_command", "")
+        
+        if thought:
+            console.print(Panel(Markdown(thought), title="🤖 AI Thought", border_style="magenta"))
+        
+        if education:
+            display_education(education)
+            
+        if command:
+            display_command(command)
+            
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        # Fallback to pure Markdown
+        console.print(Panel(Markdown(raw_resp), title="🤖 VibeHack Answer", border_style="cyan"))

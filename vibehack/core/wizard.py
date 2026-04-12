@@ -69,11 +69,11 @@ def _setup_wizard():
     if path_choice == "1":
         # ── Jalur 1: Auth CLI (Domestic) ──────────────────────────────────
         providers = {
-            "1": ("google", "Google Gemini CLI", get_gemini_info),
-            "2": ("anthropic", "Anthropic Claude Code", get_claude_info),
-            "3": ("openai", "ChatGPT Codex", get_codex_info),
-            "4": ("github", "GitHub Copilot CLI", get_github_info),
-            "5": ("opencode", "OpenCode", get_opencode_info),
+            "1": ("google", "Google Gemini CLI [bold green](Full Bridge)[/bold green]", get_gemini_info),
+            "2": ("anthropic", "Anthropic Claude Code [bold yellow](API Discovery Only)[/bold yellow]", get_claude_info),
+            "3": ("openai", "ChatGPT Codex [bold yellow](Partial)[/bold yellow]", get_codex_info),
+            "4": ("github", "GitHub Copilot CLI [bold yellow](Token Only)[/bold yellow]", get_github_info),
+            "5": ("opencode", "OpenCode [dim](Experimental)[/dim]", get_opencode_info),
         }
         console.print("\n[bold cyan]Select CLI Provider:[/bold cyan]")
         for k, v in providers.items():
@@ -121,7 +121,7 @@ def _setup_wizard():
             final_env = {
                 "VH_PROVIDER": "google",
                 "VH_API_KEY": info["access_token"],
-                "VH_MODEL": "vertex_ai/gemini-1.5-pro-latest",
+                "VH_MODEL": "gemini-3-flash-preview",
                 "VH_AUTH_TYPE": "oauth",
                 "VH_AUTH_FILE": str(auth_path)
             }
@@ -149,7 +149,7 @@ def _setup_wizard():
         # ── Jalur 2: API Key (Standard) ──────────────────────────────────
         providers = {
             "1": ("openrouter", "OpenRouter (Recommended)", "OPENROUTER_API_KEY", "openrouter/anthropic/claude-3.5-sonnet"),
-            "2": ("google", "Google Gemini", "GEMINI_API_KEY", "gemini/gemini-1.5-pro-latest"),
+            "2": ("google", "Google Gemini", "GEMINI_API_KEY", "gemini/gemini-3-flash-preview"),
             "3": ("anthropic", "Anthropic Claude", "ANTHROPIC_API_KEY", "anthropic/claude-3-5-sonnet-20240620"),
             "4": ("openai", "OpenAI / ChatGPT", "OPENAI_API_KEY", "openai/gpt-4o"),
         }

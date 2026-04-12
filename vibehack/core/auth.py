@@ -240,16 +240,21 @@ def run_gemini_bridge(prompt: str, model: Optional[str] = None) -> Optional[str]
             stderr=subprocess.PIPE,
             text=True
         )
-        stdout, stderr = process.communicate(timeout=120)
+        stdout, stderr = process.communicate(timeout=300)
         
-        if process.returncode != 0:
-            console.print(f"[bold red]Bridge Error:[/bold red] {stderr}")
-            return None
-            
-        return stdout.strip()
+        if stdout:
+            return stdout.strip()
+        
+        # If no stdout but command was successful, might be silent
+        if process.returncode == 0:
+            return "Command successful (No output produced)."
+
+        console.print(f"[bold red]Bridge Error (Status {process.returncode}):[/bold red] {stderr or 'Terminated with error but no message.'}")
+        return None
     except subprocess.TimeoutExpired:
         process.kill()
-        console.print(f"[bold red]Bridge Exception:[/bold red] Command '{args}' timed out after 120 seconds")
+        console.print(f"[bold red]Bridge Timeout:[/bold red] 'gemini' CLI took too long (>300s).")
+        console.print("[dim]Hint: Large system prompts on some models can cause initial processing delay.[/dim]")
         return None
     except Exception as e:
         console.print(f"[bold red]Bridge Exception:[/bold red] {str(e)}")
