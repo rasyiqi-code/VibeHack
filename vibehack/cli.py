@@ -46,7 +46,7 @@ def safe_run(coro):
 load_dotenv()
 
 app = typer.Typer(
-    help="🔥 Vibe_Hack v2.4 — The Autonomous Weapon (Multi-Provider Release)",
+    help="🔥 Vibe_Hack v2.4.1 — The Autonomous Weapon (Dynamic Model Release)",
     no_args_is_help=False,  # Allow bare `vibehack` to open REPL
     invoke_without_command=True,
 )
@@ -77,17 +77,17 @@ def _setup_wizard():
     pid, p_name, p_env, p_model = providers[choice]
     
     # ── Auto Discovery ──────────────────────────────────────────────────
-    found_key = None
+    found_key, found_model = None, None
     if pid == "google":
-        found_key = find_gemini_key()
+        found_key, found_model = find_gemini_key()
     elif pid == "anthropic":
-        found_key = find_claude_key()
+        found_key, found_model = find_claude_key()
     elif pid == "openai":
-        found_key = find_codex_key()
+        found_key, found_model = find_codex_key()
     elif pid == "github":
-        found_key = find_github_token()
+        found_key, found_model = find_github_token()
     elif pid == "opencode":
-        found_key = find_opencode_key()
+        found_key, found_model = find_opencode_key()
         
     final_key = None
     if found_key:
@@ -100,6 +100,9 @@ def _setup_wizard():
         )
         if use_auto == "y":
             final_key = found_key
+            if found_model:
+                p_model = found_model
+                console.print(f"[dim]⚡ Automatically selected model: {p_model}[/dim]")
             
     if not final_key:
         final_key = get_masked_input(f"[bold cyan]➤ Enter your {p_env}[/bold cyan]")
