@@ -58,6 +58,7 @@ SLASH_COMMANDS = {
     "/mode":      "Switch operational mode (/mode agent | /mode ask)",
     "/persona":   "Switch persona (/persona dev-safe | /persona pro)",
     "/ask":       "Ask a theory question without executing anything",
+    "/auth":      "Reconfigure AI provider / API keys",
     "/unchained": "Toggle unchained mode (disables regex guardrails)",
     "/install":   "Install a tool (/install nuclei)",
     "/findings":  "List confirmed findings",
@@ -229,6 +230,29 @@ class VibehackREPL:
                 self._rebuild_system_prompt()
             else:
                 console.print(f"Persona: {self.persona} | Use: /persona dev-safe  or  /persona pro")
+
+
+        elif verb == "/auth":
+            from vibehack.core.wizard import _setup_wizard
+            from vibehack.config import load_config_env
+            
+            # Show the wizard
+            _setup_wizard()
+            
+            # Re-load configuration from .env
+            load_config_env()
+            cfg.load()
+            
+            # Re-initialize the handler with new credentials
+            self.handler = UniversalHandler(
+                provider=cfg.PROVIDER,
+                api_key=cfg.API_KEY,
+                api_base=cfg.API_BASE,
+                model=cfg.MODEL,
+                auth_type=cfg.AUTH_TYPE,
+                auth_file=cfg.AUTH_FILE
+            )
+            console.print("[bold green]✓ Authentication updated & AI engine re-initialized.[/bold green]")
 
 
         elif verb == "/unchained":
