@@ -71,12 +71,27 @@ def _repair_json(text: str) -> Optional[dict]:
 
 class UniversalHandler:
     def __init__(self, api_key: str, model: str = None):
-        self.api_key = api_key or os.getenv("VH_API_KEY", "")
-        self.model = model or cfg.MODEL
+        self.provider = cfg.PROVIDER
+        self.api_key = api_key or cfg.API_KEY
         
+        # Determine model
+        self.model = model or os.getenv("VH_MODEL") or cfg.MODEL
+        if not self.model:
+            # Defaults per provider if none specified
+            defaults = {
+                "openrouter": "openrouter/anthropic/claude-3.5-sonnet",
+                "google": "gemini/gemini-1.5-pro-latest",
+                "anthropic": "anthropic/claude-3-5-sonnet-20240620",
+                "openai": "openai/gpt-4o",
+                "github": "openai/gpt-4o", # Model for copilot usually via litellm
+                "opencode": "opencode/main"
+            }
+            self.model = defaults.get(self.provider, "openrouter/anthropic/claude-3.5-sonnet")
+
         # Determine base API. If not set, litellm defaults appropriately per provider prefix.
         self.api_base = cfg.API_BASE if cfg.API_BASE else None
 
+        # Add Google specific logic if needed (litellm handles most)
         # For OpenRouter specifically, we want to inject headers for openrouter formatting
         self.custom_headers = {}
         if self.model.startswith("openrouter/"):

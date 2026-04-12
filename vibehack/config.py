@@ -20,11 +20,19 @@ class Config:
 
     def load(self):
         # ── LLM ───────────────────────────────────────────────────────────────
+        self.PROVIDER = os.getenv("VH_PROVIDER", "openrouter")
         self.API_KEY = os.getenv("VH_API_KEY", "")
         self.API_BASE = os.getenv("VH_API_BASE", "")
-        self.MODEL = os.getenv("VH_MODEL", "openrouter/anthropic/claude-3.5-sonnet")
+        self.MODEL = os.getenv("VH_MODEL", "")  # Default model will depend on provider
         self.API_TIMEOUT = int(os.getenv("VH_API_TIMEOUT", "60"))
         self.MAX_RETRIES = int(os.getenv("VH_MAX_RETRIES", "3"))
+
+        # Provider-specific keys (stored in env but can be mapped to API_KEY)
+        self.OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
+        self.GOOGLE_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
+        self.ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+        self.OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
+        self.GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN", "")
 
         # ── Session ───────────────────────────────────────────────────────────
         self.MAX_TURN_MEMORY = int(os.getenv("VH_MAX_TURNS", "10"))

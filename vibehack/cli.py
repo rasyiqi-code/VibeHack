@@ -23,6 +23,11 @@ from vibehack.repl import VibehackREPL
 from vibehack.toolkit.discovery import discover_tools
 from vibehack.toolkit.manager import BIN_DIR, VIBEHACK_HOME
 from vibehack.toolkit.provisioner import DOWNLOADABLE_TOOLS, APT_TOOLS, get_install_hint
+from vibehack.core.discovery import (
+    find_gemini_key, find_claude_key, find_codex_key, 
+    find_github_token, find_opencode_key
+)
+
 
 def safe_run(coro):
     """Safely run an async coroutine from a synchronous context, handling existing loops."""
@@ -41,42 +46,93 @@ def safe_run(coro):
 load_dotenv()
 
 app = typer.Typer(
-    help="🔥 Vibe_Hack v2.2 — The Autonomous Weapon (Self-Updating Edition)",
+    help="🔥 Vibe_Hack v2.4 — The Autonomous Weapon (Multi-Provider Release)",
     no_args_is_help=False,  # Allow bare `vibehack` to open REPL
     invoke_without_command=True,
 )
 console = Console()
 
 
+def _setup_wizard():
+    """Interactive multi-provider setup wizard."""
+    from rich.prompt import Prompt
+    from vibehack.ui.tui import get_masked_input
+    
+    console.print("\n[bold yellow]🤖 Vibe_Hack Configuration Wizard[/bold yellow]")
+    console.print("Choose your AI provider (Tiru OpenClaw Style)\n")
+    
+    providers = {
+        "1": ("openrouter", "OpenRouter (Recommended)", "OPENROUTER_API_KEY", "openrouter/anthropic/claude-3.5-sonnet"),
+        "2": ("google", "Google Gemini", "GEMINI_API_KEY", "gemini/gemini-1.5-pro-latest"),
+        "3": ("anthropic", "Anthropic Claude", "ANTHROPIC_API_KEY", "anthropic/claude-3-5-sonnet-20240620"),
+        "4": ("openai", "OpenAI / ChatGPT Codex", "OPENAI_API_KEY", "openai/gpt-4o"),
+        "5": ("github", "GitHub Copilot", "GITHUB_TOKEN", "openai/gpt-4o"), # Litellm uses openai/gpt-4o for copilot usually
+        "6": ("opencode", "OpenCode", "OPENCODE_API_KEY", "opencode/main"),
+    }
+    
+    for k, v in providers.items():
+        console.print(f"  [bold cyan]{k}.[/bold cyan] {v[1]}")
+    
+    choice = Prompt.ask("\n➤ Select provider", choices=list(providers.keys()), default="1")
+    pid, p_name, p_env, p_model = providers[choice]
+    
+    # ── Auto Discovery ──────────────────────────────────────────────────
+    found_key = None
+    if pid == "google":
+        found_key = find_gemini_key()
+    elif pid == "anthropic":
+        found_key = find_claude_key()
+    elif pid == "openai":
+        found_key = find_codex_key()
+    elif pid == "github":
+        found_key = find_github_token()
+    elif pid == "opencode":
+        found_key = find_opencode_key()
+        
+    final_key = None
+    if found_key:
+        masked = f"{found_key[:6]}...{found_key[-4:]}" if len(found_key) > 10 else "****"
+        use_auto = Prompt.ask(
+            f"\n[green]⚡ Found existing credentials from {p_name} CLI![/green]\n"
+            f"Use found key ([cyan]{masked}[/cyan])?",
+            choices=["y", "n"],
+            default="y"
+        )
+        if use_auto == "y":
+            final_key = found_key
+            
+    if not final_key:
+        final_key = get_masked_input(f"[bold cyan]➤ Enter your {p_env}[/bold cyan]")
+    
+    if final_key:
+        cfg.HOME.mkdir(parents=True, exist_ok=True)
+        env_lines = [
+            f"# VibeHack Configuration - Provider: {p_name}\n",
+            f"VH_PROVIDER={pid}\n",
+            f"VH_MODEL={p_model}\n",
+            f"VH_API_KEY={final_key}\n",
+            f"{p_env}={final_key}\n"
+        ]
+        
+        with open(cfg.GLOBAL_ENV, "w") as f:
+            f.writelines(env_lines)
+            
+        console.print(f"\n[bold green]✓ Configuration saved to {cfg.GLOBAL_ENV}[/bold green]")
+        console.print(f"[dim]Restart VibeHack to apply changes.[/dim]\n")
+        
+        # Immediate update for current session
+        cfg.API_KEY = final_key
+        cfg.PROVIDER = pid
+        cfg.MODEL = p_model
+        return final_key
+    else:
+        console.print("[bold red]ERROR: API Key is required.[/bold red]")
+        raise typer.Exit(code=1)
+
 def _get_api_key() -> str:
     key = cfg.API_KEY
     if not key:
-        console.print("\n[bold yellow]🤖 Vibe_Hack Configuration Wizard[/bold yellow]")
-        console.print("No API Key detected. You need an API key from [cyan]https://openrouter.ai[/cyan]")
-        console.print("or a local LLM endpoint to use Vibe_Hack.\n")
-        
-        from vibehack.ui.tui import get_masked_input
-        key = get_masked_input(f"[bold cyan]➤ Enter your VH_API_KEY[/bold cyan]")
-        
-        if key:
-            # Ensure directory exists
-            cfg.HOME.mkdir(parents=True, exist_ok=True)
-            # Save to global .env
-            env_content = f"VH_API_KEY={key}\n"
-            if cfg.GLOBAL_ENV.exists():
-                with open(cfg.GLOBAL_ENV, "a") as f:
-                    f.write(env_content)
-            else:
-                with open(cfg.GLOBAL_ENV, "w") as f:
-                    f.write(env_content)
-            
-            masked_key = f"{key[:6]}...{key[-4:]}" if len(key) > 10 else "****"
-            console.print(f"[bold green]✓ Configuration saved![/bold green] Key verified as [cyan]{masked_key}[/cyan] in {cfg.GLOBAL_ENV}\n")
-            # Update current runtime config
-            cfg.API_KEY = key
-        else:
-            console.print("[bold red]ERROR: API Key is required to continue.[/bold red]")
-            raise typer.Exit(code=1)
+        return _setup_wizard()
     return key
 
 
@@ -346,7 +402,7 @@ def update():
 def version():
     """Show version and build info."""
     console.print(f"[bold red]🔥 Vibe_Hack v{__version__}[/bold red]")
-    console.print("[dim]The Autonomous Weapon Update — Self-Tracking Build[/dim]")
+    console.print("[dim]The Autonomous Weapon Update — Multi-Provider Edition[/dim]")
     console.print(f"[dim]Home: {VIBEHACK_HOME}[/dim]")
     console.print(f"[dim]Default model: {cfg.MODEL}[/dim]")
 
