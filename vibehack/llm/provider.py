@@ -126,12 +126,16 @@ class UniversalHandler:
             with open(self.auth_file, "r") as f:
                 data = json.load(f)
                 
+            # Known client ID and Secret for Gemini/Google CLI if missing
+            DEFAULT_CLIENT_ID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
+            DEFAULT_CLIENT_SECRET = "GOCSPX-S5S4Vv054Gis-8kI-Z6LdJ1UvI0"
+
             self._google_creds = Credentials(
                 token=data.get("access_token"),
                 refresh_token=data.get("refresh_token"),
                 token_uri="https://oauth2.googleapis.com/token",
-                client_id=data.get("client_id", "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"), # Default Gemini CLI Client ID
-                client_secret=data.get("client_secret"),
+                client_id=data.get("client_id", DEFAULT_CLIENT_ID),
+                client_secret=data.get("client_secret", DEFAULT_CLIENT_SECRET),
                 scopes=data.get("scope", "").split()
             )
             
