@@ -23,6 +23,20 @@ from vibehack.toolkit.discovery import discover_tools
 from vibehack.toolkit.manager import BIN_DIR, VIBEHACK_HOME
 from vibehack.toolkit.provisioner import DOWNLOADABLE_TOOLS, APT_TOOLS, get_install_hint
 
+def safe_run(coro):
+    """Safely run an async coroutine from a synchronous context, handling existing loops."""
+    import asyncio
+    try:
+        loop = asyncio.get_running_loop()
+        if loop.is_running():
+            import nest_asyncio
+            nest_asyncio.apply()
+            return loop.run_until_complete(coro)
+    except RuntimeError:
+        pass
+    return asyncio.run(coro)
+
+
 load_dotenv()
 
 app = typer.Typer(
@@ -66,7 +80,7 @@ def _get_api_key() -> str:
 
 
 @app.callback(invoke_without_command=True)
-async def default(
+def default(
     ctx: typer.Context,
     op_mode: str = typer.Option("agent", "--op-mode", help="Operation mode: agent | ask"),
     persona: str = typer.Option("dev-safe", "--persona", "-p", help="Persona: dev-safe | pro"),
@@ -114,11 +128,11 @@ async def default(
         no_memory=no_memory,
         api_key=api_key,
     )
-    await repl.run()
+    safe_run(repl.run())
 
 
 @app.command()
-async def start(
+def start(
     target: str = typer.Argument(..., help="Target URL or IP"),
     persona: str = typer.Option("dev-safe", "--persona", "-p", help="Persona: dev-safe | pro"),
     unchained: bool = typer.Option(False, "--unchained", help="Bypass regex guardrails"),
@@ -146,11 +160,11 @@ async def start(
         unchained=unchained,
         no_memory=no_memory,
     )
-    await loop.run()
+    safe_run(loop.run())
 
 
 @app.command()
-async def resume(
+def resume(
     session_id: str = typer.Argument(..., help="Session ID to resume"),
     model: Optional[str] = typer.Option(None, "--model", help="Override LLM model"),
 ):
@@ -183,7 +197,7 @@ async def resume(
 
     console.print(f"[bold green]Resuming session:[/bold green] {session_id}")
     console.print(f"[dim]Target: {repl.target} | {len(repl.key_findings)} findings[/dim]\n")
-    await repl.run()
+    safe_run(repl.run())
 
 
 @app.command()
@@ -260,7 +274,7 @@ def check():
 
 
 @app.command(name="install")
-async def install_tool(
+def install_tool(
     tool: str = typer.Argument(..., help="Tool to install (e.g. nuclei, rustscan)"),
 ):
     """Download and install a security tool to ~/.vibehack/bin/."""
@@ -270,7 +284,7 @@ async def install_tool(
         console.print(f"[red]'{tool}' not in auto-provision registry.[/red]")
         console.print(f"[dim]Downloadable: {', '.join(DOWNLOADABLE_TOOLS.keys())}[/dim]")
         raise typer.Exit(code=1)
-    await download_tool(tool)
+    safe_run(download_tool(tool))
 
 
 @app.command()
@@ -303,7 +317,7 @@ def sessions():
 
 
 @app.command()
-async def update():
+def update():
     """Self-update Vibe_Hack to the latest version from GitHub."""
     console.print("\n[bold yellow]📡 Checking for updates...[/bold yellow]")
     import sys
@@ -330,8 +344,8 @@ async def update():
 @app.command()
 def version():
     """Show version and build info."""
-    console.print("[bold red]🔥 Vibe_Hack v2.2.0[/bold red]")
-    console.print("[dim]The Autonomous Weapon Update — Self-Updating Edition[/dim]")
+    console.print("[bold red]🔥 Vibe_Hack v2.2.1[/bold red]")
+    console.print("[dim]The Autonomous Weapon Update — Stability Hotfix[/dim]")
     console.print(f"[dim]Home: {VIBEHACK_HOME}[/dim]")
     console.print(f"[dim]Default model: {cfg.MODEL}[/dim]")
 
