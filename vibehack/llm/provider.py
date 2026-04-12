@@ -135,37 +135,37 @@ class UniversalHandler:
                 
             self.api_key = self._google_creds.token
             
-            # LiteLLM/google-auth works best with 'authorized_user' type
-            self._google_creds_dict = {
-                "type": "authorized_user",
-                "client_id": self._google_creds.client_id,
-                "client_secret": self._google_creds.client_secret,
-                "refresh_token": self._google_creds.refresh_token,
-                "token": self._google_creds.token,
-                "token_uri": self._google_creds.token_uri,
-                "scopes": self._google_creds.scopes
-            }
+            # LiteLLM/google-auth works best if we provide a standard ADC-style JSON file
+            self._google_adc_path = cfg.HOME / "google_adc.json"
+            self._sync_google_adc_file()
         except Exception as e:
             print(f"[DEBUG] Google OAuth Hijack failed: {e}")
+
+    def _sync_google_adc_file(self):
+        """Map hijacked/browser credentials to a standard Google 'authorized_user' JSON."""
+        import json
+        adc_data = {
+            "type": "authorized_user",
+            "client_id": self._google_creds.client_id,
+            "client_secret": self._google_creds.client_secret,
+            "refresh_token": self._google_creds.refresh_token,
+            "quota_project_id": os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("VERTEX_PROJECT") or "gemini-cli"
+        }
+        with open(self._google_adc_path, "w") as f:
+            json.dump(adc_data, f, indent=2)
+            
+        # Point environment to this file so google-auth find it
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(self._google_adc_path)
 
     def _refresh_auth_if_needed(self):
         """Ensure OAuth tokens are fresh before each call."""
         if self.provider == "google" and self._google_creds:
             from google.auth.transport.requests import Request
             if not self._google_creds.valid:
-                import json
                 self._google_creds.refresh(Request())
                 self.api_key = self._google_creds.token
-                # Sync dict for LiteLLM (authorized_user style)
-                self._google_creds_dict = {
-                    "type": "authorized_user",
-                    "client_id": self._google_creds.client_id,
-                    "client_secret": self._google_creds.client_secret,
-                    "refresh_token": self._google_creds.refresh_token,
-                    "token": self._google_creds.token,
-                    "token_uri": self._google_creds.token_uri,
-                    "scopes": self._google_creds.scopes
-                }
+                # Re-sync if refresh token changed (usually doesn't, but for safety)
+                self._sync_google_adc_file()
 
     async def complete(self, messages: List[Dict[str, str]]) -> AgentResponse:
         """
@@ -189,10 +189,10 @@ class UniversalHandler:
                     "headers": self.custom_headers,
                 }
                 
-                # Pass Vertex credentials ONLY if we have them (hijacked or browser login)
-                if self._google_creds_dict and (self.model.startswith("vertex_ai/") or self.provider == "google"):
-                    kwargs["vertex_credentials"] = self._google_creds_dict
-                    kwargs["vertex_project"] = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli"
+                # If we have an ADC path, google-auth will use GOOGLE_APPLICATION_CREDENTIALS
+                # which we set in _sync_google_adc_file. No need to pass vertex_credentials.
+                if self.provider == "google" and "vertex_ai/" in self.model:
+                   kwargs["vertex_project"] = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli"
 
                 response = await litellm.acompletion(**kwargs)
 
@@ -234,8 +234,7 @@ class UniversalHandler:
             "headers": self.custom_headers,
         }
         
-        if self._google_creds_dict and (self.model.startswith("vertex_ai/") or self.provider == "google"):
-            kwargs["vertex_credentials"] = self._google_creds_dict
+        if self.provider == "google" and "vertex_ai/" in self.model:
             kwargs["vertex_project"] = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli"
 
         response = await litellm.acompletion(**kwargs)
