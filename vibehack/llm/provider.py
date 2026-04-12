@@ -135,13 +135,14 @@ class UniversalHandler:
                 
             self.api_key = self._google_creds.token
             
-            # LiteLLM vertex_credentials works best as a dict
+            # LiteLLM/google-auth works best with 'authorized_user' type
             self._google_creds_dict = {
-                "token": self._google_creds.token,
-                "refresh_token": self._google_creds.refresh_token,
-                "token_uri": self._google_creds.token_uri,
+                "type": "authorized_user",
                 "client_id": self._google_creds.client_id,
                 "client_secret": self._google_creds.client_secret,
+                "refresh_token": self._google_creds.refresh_token,
+                "token": self._google_creds.token,
+                "token_uri": self._google_creds.token_uri,
                 "scopes": self._google_creds.scopes
             }
         except Exception as e:
@@ -155,13 +156,14 @@ class UniversalHandler:
                 import json
                 self._google_creds.refresh(Request())
                 self.api_key = self._google_creds.token
-                # Sync dict for LiteLLM
+                # Sync dict for LiteLLM (authorized_user style)
                 self._google_creds_dict = {
-                    "token": self._google_creds.token,
-                    "refresh_token": self._google_creds.refresh_token,
-                    "token_uri": self._google_creds.token_uri,
+                    "type": "authorized_user",
                     "client_id": self._google_creds.client_id,
                     "client_secret": self._google_creds.client_secret,
+                    "refresh_token": self._google_creds.refresh_token,
+                    "token": self._google_creds.token,
+                    "token_uri": self._google_creds.token_uri,
                     "scopes": self._google_creds.scopes
                 }
 
