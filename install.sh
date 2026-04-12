@@ -21,17 +21,39 @@ if ! command -v git &> /dev/null; then
     exit 1
 fi
 
+# Utility function for spinner
+spinner() {
+    local pid=$1
+    local delay=0.15
+    local spinstr='|/-\'
+    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "    \b\b\b\b"
+}
+
 # 2. Setup Directories
 INSTALL_DIR="$HOME/.vibehack-env"
 BIN_DIR="$HOME/.local/bin"
 
-echo "[+] Setting up isolated Python environment in $INSTALL_DIR..."
-python3 -m venv "$INSTALL_DIR"
+echo -n "[+] Setting up isolated Python environment in $INSTALL_DIR... "
+python3 -m venv "$INSTALL_DIR" &
+spinner $!
+echo -e "\033[1;32mDone.\033[0m"
 
-echo "[+] Installing VibeHack core..."
-# We install directly from the remote repository
-"$INSTALL_DIR/bin/pip" install --upgrade pip -q
-"$INSTALL_DIR/bin/pip" install git+https://github.com/rasyiqi-code/VibeHack.git -q
+echo -n "[+] Upgrading pip inside environment... "
+"$INSTALL_DIR/bin/pip" install --upgrade pip -q &
+spinner $!
+echo -e "\033[1;32mDone.\033[0m"
+
+echo -n "[+] Downloading & Installing VibeHack core (this may take a minute)... "
+"$INSTALL_DIR/bin/pip" install git+https://github.com/rasyiqi-code/VibeHack.git -q &
+spinner $!
+echo -e "\033[1;32mDone.\033[0m"
 
 # 3. Create Symlink
 mkdir -p "$BIN_DIR"
