@@ -245,12 +245,8 @@ class VibehackREPL:
             
             # Re-initialize the handler with new credentials
             self.handler = UniversalHandler(
-                provider=cfg.PROVIDER,
                 api_key=cfg.API_KEY,
-                api_base=cfg.API_BASE,
-                model=cfg.MODEL,
-                auth_type=cfg.AUTH_TYPE,
-                auth_file=cfg.AUTH_FILE
+                model=cfg.MODEL
             )
             console.print("[bold green]✓ Authentication updated & AI engine re-initialized.[/bold green]")
 
