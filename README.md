@@ -1,4 +1,4 @@
-# 🔥 Vibe_Hack v1.7 — Raw Shell / HitL Edition
+# 🔥 Vibe_Hack v2.0 — The Autonomous Weapon Update
 
 > **Agentic Security Co-Pilot for Red Teams, Blue Teams, and Security-Conscious Developers.**
 
@@ -11,10 +11,9 @@ Vibe_Hack is a CLI tool that pairs an LLM reasoning engine with **direct raw she
 ### 1. Requirements
 - Python 3.11+ with `uv` package manager
 
-### 2. Install
+### 2. Install (One-Command)
 ```bash
-git clone <repo> && cd VibeHack
-uv pip install -e .            # Install into current venv
+curl -fsSL https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/install.sh | bash
 ```
 
 ### 3. Configure API Key
@@ -28,6 +27,9 @@ cp .env.example .env
 ```bash
 # Open interactive REPL (primary UX — like Claude Code, but for hacking)
 vibehack
+
+# Start with Docker Sandbox Isolation (Auto-installs engine if missing)
+vibehack --sandbox
 
 # Pre-load a target
 vibehack http://localhost:3000
