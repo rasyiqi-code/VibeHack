@@ -241,6 +241,11 @@ class UniversalHandler:
             "headers": self.custom_headers,
         }
         
+        # LiteLLM: For Vertex AI, we often want to prioritize ADC (GOOGLE_APPLICATION_CREDENTIALS) 
+        # instead of passing a temporary token as 'api_key'.
+        if self.model.startswith("vertex_ai/") and self.auth_type == "oauth":
+            kwargs.pop("api_key", None)
+        
         if self.provider == "google" and "vertex_ai/" in self.model:
             kwargs["vertex_project"] = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli"
 
