@@ -1,40 +1,47 @@
-"""
-vibehack/config.py — Centralised configuration loader.
-
-All runtime settings loaded from environment variables / .env file.
-Import this module to access config values instead of calling os.getenv() everywhere.
-"""
 import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Define Home first
+VIBEHACK_HOME = Path.home() / ".vibehack"
+GLOBAL_ENV = VIBEHACK_HOME / ".env"
 
+def load_config_env():
+    """Load from local .env then global ~/.vibehack/.env"""
+    load_dotenv() # Local .env
+    if GLOBAL_ENV.exists():
+        load_dotenv(GLOBAL_ENV, override=False)
+
+load_config_env()
 
 class Config:
-    # ── LLM ───────────────────────────────────────────────────────────────
-    API_KEY: str = os.getenv("VH_API_KEY", "")
-    API_BASE: str = os.getenv("VH_API_BASE", "") # Empty = default fallback to generic provider base
-    MODEL: str = os.getenv("VH_MODEL", "openrouter/anthropic/claude-3.5-sonnet")
-    API_TIMEOUT: int = int(os.getenv("VH_API_TIMEOUT", "60"))
-    MAX_RETRIES: int = int(os.getenv("VH_MAX_RETRIES", "3"))
+    def __init__(self):
+        self.load()
 
-    # ── Session ───────────────────────────────────────────────────────────
-    MAX_TURN_MEMORY: int = int(os.getenv("VH_MAX_TURNS", "10"))
-    TRUNCATE_LIMIT: int = int(os.getenv("VH_TRUNCATE_LIMIT", "2500"))
-    CMD_TIMEOUT: int = int(os.getenv("VH_CMD_TIMEOUT", "120"))
+    def load(self):
+        # ── LLM ───────────────────────────────────────────────────────────────
+        self.API_KEY = os.getenv("VH_API_KEY", "")
+        self.API_BASE = os.getenv("VH_API_BASE", "")
+        self.MODEL = os.getenv("VH_MODEL", "openrouter/anthropic/claude-3.5-sonnet")
+        self.API_TIMEOUT = int(os.getenv("VH_API_TIMEOUT", "60"))
+        self.MAX_RETRIES = int(os.getenv("VH_MAX_RETRIES", "3"))
 
-    # ── Paths ─────────────────────────────────────────────────────────────
-    HOME: Path = Path.home() / ".vibehack"
-    BIN_DIR: Path = HOME / "bin"
-    SESSIONS_DIR: Path = HOME / "sessions"
-    REPORTS_DIR: Path = HOME / "reports"
-    MEMORY_DB: Path = HOME / "memory.db"
+        # ── Session ───────────────────────────────────────────────────────────
+        self.MAX_TURN_MEMORY = int(os.getenv("VH_MAX_TURNS", "10"))
+        self.TRUNCATE_LIMIT = int(os.getenv("VH_TRUNCATE_LIMIT", "2500"))
+        self.CMD_TIMEOUT = int(os.getenv("VH_CMD_TIMEOUT", "120"))
 
-    # ── Features ──────────────────────────────────────────────────────────
-    MEMORY_ENABLED: bool = os.getenv("VH_NO_MEMORY", "false").lower() != "true"
-    TELEMETRY_ENABLED: bool = os.getenv("VH_TELEMETRY", "false").lower() == "true"
-    SANDBOX_ENABLED: bool = os.getenv("VH_SANDBOX", "false").lower() == "true"
+        # ── Paths ─────────────────────────────────────────────────────────────
+        self.HOME = VIBEHACK_HOME
+        self.BIN_DIR = self.HOME / "bin"
+        self.SESSIONS_DIR = self.HOME / "sessions"
+        self.REPORTS_DIR = self.HOME / "reports"
+        self.MEMORY_DB = self.HOME / "memory.db"
+        self.GLOBAL_ENV = GLOBAL_ENV
 
+        # ── Features ──────────────────────────────────────────────────────────
+        self.MEMORY_ENABLED = os.getenv("VH_NO_MEMORY", "false").lower() != "true"
+        self.TELEMETRY_ENABLED = os.getenv("VH_TELEMETRY", "false").lower() == "true"
+        self.SANDBOX_ENABLED = os.getenv("VH_SANDBOX", "false").lower() == "true"
 
 cfg = Config()

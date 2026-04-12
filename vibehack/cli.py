@@ -34,13 +34,33 @@ console = Console()
 
 
 def _get_api_key() -> str:
-    key = os.getenv("VH_API_KEY", "")
+    key = cfg.API_KEY
     if not key:
-        console.print("[bold red]ERROR: VH_API_KEY not set.[/bold red]")
-        console.print("Add it to your [cyan].env[/cyan] file:")
-        console.print("[dim]  VH_API_KEY=sk-or-xxxxxxxxxxxx[/dim]")
-        console.print("[dim]  Get a key at: https://openrouter.ai[/dim]")
-        raise typer.Exit(code=1)
+        console.print("\n[bold yellow]🤖 Vibe_Hack Configuration Wizard[/bold yellow]")
+        console.print("No API Key detected. You need an API key from [cyan]https://openrouter.ai[/cyan]")
+        console.print("or a local LLM endpoint to use Vibe_Hack.\n")
+        
+        from rich.prompt import Prompt
+        key = Prompt.ask("[bold cyan]➤ Enter your VH_API_KEY[/bold cyan]", password=True)
+        
+        if key:
+            # Ensure directory exists
+            cfg.HOME.mkdir(parents=True, exist_ok=True)
+            # Save to global .env
+            env_content = f"VH_API_KEY={key}\n"
+            if cfg.GLOBAL_ENV.exists():
+                with open(cfg.GLOBAL_ENV, "a") as f:
+                    f.write(env_content)
+            else:
+                with open(cfg.GLOBAL_ENV, "w") as f:
+                    f.write(env_content)
+            
+            console.print(f"[bold green]✓ Configuration saved to {cfg.GLOBAL_ENV}[/bold green]\n")
+            # Update current runtime config
+            cfg.API_KEY = key
+        else:
+            console.print("[bold red]ERROR: API Key is required to continue.[/bold red]")
+            raise typer.Exit(code=1)
     return key
 
 
