@@ -9,7 +9,8 @@ echo "╚═══════════════════════�
 echo -e "\033[0m"
 
 confirm() {
-    read -r -p "${1:-Are you sure? [y/N]} " response
+    # We read from /dev/tty because when piped from curl, stdin is the pipe
+    read -r -p "${1:-Are you sure? [y/N]} " response < /dev/tty
     case "$response" in
         [yY][eE][sS]|[yY]) 
             true
