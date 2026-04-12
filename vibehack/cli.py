@@ -40,8 +40,8 @@ def _get_api_key() -> str:
         console.print("No API Key detected. You need an API key from [cyan]https://openrouter.ai[/cyan]")
         console.print("or a local LLM endpoint to use Vibe_Hack.\n")
         
-        from rich.prompt import Prompt
-        key = Prompt.ask("[bold cyan]➤ Enter your VH_API_KEY[/bold cyan]", password=True)
+        from vibehack.ui.tui import get_masked_input
+        key = get_masked_input(f"[bold cyan]➤ Enter your VH_API_KEY[/bold cyan]")
         
         if key:
             # Ensure directory exists
@@ -55,7 +55,8 @@ def _get_api_key() -> str:
                 with open(cfg.GLOBAL_ENV, "w") as f:
                     f.write(env_content)
             
-            console.print(f"[bold green]✓ Configuration saved to {cfg.GLOBAL_ENV}[/bold green]\n")
+            masked_key = f"{key[:6]}...{key[-4:]}" if len(key) > 10 else "****"
+            console.print(f"[bold green]✓ Configuration saved![/bold green] Key verified as [cyan]{masked_key}[/cyan] in {cfg.GLOBAL_ENV}\n")
             # Update current runtime config
             cfg.API_KEY = key
         else:

@@ -1,3 +1,4 @@
+import sys
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
@@ -8,6 +9,44 @@ from rich.text import Text
 from rich.markdown import Markdown
 
 console = Console()
+
+def get_masked_input(prompt_text: str) -> str:
+    """Gets password input while printing '*' for each character. Works on Linux/UNIX."""
+    import sys
+    # If not a TTY, fallback to standard input
+    if not sys.stdin.isatty():
+        return Prompt.ask(prompt_text, password=True)
+
+    import tty, termios
+    sys.stdout.write(prompt_text + " ")
+    sys.stdout.flush()
+    
+    buf = ""
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        while True:
+            ch = sys.stdin.read(1)
+            # Enter or Newline
+            if ch in ('\n', '\r'):
+                sys.stdout.write('\n\r')
+                break
+            # Backspace or Delete
+            elif ch in ('\x7f', '\x08'):
+                if len(buf) > 0:
+                    buf = buf[:-1]
+                    sys.stdout.write('\b \b')
+            # Ctrl-C
+            elif ch == '\x03':
+                raise KeyboardInterrupt
+            else:
+                buf += ch
+                sys.stdout.write('*')
+            sys.stdout.flush()
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return buf
 
 def display_banner():
     banner = """
