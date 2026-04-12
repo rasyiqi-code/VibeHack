@@ -1,4 +1,4 @@
-# 🔥 Vibe_Hack v2.6.0 — The Browser Auth Update
+# 🔥 Vibe_Hack v2.6.3 — The Browser Auth Update
 
 > **Agentic Security Co-Pilot for Red Teams, Blue Teams, and Security-Conscious Developers.**
 

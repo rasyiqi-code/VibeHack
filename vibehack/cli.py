@@ -47,7 +47,7 @@ def safe_run(coro):
 load_dotenv()
 
 app = typer.Typer(
-    help="🔥 Vibe_Hack v2.6.2 — The Autonomous Weapon (OpenClaw Parity Release)",
+    help="🔥 Vibe_Hack v2.6.3 — The Autonomous Weapon (OpenClaw Parity Release)",
     no_args_is_help=False,  # Allow bare `vibehack` to open REPL
     invoke_without_command=True,
 )
