@@ -103,7 +103,7 @@ class UniversalHandler:
             
         # ── Auth Hijacking Logic (v2.5) ──────────────────────────────────
         self._google_creds = None
-        self._google_creds_json = None
+        self._google_creds_dict = None
         if self.auth_type == "oauth" and self.provider == "google":
             self._init_google_oauth()
 
@@ -178,17 +178,23 @@ class UniversalHandler:
         for attempt in range(cfg.MAX_RETRIES):
             try:
                 # Tell LiteLLM to ask for JSON output if supported
-                response = await litellm.acompletion(
-                    model=self.model,
-                    messages=messages,
-                    api_key=self.api_key,
-                    api_base=self.api_base,
-                    vertex_credentials=self._google_creds_dict,
-                    vertex_project=os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli",
-                    response_format={"type": "json_object"},
-                    timeout=cfg.API_TIMEOUT,
-                    headers=self.custom_headers,
-                )
+                # Build arguments
+                kwargs = {
+                    "model": self.model,
+                    "messages": messages,
+                    "api_key": self.api_key,
+                    "api_base": self.api_base,
+                    "response_format": {"type": "json_object"},
+                    "timeout": cfg.API_TIMEOUT,
+                    "headers": self.custom_headers,
+                }
+                
+                # Pass Vertex credentials ONLY if we have them (hijacked or browser login)
+                if self._google_creds_dict and (self.model.startswith("vertex_ai/") or self.provider == "google"):
+                    kwargs["vertex_credentials"] = self._google_creds_dict
+                    kwargs["vertex_project"] = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli"
+
+                response = await litellm.acompletion(**kwargs)
 
                 content = response.choices[0].message.content
 
@@ -218,14 +224,19 @@ class UniversalHandler:
         Useful for free-form explanations (Ask mode).
         """
         self._refresh_auth_if_needed()
-        response = await litellm.acompletion(
-            model=self.model,
-            messages=messages,
-            api_key=self.api_key,
-            api_base=self.api_base,
-            vertex_credentials=self._google_creds_dict,
-            vertex_project=os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli",
-            timeout=cfg.API_TIMEOUT,
-            headers=self.custom_headers,
-        )
+        
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "api_key": self.api_key,
+            "api_base": self.api_base,
+            "timeout": cfg.API_TIMEOUT,
+            "headers": self.custom_headers,
+        }
+        
+        if self._google_creds_dict and (self.model.startswith("vertex_ai/") or self.provider == "google"):
+            kwargs["vertex_credentials"] = self._google_creds_dict
+            kwargs["vertex_project"] = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli"
+
+        response = await litellm.acompletion(**kwargs)
         return response.choices[0].message.content
