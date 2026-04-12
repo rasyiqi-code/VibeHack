@@ -502,7 +502,7 @@ class VibehackREPL:
 
         display_session_info(
             self.target or "not set",
-            self.mode,
+            self.persona,
             self.unchained,
             self.session_id,
             len(self._available_tools),

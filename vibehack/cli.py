@@ -344,8 +344,8 @@ def update():
 @app.command()
 def version():
     """Show version and build info."""
-    console.print("[bold red]🔥 Vibe_Hack v2.2.1[/bold red]")
-    console.print("[dim]The Autonomous Weapon Update — Stability Hotfix[/dim]")
+    console.print("[bold red]🔥 Vibe_Hack v2.2.2[/bold red]")
+    console.print("[dim]The Autonomous Weapon Update — Hotfix Patch[/dim]")
     console.print(f"[dim]Home: {VIBEHACK_HOME}[/dim]")
     console.print(f"[dim]Default model: {cfg.MODEL}[/dim]")
 
