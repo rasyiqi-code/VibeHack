@@ -126,22 +126,31 @@ class UniversalHandler:
             with open(self.auth_file, "r") as f:
                 data = json.load(f)
                 
-            # Known client ID and Secret for Gemini/Google CLI if missing
+            # Known client ID for Gemini/Google CLI if missing
             DEFAULT_CLIENT_ID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
-            DEFAULT_CLIENT_SECRET = "GOCSPX-S5S4Vv054Gis-8kI-Z6LdJ1UvI0"
+
+            client_id = data.get("client_id", DEFAULT_CLIENT_ID)
+            client_secret = data.get("client_secret") # Don't provide fallback if missing
 
             self._google_creds = Credentials(
                 token=data.get("access_token"),
                 refresh_token=data.get("refresh_token"),
                 token_uri="https://oauth2.googleapis.com/token",
-                client_id=data.get("client_id", DEFAULT_CLIENT_ID),
-                client_secret=data.get("client_secret", DEFAULT_CLIENT_SECRET),
+                client_id=client_id,
+                client_secret=client_secret,
                 scopes=data.get("scope", "").split()
             )
             
-            # Refresh if expired
+            self.api_key = data.get("access_token")
+            
+            # Refresh if expired, but don't crash if secret is missing/invalid
             if not self._google_creds.valid:
-                self._google_creds.refresh(Request())
+                try:
+                    self._google_creds.refresh(Request())
+                    self.api_key = self._google_creds.token # Update if refresh worked
+                except Exception as e:
+                    from rich.console import Console
+                    Console().print(f"[yellow]⚠️  Warning: Could not refresh token: {e}. Trying anyway...[/yellow]")
                 
             self.api_key = self._google_creds.token
             

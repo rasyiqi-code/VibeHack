@@ -27,7 +27,7 @@ from vibehack.core.discovery import (
     get_gemini_info, get_claude_info, get_codex_info, 
     get_github_info, get_opencode_info
 )
-from vibehack.core.auth import start_google_login
+from vibehack.core.auth import manual_google_login
 
 
 def safe_run(coro):
