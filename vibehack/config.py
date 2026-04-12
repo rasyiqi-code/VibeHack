@@ -18,7 +18,6 @@ class Config:
     def __init__(self):
         self.load()
 
-    def load(self):
         # ── LLM ───────────────────────────────────────────────────────────────
         self.PROVIDER = os.getenv("VH_PROVIDER", "openrouter")
         self.API_KEY = os.getenv("VH_API_KEY", "")
@@ -26,6 +25,10 @@ class Config:
         self.MODEL = os.getenv("VH_MODEL", "")  # Default model will depend on provider
         self.API_TIMEOUT = int(os.getenv("VH_API_TIMEOUT", "60"))
         self.MAX_RETRIES = int(os.getenv("VH_MAX_RETRIES", "3"))
+
+        # Auth Metadata (v2.5)
+        self.AUTH_TYPE = os.getenv("VH_AUTH_TYPE", "key") # 'key' or 'oauth'
+        self.AUTH_FILE = os.getenv("VH_AUTH_FILE", "")
 
         # Provider-specific keys (stored in env but can be mapped to API_KEY)
         self.OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")

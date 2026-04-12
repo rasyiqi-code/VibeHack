@@ -24,8 +24,8 @@ from vibehack.toolkit.discovery import discover_tools
 from vibehack.toolkit.manager import BIN_DIR, VIBEHACK_HOME
 from vibehack.toolkit.provisioner import DOWNLOADABLE_TOOLS, APT_TOOLS, get_install_hint
 from vibehack.core.discovery import (
-    find_gemini_key, find_claude_key, find_codex_key, 
-    find_github_token, find_opencode_key
+    get_gemini_info, get_claude_info, get_codex_info, 
+    get_github_info, get_opencode_info
 )
 
 
@@ -46,7 +46,7 @@ def safe_run(coro):
 load_dotenv()
 
 app = typer.Typer(
-    help="🔥 Vibe_Hack v2.4.1 — The Autonomous Weapon (Dynamic Model Release)",
+    help="🔥 Vibe_Hack v2.5.2 — The Autonomous Weapon (Trinity Auth Release)",
     no_args_is_help=False,  # Allow bare `vibehack` to open REPL
     invoke_without_command=True,
 )
@@ -54,83 +54,123 @@ console = Console()
 
 
 def _setup_wizard():
-    """Interactive multi-provider setup wizard."""
+    """VibeHack v2.5 Trinity Auth Wizard."""
     from rich.prompt import Prompt
     from vibehack.ui.tui import get_masked_input
     
     console.print("\n[bold yellow]🤖 Vibe_Hack Configuration Wizard[/bold yellow]")
-    console.print("Choose your AI provider (Tiru OpenClaw Style)\n")
+    console.print("Choose your setup path:\n")
     
-    providers = {
-        "1": ("openrouter", "OpenRouter (Recommended)", "OPENROUTER_API_KEY", "openrouter/anthropic/claude-3.5-sonnet"),
-        "2": ("google", "Google Gemini", "GEMINI_API_KEY", "gemini/gemini-1.5-pro-latest"),
-        "3": ("anthropic", "Anthropic Claude", "ANTHROPIC_API_KEY", "anthropic/claude-3-5-sonnet-20240620"),
-        "4": ("openai", "OpenAI / ChatGPT Codex", "OPENAI_API_KEY", "openai/gpt-4o"),
-        "5": ("github", "GitHub Copilot", "GITHUB_TOKEN", "openai/gpt-4o"), # Litellm uses openai/gpt-4o for copilot usually
-        "6": ("opencode", "OpenCode", "OPENCODE_API_KEY", "opencode/main"),
+    paths = {
+        "1": "⚡ [bold cyan]CLI Auth Hijacking[/bold cyan] (Import from Gemini/Claude/etc)",
+        "2": "🔑 [bold green]Manual API Key[/bold green] (Standard Provider Setup)",
+        "3": "🛠️  [bold magenta]Custom / Local Model[/bold magenta] (Ollama/LM Studio/Custom API)",
     }
     
-    for k, v in providers.items():
-        console.print(f"  [bold cyan]{k}.[/bold cyan] {v[1]}")
-    
-    choice = Prompt.ask("\n➤ Select provider", choices=list(providers.keys()), default="1")
-    pid, p_name, p_env, p_model = providers[choice]
-    
-    # ── Auto Discovery ──────────────────────────────────────────────────
-    found_key, found_model = None, None
-    if pid == "google":
-        found_key, found_model = find_gemini_key()
-    elif pid == "anthropic":
-        found_key, found_model = find_claude_key()
-    elif pid == "openai":
-        found_key, found_model = find_codex_key()
-    elif pid == "github":
-        found_key, found_model = find_github_token()
-    elif pid == "opencode":
-        found_key, found_model = find_opencode_key()
+    for k, v in paths.items():
+        console.print(f"  {k}. {v}")
         
-    final_key = None
-    if found_key:
-        masked = f"{found_key[:6]}...{found_key[-4:]}" if len(found_key) > 10 else "****"
-        use_auto = Prompt.ask(
-            f"\n[green]⚡ Found existing credentials from {p_name} CLI![/green]\n"
-            f"Use found key ([cyan]{masked}[/cyan])?",
-            choices=["y", "n"],
-            default="y"
-        )
-        if use_auto == "y":
-            final_key = found_key
-            if found_model:
-                p_model = found_model
-                console.print(f"[dim]⚡ Automatically selected model: {p_model}[/dim]")
+    path_choice = Prompt.ask("\n➤ Select path", choices=list(paths.keys()), default="1")
+    
+    final_env = {}
+    p_name = "Custom"
+    
+    if path_choice == "1":
+        # ── Jalur 1: CLI Auth Hijacking ──────────────────────────────────
+        providers = {
+            "1": ("google", "Google Gemini", get_gemini_info),
+            "2": ("anthropic", "Anthropic Claude", get_claude_info),
+            "3": ("openai", "ChatGPT Codex", get_codex_info),
+            "4": ("github", "GitHub Copilot", get_github_info),
+            "5": ("opencode", "OpenCode", get_opencode_info),
+        }
+        console.print("\n[bold cyan]Select CLI to hijack:[/bold cyan]")
+        for k, v in providers.items():
+            console.print(f"  {k}. {v[1]}")
+        sub_choice = Prompt.ask("➤ Select", choices=list(providers.keys()), default="1")
+        pid, p_name, discovery_fn = providers[sub_choice]
+        
+        info = discovery_fn()
+        if not info["key"]:
+            console.print(f"[bold red]ERROR: No active session found for {p_name}.[/bold red]")
+            return _setup_wizard() # Restart
             
-    if not final_key:
-        final_key = get_masked_input(f"[bold cyan]➤ Enter your {p_env}[/bold cyan]")
-    
-    if final_key:
-        cfg.HOME.mkdir(parents=True, exist_ok=True)
-        env_lines = [
-            f"# VibeHack Configuration - Provider: {p_name}\n",
-            f"VH_PROVIDER={pid}\n",
-            f"VH_MODEL={p_model}\n",
-            f"VH_API_KEY={final_key}\n",
-            f"{p_env}={final_key}\n"
-        ]
+        console.print(f"\n[bold green]⚡ Found session for {p_name}![/bold green]")
+        if info["mode"] == "oauth":
+            console.print(f"   Mode: Authorized Session (OAuth)")
+            final_env["VH_AUTH_TYPE"] = "oauth"
+            final_env["VH_AUTH_FILE"] = info["auth_file"]
+            if pid == "google":
+                # Special: OAuth typically uses VertexAI bridge in LiteLLM
+                info["model"] = info["model"] or "vertex_ai/gemini-1.5-pro-latest"
+        else:
+            console.print(f"   Mode: Static API Key")
+            final_env["VH_AUTH_TYPE"] = "key"
+            
+        final_env["VH_PROVIDER"] = pid
+        final_env["VH_API_KEY"] = info["key"]
+        final_env["VH_MODEL"] = info["model"] or "auto"
         
+    elif path_choice == "2":
+        # ── Jalur 2: Manual API Key ──────────────────────────────────────
+        providers = {
+            "1": ("openrouter", "OpenRouter (Recommended)", "OPENROUTER_API_KEY", "openrouter/anthropic/claude-3.5-sonnet"),
+            "2": ("google", "Google Gemini", "GEMINI_API_KEY", "gemini/gemini-1.5-pro-latest"),
+            "3": ("anthropic", "Anthropic Claude", "ANTHROPIC_API_KEY", "anthropic/claude-3-5-sonnet-20240620"),
+            "4": ("openai", "OpenAI / ChatGPT", "OPENAI_API_KEY", "openai/gpt-4o"),
+        }
+        for k, v in providers.items():
+            console.print(f"  {k}. {v[1]}")
+        sub_choice = Prompt.ask("\n➤ Select provider", choices=list(providers.keys()), default="1")
+        pid, p_name, p_env, p_model = providers[sub_choice]
+        
+        key = get_masked_input(f"[bold cyan]➤ Enter your {p_env}[/bold cyan]")
+        if not key:
+            raise typer.Exit(1)
+            
+        final_env = {
+            "VH_PROVIDER": pid,
+            "VH_API_KEY": key,
+            "VH_MODEL": p_model,
+            "VH_AUTH_TYPE": "key",
+            p_env: key
+        }
+        
+    else:
+        # ── Jalur 3: Custom / Local Model ────────────────────────────────
+        console.print("\n[bold magenta]Custom Connection Setup:[/bold magenta]")
+        api_base = Prompt.ask("➤ API Base URL (e.g. http://localhost:11434/v1)", default="")
+        model = Prompt.ask("➤ Model Name (e.g. ollama/llama3)", default="ollama/llama3")
+        key = get_masked_input("➤ API Key (Enter 'none' if not required)")
+        
+        final_env = {
+            "VH_PROVIDER": "custom",
+            "VH_API_BASE": api_base,
+            "VH_MODEL": model,
+            "VH_API_KEY": key if key != "none" else "",
+            "VH_AUTH_TYPE": "key"
+        }
+
+    # ── Finalize ────────────────────────────────────────────────────────
+    if final_env:
+        cfg.HOME.mkdir(parents=True, exist_ok=True)
+        lines = [f"# VibeHack v2.5 - {p_name} Setup\n"]
+        for k, v in final_env.items():
+            lines.append(f"{k}={v}\n")
+            
         with open(cfg.GLOBAL_ENV, "w") as f:
-            f.writelines(env_lines)
+            f.writelines(lines)
             
         console.print(f"\n[bold green]✓ Configuration saved to {cfg.GLOBAL_ENV}[/bold green]")
-        console.print(f"[dim]Restart VibeHack to apply changes.[/dim]\n")
+        console.print(f"[dim]Restarting session with new config...[/dim]\n")
         
-        # Immediate update for current session
-        cfg.API_KEY = final_key
-        cfg.PROVIDER = pid
-        cfg.MODEL = p_model
-        return final_key
-    else:
-        console.print("[bold red]ERROR: API Key is required.[/bold red]")
-        raise typer.Exit(code=1)
+        # Sync runtime config
+        cfg.API_KEY = final_env.get("VH_API_KEY", "")
+        cfg.MODEL = final_env.get("VH_MODEL", "")
+        cfg.PROVIDER = final_env.get("VH_PROVIDER", "custom")
+        return cfg.API_KEY
+    
+    raise typer.Exit(1)
 
 def _get_api_key() -> str:
     key = cfg.API_KEY

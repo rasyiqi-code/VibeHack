@@ -72,6 +72,8 @@ def _repair_json(text: str) -> Optional[dict]:
 class UniversalHandler:
     def __init__(self, api_key: str, model: str = None):
         self.provider = cfg.PROVIDER
+        self.auth_type = cfg.AUTH_TYPE
+        self.auth_file = cfg.AUTH_FILE
         self.api_key = api_key or cfg.API_KEY
         
         # Determine model
@@ -91,7 +93,6 @@ class UniversalHandler:
         # Determine base API. If not set, litellm defaults appropriately per provider prefix.
         self.api_base = cfg.API_BASE if cfg.API_BASE else None
 
-        # Add Google specific logic if needed (litellm handles most)
         # For OpenRouter specifically, we want to inject headers for openrouter formatting
         self.custom_headers = {}
         if self.model.startswith("openrouter/"):
@@ -99,6 +100,48 @@ class UniversalHandler:
                 "HTTP-Referer": "https://github.com/vibehack",
                 "X-Title": "Vibe_Hack",
             }
+            
+        # ── Auth Hijacking Logic (v2.5) ──────────────────────────────────
+        self._google_creds = None
+        if self.auth_type == "oauth" and self.provider == "google":
+            self._init_google_oauth()
+
+    def _init_google_oauth(self):
+        """Initialize Google OAuth credentials from CLI session file."""
+        import json
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        
+        if not self.auth_file or not os.path.exists(self.auth_file):
+            return
+
+        try:
+            with open(self.auth_file, "r") as f:
+                data = json.load(f)
+                
+            self._google_creds = Credentials(
+                token=data.get("access_token"),
+                refresh_token=data.get("refresh_token"),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=data.get("client_id", "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"), # Default Gemini CLI Client ID
+                client_secret=data.get("client_secret"),
+                scopes=data.get("scope", "").split()
+            )
+            
+            # Refresh if expired
+            if not self._google_creds.valid:
+                self._google_creds.refresh(Request())
+                self.api_key = self._google_creds.token
+        except Exception as e:
+            print(f"[DEBUG] Google OAuth Hijack failed: {e}")
+
+    def _refresh_auth_if_needed(self):
+        """Ensure OAuth tokens are fresh before each call."""
+        if self.provider == "google" and self._google_creds:
+            from google.auth.transport.requests import Request
+            if not self._google_creds.valid:
+                self._google_creds.refresh(Request())
+                self.api_key = self._google_creds.token
 
     async def complete(self, messages: List[Dict[str, str]]) -> AgentResponse:
         """
@@ -106,6 +149,7 @@ class UniversalHandler:
         Includes JSON repair for slightly malformed responses.
         Retries up to cfg.MAX_RETRIES on transient errors.
         """
+        self._refresh_auth_if_needed()
         last_error = None
         for attempt in range(cfg.MAX_RETRIES):
             try:
@@ -147,6 +191,7 @@ class UniversalHandler:
         Call the LLM without JSON mode constraint. Returns raw text content.
         Useful for free-form explanations (Ask mode).
         """
+        self._refresh_auth_if_needed()
         response = await litellm.acompletion(
             model=self.model,
             messages=messages,
