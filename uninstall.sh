@@ -2,9 +2,12 @@
 # VibeHack Uninstaller
 # Usage: curl -fsSL https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/uninstall.sh | bash
 
+# Fetch version dynamically from GitHub
+VERSION=$(curl -s https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/pyproject.toml | grep -m 1 version | sed 's/version = "\(.*\)"/\1/' || echo "2.3.0")
+
 echo -e "\033[1;31m"
 echo "╔══════════════════════════════════════════╗"
-echo "║  🗑️  Vibe_Hack v2.2.1 Uninstaller         ║"
+echo "║  🗑️  Vibe_Hack v$VERSION Uninstaller       ║"
 echo "╚══════════════════════════════════════════╝"
 echo -e "\033[0m"
 
