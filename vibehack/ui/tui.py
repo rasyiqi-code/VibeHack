@@ -1,4 +1,5 @@
 import sys
+from vibehack import __version__
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
@@ -49,14 +50,20 @@ def get_masked_input(prompt_text: str) -> str:
     return buf
 
 def display_banner():
-    banner = """
-╔══════════════════════════════════════════╗
-║  🔥 [bold red]Vibe_Hack v2.2.2[/bold red]                    ║  
-║  [dim]The Autonomous Weapon Update[/dim]             ║
-╚══════════════════════════════════════════╝
-    [dim]Type [cyan]/help[/cyan] in REPL to see Slash Commands[/dim]
-"""
-    console.print(banner)
+    banner_text = Text.assemble(
+        ("🔥 Vibe_Hack ", "bold red"),
+        (f"v{__version__}", "bold white"),
+        ("\n", ""),
+        ("The Autonomous Weapon Update", "dim")
+    )
+    console.print(Panel(
+        banner_text,
+        border_style="red",
+        expand=False,
+        padding=(0, 2)
+    ))
+    console.print("    [dim]Type [cyan]/help[/cyan] in REPL to see Slash Commands[/dim]")
+
 
 def display_thought(thought: str):
     md = Markdown(thought)
