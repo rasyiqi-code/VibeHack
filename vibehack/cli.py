@@ -27,6 +27,7 @@ from vibehack.core.discovery import (
     get_gemini_info, get_claude_info, get_codex_info, 
     get_github_info, get_opencode_info
 )
+from vibehack.core.auth import start_google_login
 
 
 def safe_run(coro):
@@ -63,8 +64,9 @@ def _setup_wizard():
     
     paths = {
         "1": "⚡ [bold cyan]CLI Auth Hijacking[/bold cyan] (Import from Gemini/Claude/etc)",
-        "2": "🔑 [bold green]Manual API Key[/bold green] (Standard Provider Setup)",
-        "3": "🛠️  [bold magenta]Custom / Local Model[/bold magenta] (Ollama/LM Studio/Custom API)",
+        "2": "🌐 [bold blue]Login via Browser[/bold blue] (Fresh Sign-in for Google)",
+        "3": "🔑 [bold green]Manual API Key[/bold green] (Standard Provider Setup)",
+        "4": "🛠️  [bold magenta]Custom / Local Model[/bold magenta] (Ollama/LM Studio/Custom API)",
     }
     
     for k, v in paths.items():
@@ -112,7 +114,26 @@ def _setup_wizard():
         final_env["VH_MODEL"] = info["model"] or "auto"
         
     elif path_choice == "2":
-        # ── Jalur 2: Manual API Key ──────────────────────────────────────
+        # ── Jalur 2: Login via Browser ───────────────────────────────────
+        console.print("\n[bold blue]Opening Google Sign-in flow...[/bold blue]")
+        auth_path = cfg.HOME / "google_auth.json"
+        info = start_google_login(auth_path)
+        
+        if not info:
+            console.print("[bold red]ERROR: Login failed or cancelled.[/bold red]")
+            return _setup_wizard()
+            
+        final_env = {
+            "VH_PROVIDER": "google",
+            "VH_API_KEY": info["access_token"],
+            "VH_MODEL": "vertex_ai/gemini-1.5-pro-latest",
+            "VH_AUTH_TYPE": "oauth",
+            "VH_AUTH_FILE": str(auth_path)
+        }
+        p_name = "Google Gemini (Browser Auth)"
+
+    elif path_choice == "3":
+        # ── Jalur 3: Manual API Key ──────────────────────────────────────
         providers = {
             "1": ("openrouter", "OpenRouter (Recommended)", "OPENROUTER_API_KEY", "openrouter/anthropic/claude-3.5-sonnet"),
             "2": ("google", "Google Gemini", "GEMINI_API_KEY", "gemini/gemini-1.5-pro-latest"),
