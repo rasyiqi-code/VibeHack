@@ -18,6 +18,7 @@ class Config:
     def __init__(self):
         self.load()
 
+    def load(self):
         # ── LLM ───────────────────────────────────────────────────────────────
         self.PROVIDER = os.getenv("VH_PROVIDER", "openrouter")
         self.API_KEY = os.getenv("VH_API_KEY", "")
