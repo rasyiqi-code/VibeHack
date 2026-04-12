@@ -65,7 +65,7 @@ def _get_api_key() -> str:
 
 
 @app.callback(invoke_without_command=True)
-def default(
+async def default(
     ctx: typer.Context,
     op_mode: str = typer.Option("agent", "--op-mode", help="Operation mode: agent | ask"),
     persona: str = typer.Option("dev-safe", "--persona", "-p", help="Persona: dev-safe | pro"),
@@ -113,12 +113,11 @@ def default(
         no_memory=no_memory,
         api_key=api_key,
     )
-    import asyncio
-    asyncio.run(repl.run())
+    await repl.run()
 
 
 @app.command()
-def start(
+async def start(
     target: str = typer.Argument(..., help="Target URL or IP"),
     persona: str = typer.Option("dev-safe", "--persona", "-p", help="Persona: dev-safe | pro"),
     unchained: bool = typer.Option(False, "--unchained", help="Bypass regex guardrails"),
@@ -146,11 +145,11 @@ def start(
         unchained=unchained,
         no_memory=no_memory,
     )
-    asyncio.run(loop.run())
+    await loop.run()
 
 
 @app.command()
-def resume(
+async def resume(
     session_id: str = typer.Argument(..., help="Session ID to resume"),
     model: Optional[str] = typer.Option(None, "--model", help="Override LLM model"),
 ):
@@ -183,7 +182,7 @@ def resume(
 
     console.print(f"[bold green]Resuming session:[/bold green] {session_id}")
     console.print(f"[dim]Target: {repl.target} | {len(repl.key_findings)} findings[/dim]\n")
-    asyncio.run(repl.run())
+    await repl.run()
 
 
 @app.command()
@@ -260,7 +259,7 @@ def check():
 
 
 @app.command(name="install")
-def install_tool(
+async def install_tool(
     tool: str = typer.Argument(..., help="Tool to install (e.g. nuclei, rustscan)"),
 ):
     """Download and install a security tool to ~/.vibehack/bin/."""
@@ -270,7 +269,7 @@ def install_tool(
         console.print(f"[red]'{tool}' not in auto-provision registry.[/red]")
         console.print(f"[dim]Downloadable: {', '.join(DOWNLOADABLE_TOOLS.keys())}[/dim]")
         raise typer.Exit(code=1)
-    asyncio.run(download_tool(tool))
+    await download_tool(tool)
 
 
 @app.command()

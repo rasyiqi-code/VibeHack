@@ -78,7 +78,25 @@ RULES:
             console.print(f"[bold red]LLM failed to generate script: {e}[/bold red]", err=True)
             sys.exit(1)
             
-    content = asyncio.run(_generate())
+    def safe_run(coro):
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_running():
+                # If we're already in a loop (like from Typer), we must run as a task or use a bridge
+                # For this sub-agent script generation, we can just use the loop directly
+                # However, asyncio.run() is cleaner if no loop exists.
+                # In Python 3.12, we can't nested asyncio.run.
+                # Since we are already in an async context (likely from cli.py), 
+                # we should ideally await it, but run_browser_subagent is currently sync.
+                # Let's use loop.run_until_complete if possible, or another approach.
+                import nest_asyncio
+                nest_asyncio.apply()
+                return loop.run_until_complete(coro)
+        except RuntimeError:
+            pass
+        return asyncio.run(coro)
+
+    content = safe_run(_generate())
     
     # Extract python code
     match = re.search(r"```python\n(.*?)\n```", content, re.DOTALL)
