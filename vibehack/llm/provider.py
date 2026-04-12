@@ -103,6 +103,7 @@ class UniversalHandler:
             
         # ── Auth Hijacking Logic (v2.5) ──────────────────────────────────
         self._google_creds = None
+        self._google_creds_json = None
         if self.auth_type == "oauth" and self.provider == "google":
             self._init_google_oauth()
 
@@ -131,7 +132,17 @@ class UniversalHandler:
             # Refresh if expired
             if not self._google_creds.valid:
                 self._google_creds.refresh(Request())
-                self.api_key = self._google_creds.token
+                
+            self.api_key = self._google_creds.token
+            # Convert to JSON for LiteLLM vertex_credentials
+            self._google_creds_json = json.dumps({
+                "token": self._google_creds.token,
+                "refresh_token": self._google_creds.refresh_token,
+                "token_uri": self._google_creds.token_uri,
+                "client_id": self._google_creds.client_id,
+                "client_secret": self._google_creds.client_secret,
+                "scopes": self._google_creds.scopes
+            })
         except Exception as e:
             print(f"[DEBUG] Google OAuth Hijack failed: {e}")
 
@@ -140,8 +151,18 @@ class UniversalHandler:
         if self.provider == "google" and self._google_creds:
             from google.auth.transport.requests import Request
             if not self._google_creds.valid:
+                import json
                 self._google_creds.refresh(Request())
                 self.api_key = self._google_creds.token
+                # Sync JSON for LiteLLM
+                self._google_creds_json = json.dumps({
+                    "token": self._google_creds.token,
+                    "refresh_token": self._google_creds.refresh_token,
+                    "token_uri": self._google_creds.token_uri,
+                    "client_id": self._google_creds.client_id,
+                    "client_secret": self._google_creds.client_secret,
+                    "scopes": self._google_creds.scopes
+                })
 
     async def complete(self, messages: List[Dict[str, str]]) -> AgentResponse:
         """
@@ -159,6 +180,7 @@ class UniversalHandler:
                     messages=messages,
                     api_key=self.api_key,
                     api_base=self.api_base,
+                    vertex_credentials=self._google_creds_json,
                     response_format={"type": "json_object"},
                     timeout=cfg.API_TIMEOUT,
                     headers=self.custom_headers,
@@ -197,6 +219,7 @@ class UniversalHandler:
             messages=messages,
             api_key=self.api_key,
             api_base=self.api_base,
+            vertex_credentials=self._google_creds_json,
             timeout=cfg.API_TIMEOUT,
             headers=self.custom_headers,
         )
