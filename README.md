@@ -1,42 +1,43 @@
-# 🔥 Vibe_Hack v2.6.3 — The Browser Auth Update
+# 🔥 VibeHack v2.6.44 — The Autonomous Weapon Update
 
-> **Agentic Security Co-Pilot for Red Teams, Blue Teams, and Security-Conscious Developers.**
+> **The Agentic Security Co-Pilot. Built for Offensive Security and Developer Safety.**
 
-Vibe_Hack is a weaponized AI co-pilot that can execute shell commands, perform reconnaissance, and find vulnerabilities autonomously with a Human-in-the-Loop (HitL) safety mechanism.
+VibeHack is an advanced AI-powered security assistant that bridges the gap between raw LLM intelligence and low-level shell execution. Unlike standard chatbots, VibeHack understands security tools, maps attack surfaces, and follows strategic goals autonomously while keeping a human in the loop.
 
-## ✨ Features (v2.6.0)
+---
 
--   **Native Browser Auth**: Sign in to Google Gemini directly from VibeHack. No CLI hijacking required.
--   **Trinity Auth Wizard**: 4-way setup (CLI Import, Browser Sign-in, Manual Keys, Custom Endpoints).
--   **CLI Auth Hijacking**: Import active authorized sessions from `gemini`, `claude-code`, `gh`, etc.
--   **Auto-Discovery Engine**: Detects keys and models from your local environment automatically.
--   **Premium TUI/REPL**: Autocomplete, slash commands, and real-time status bar.
--   **Self-Updating**: Keep your core engine up to date with a single command.
--   **Red Team Ready**: Full access to your local toolset (`nmap`, `ffuf`, `gobuster`, etc.).
+## ⚡ Key Highlights
+
+-   **🎯 Mission Orchestration**: AI-driven task management. It doesn't just run commands; it pursues goals.
+-   **🗺️ Attack Surface Mapping**: Visualise ports, tech stacks, and endpoints in a hierarchical tree via `/map`.
+-   **📝 Live Streaming Engine**: Real-time terminal output streaming with zero UI freeze.
+-   **🔑 Profile Switching**: Seamlessly swap between Gemini, Claude, and OpenAI mid-session.
+-   **🛡️ Security Gate (HitL)**: Keyboard-driven modal dialogs for safety-first command execution.
+-   **📦 Sandbox Isolation**: Runs tools in isolated Docker containers to protect your host OS.
 
 ## 🚀 Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/install.sh | bash
+# Clone and install in development mode
+git clone https://github.com/rasyiqi-code/VibeHack.git
+cd VibeHack
+uv pip install -e .
 ```
 
-## 🛠️ Setup
+## 🛠️ Quick Start
 
-Just run `vibehack` for the first time to start the **Trinity Auth Wizard**.
-
-1.  **⚡ CLI Auth Hijacking**: Use this if you already have `gemini` or `claude-code` configured.
-2.  **🌐 Login via Browser**: Fresh native Google Sign-in flow.
-3.  **🔑 Manual API Key**: Standard setup for OpenRouter, Anthropic, or Google.
-4.  **🛠️ Custom / Local Model**: Connect to your own Ollama or LM Studio instance.
-
-## 📖 Usage
+Just run `vibehack` to launch the **Trinity Auth Wizard**.
 
 ```bash
 vibehack              # Start interactive REPL
-vibehack start <url>  # Quick one-shot targeting
-vibehack update       # Update to latest version
-vibehack --help       # See all commands
+vibehack /target <url> # Start a session with a target
 ```
 
+## 📚 Documentation
+
+For a deep dive into commands, configurations, and best practices, check out our full documentation:
+
+👉 **[Read the User Guide](./doc/INDEX.md)**
+
 ---
-*Created by the VibeHack Team.*
+*VibeHack is intended for legal, authorised security auditing only. Use responsibly.*

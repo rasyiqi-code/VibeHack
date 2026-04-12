@@ -37,11 +37,12 @@ from vibehack.memory.ingestion import ingest_session
 from vibehack.session.persistence import save_session
 from vibehack.toolkit.manager import get_toolkit_env
 from vibehack.toolkit.discovery import discover_tools, clear_discovery_cache
-from vibehack.core.shell import execute_shell
+from vibehack.core.shell import execute_shell, execute_shell_async
 from vibehack.ui.tui import (
     display_banner, display_thought, display_command,
     display_education, display_finding, display_output,
     display_session_info, display_knowledge_update, ask_approval,
+    display_map, display_mission
 )
 
 console = Console()
@@ -63,6 +64,7 @@ SLASH_COMMANDS = {
     "/install":   "Install a tool (/install nuclei)",
     "/findings":  "List confirmed findings",
     "/knowledge": "Show current knowledge state (ports, tech, endpoints)",
+    "/map":       "Visualise attack surface as a tree",
     "/report":    "Generate Markdown audit report",
     "/clear":     "Clear conversation history (keeps knowledge & findings)",
     "/memory":    "Show Long-Term Memory stats",
@@ -98,11 +100,24 @@ class VibehackREPL:
         self._available_tools: List[str] = []  # §6.2 Dynamic discovery
 
         # ── Prompt Toolkit Setup ──────────────────────────────────────────
-        self.completer = WordCompleter(
-            list(SLASH_COMMANDS.keys()),
-            ignore_case=True,
-            pattern=re.compile(r"^/[a-z]*"),  # Only trigger on slash
-        )
+        from prompt_toolkit.completion import Completer, Completion
+        
+        class SlashCommandCompleter(Completer):
+            def get_completions(self, document, complete_event):
+                text = document.text_before_cursor
+                if text.startswith("/install "):
+                    prefix = text[9:].lower()
+                    from vibehack.toolkit.provisioner import DOWNLOADABLE_TOOLS
+                    for tool in DOWNLOADABLE_TOOLS:
+                        if tool.startswith(prefix):
+                            yield Completion(tool, start_position=-len(prefix))
+                elif text.startswith("/"):
+                    word = text[1:].lower()
+                    for cmd in SLASH_COMMANDS:
+                        if cmd.startswith(text.lower()):
+                            yield Completion(cmd, start_position=-len(text))
+
+        self.completer = SlashCommandCompleter()
         self.session = PromptSession(
             history=FileHistory(os.path.join(cfg.HOME, ".history")),
             completer=self.completer,
@@ -286,10 +301,14 @@ class VibehackREPL:
                     console.print(f"🗺  [bold]Endpoints ({len(k.endpoints)}):[/bold] {', '.join(k.endpoints[:10])}{'...' if len(k.endpoints) > 10 else ''}")
                 if k.credentials:
                     console.print(f"🔑 [bold]Credentials:[/bold] {len(k.credentials)} found")
-                if k.notes:
-                    console.print("[bold]📝 Notes:[/bold]")
                     for note in k.notes[-5:]:
                         console.print(f"  • {note}")
+
+        elif verb == "/map":
+            if not self.target:
+                console.print("[red]Set a target first using /target[/red]")
+            else:
+                display_map(self.target, self.knowledge.to_dict())
 
         elif verb == "/findings":
             if not self.key_findings:
@@ -384,7 +403,8 @@ class VibehackREPL:
         try:
             if is_ask_mode:
                 # In ask mode, we use raw completion, skipping JSON constraints
-                ask_sys = {"role": "system", "content": "The user is asking a question or requesting a payload. DO NOT output JSON. Respond in plain helpful markdown text."}
+                from vibehack.agent.prompts import load_template
+                ask_sys = {"role": "system", "content": load_template("ask_mode")}
                 ask_history = [ask_sys] + self.history
 
                 with console.status("[bold magenta]🤖 AI is formulating answer...[/bold magenta]", spinner="dots"):
@@ -416,6 +436,15 @@ class VibehackREPL:
 
         if response.education and self.persona == "dev-safe":
             display_education(response.education)
+
+        # Update mission goals
+        if response.mission_goals:
+            # Only display if changed significantly
+            old_goals = set(self.knowledge.mission_goals)
+            new_goals = set(response.mission_goals)
+            if old_goals != new_goals:
+                self.knowledge.mission_goals = response.mission_goals
+                display_mission(self.knowledge.mission_goals)
 
         # Finding recorded → persist + continue
         if response.finding:
@@ -451,12 +480,12 @@ class VibehackREPL:
 
             if response.is_destructive:
                 console.print("[bold red]⚠  DESTRUCTIVE — manual approval required[/bold red]")
-                approval = ask_approval()
+                approval = await ask_approval()
             elif self.auto_allow:
                 approval = "y"
                 console.print("[dim]⚡ Auto-Allow[/dim]")
             else:
-                approval = ask_approval()
+                approval = await ask_approval()
 
             if approval == "n":
                 note = Prompt.ask("[dim]Hint for AI (optional)[/dim]", default="")
@@ -472,7 +501,27 @@ class VibehackREPL:
                 console.print("[yellow]⚡ Auto-Allow enabled[/yellow]")
 
             # ── Observe: Capture output ───────────────────────────────────
-            result = execute_shell(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=self.env)
+            from rich.live import Live
+            from rich.panel import Panel
+            
+            output_lines = []
+            live = None
+            def live_callback(text, is_stderr):
+                if live:
+                    output_lines.extend(text.splitlines(keepends=True))
+                    display_lines = "".join(output_lines[-15:])
+                    style = "red" if is_stderr else "dim white"
+                    live.update(Panel(display_lines, title="📝 Streaming Output", border_style=style))
+
+            with Live(Panel("Initializing...", title="📝 Streaming Output", border_style="dim white"), refresh_per_second=4, transient=True) as lv:
+                live = lv
+                result = await execute_shell_async(
+                    cmd, 
+                    timeout=cfg.CMD_TIMEOUT, 
+                    truncate_limit=cfg.TRUNCATE_LIMIT, 
+                    env=self.env,
+                    output_callback=live_callback
+                )
 
             if result.truncated:
                 console.print("[dim]ℹ Output truncated[/dim]")

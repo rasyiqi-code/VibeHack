@@ -25,6 +25,7 @@ class KnowledgeState:
     credentials: List[str] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
     tested_surfaces: Set[str] = field(default_factory=set)
+    mission_goals: List[str] = field(default_factory=list) # §6.x: Active mission goals
 
     def is_empty(self) -> bool:
         return not any([
@@ -40,6 +41,7 @@ class KnowledgeState:
             "credentials": self.credentials,
             "notes": self.notes[-20:],
             "tested_surfaces": sorted(self.tested_surfaces),
+            "mission_goals": self.mission_goals,
         }
 
     @classmethod
@@ -51,6 +53,7 @@ class KnowledgeState:
             credentials=data.get("credentials", []),
             notes=data.get("notes", []),
             tested_surfaces=set(data.get("tested_surfaces", [])),
+            mission_goals=data.get("mission_goals", []),
         )
 
     def add_note(self, note: str):
@@ -96,6 +99,11 @@ TECH_FINGERPRINTS: dict[str, re.Pattern] = {
 _ENDPOINT_PATTERN = re.compile(r"(?:GET|POST|PUT|DELETE|PATCH|Found|Status)\s+(\/[^\s\"']+)", re.IGNORECASE)
 _URL_PATH_PATTERN = re.compile(r"https?://[^\s\"']+(/[^\s\"']*)", re.IGNORECASE)
 
+# Nuclei/Scanner patterns: [severity] [template] url
+_NUCLEI_FINDING = re.compile(r"\[(info|low|medium|high|critical)\] \[.*?\] (https?://[^\s]+)", re.IGNORECASE)
+# Ffuf patterns: [Status: 200, ...] | /endpoint
+_FFUF_ENDPOINT = re.compile(r"\|\s+(\/[^\s]+)", re.IGNORECASE)
+
 
 def extract_knowledge(output: str, knowledge: KnowledgeState) -> KnowledgeState:
     """
@@ -126,6 +134,16 @@ def extract_knowledge(output: str, knowledge: KnowledgeState) -> KnowledgeState:
             knowledge.endpoints.append(ep)
             seen_endpoints.add(ep)
     for m in _URL_PATH_PATTERN.finditer(output):
+        ep = m.group(1)
+        if ep not in seen_endpoints and len(ep) < 120:
+            knowledge.endpoints.append(ep)
+            seen_endpoints.add(ep)
+
+    # ── Tool-Specific Extractions ─────────────────────────────────────────
+    for m in _NUCLEI_FINDING.finditer(output):
+        knowledge.add_note(f"Nuclei found {m.group(1)} at {m.group(2)}")
+        
+    for m in _FFUF_ENDPOINT.finditer(output):
         ep = m.group(1)
         if ep not in seen_endpoints and len(ep) < 120:
             knowledge.endpoints.append(ep)

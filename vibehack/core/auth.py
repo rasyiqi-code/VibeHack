@@ -1,5 +1,7 @@
 import json
 import os
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Any
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -12,15 +14,19 @@ import base64
 import secrets
 
 def _get_client_config() -> Dict[str, Any]:
-    """Retrieve Google OAuth client configuration from local file or default."""
+    """Retrieve Google OAuth client configuration using the ultra-stable Google Cloud SDK identity."""
     from vibehack.config import cfg
     path = cfg.HOME / "client_secrets.json"
     
+    # Official Google Cloud SDK IDs - Known to be stable and public
+    GCLOUD_ID = "764086051780-29qc3qn746i397p5n1uS3a77Reruev0g.apps.googleusercontent.com"
+    GCLOUD_SECRET = "d79Btm62_Z975S8_BbaZ_A5L"
+    
     default_config = {
         "installed": {
-            "client_id": "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com",
-            "client_secret": "GOCSPX-S5S4Vv054Gis-8kI-Z6LdJ1UvI0",
-            "project_id": "gemini-cli",
+            "client_id": GCLOUD_ID,
+            "client_secret": GCLOUD_SECRET,
+            "project_id": "google-cloud-sdk",
             "auth_uri": "https://accounts.google.com/o/oauth2/auth",
             "token_uri": "https://oauth2.googleapis.com/token",
             "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
@@ -28,21 +34,26 @@ def _get_client_config() -> Dict[str, Any]:
         }
     }
     
+    # Force overwrite if old Gemini CLI IDs were present to prevent 401
     if path.exists():
         try:
             with open(path, "r") as f:
-                return json.load(f)
+                current = json.load(f)
+                cid = current.get("installed", {}).get("client_id", "")
+                if "681255809395" in cid: # Old Gemini CLI prefix
+                    needs_update = True
+                else:
+                    return current # Use custom user config
         except Exception:
-            return default_config
-            
-    # Auto-generate if missing
+            pass
+
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
             json.dump(default_config, f, indent=2)
     except Exception:
         pass
-        
+            
     return default_config
 
 SCOPES = [
@@ -68,11 +79,11 @@ def manual_google_login(save_path: Path) -> Optional[Dict[str, Any]]:
     challenge_hash = hashlib.sha256(code_verifier.encode('ascii')).digest()
     code_challenge = base64.urlsafe_b64encode(challenge_hash).decode('ascii').replace('=', '')
     
-    # Generate the auth URL - Matching OpenClaw's exact structure & order
+    # Generate the auth URL - response_type FIRST for maximum resilience
     params = [
+        ("response_type", "code"),
         ("client_id", client_id),
         ("redirect_uri", "http://localhost:58765/"),
-        ("response_type", "code"),
         ("scope", " ".join(SCOPES)),
         ("access_type", "offline"),
         ("prompt", "consent"),
@@ -80,12 +91,16 @@ def manual_google_login(save_path: Path) -> Optional[Dict[str, Any]]:
         ("code_challenge_method", "S256"),
     ]
     
-    query = urllib.parse.urlencode(params)
+    # Use quote (for %20) instead of quote_plus (for +) to be more URL-standard
+    query = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{query}"
     
     console.print("\n[bold blue]🌐 OpenClaw-Style Manual Login (PKCE Enabled)[/bold blue]")
-    console.print("1. Salalin link ini ke browser Anda:")
-    console.print(f"\n[cyan]{auth_url}[/cyan]\n")
+    console.print("1. Salalin link ini ke browser Anda (Paling aman: [bold cyan]Ctrl+Klik[/bold cyan] link di bawah):")
+    
+    # Clickable link for modern terminals
+    console.print(f"\n[link={auth_url}][underline cyan]{auth_url}[/underline cyan][/link]\n", soft_wrap=True)
+    
     console.print("2. Login seperti biasa.")
     console.print("3. Browser akan mengarah ke halaman '[bold red]Site can't be reached[/bold red]' atau '[bold yellow]localhost error[/bold yellow]'.")
     console.print("4. [bold green]Salin (COPY) seluruh URL halaman error tersebut[/bold green] lalu tempel di sini.")
@@ -113,21 +128,52 @@ def extract_code_from_url(url: str) -> Optional[str]:
         return None
 
 def exchange_code_for_token(code: str, client_id: str, client_secret: str, code_verifier: str, save_path: Path) -> Optional[Dict[str, Any]]:
-    """Exchanges auth code for real tokens with PKCE verifier."""
+    """Exchanges auth code for real tokens with PKCE verifier and no-secret fallback."""
+    from rich.console import Console
+    console = Console()
+    
+    token_url = "https://oauth2.googleapis.com/token"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+    }
+    
+    # Base params for PKCE
+    base_data = {
+        "code": code,
+        "client_id": client_id,
+        "code_verifier": code_verifier,
+        "redirect_uri": "http://localhost:58765/",
+        "grant_type": "authorization_code"
+    }
+
+    # Attempt 1: With Secret (Official/OpenClaw style)
     try:
-        token_url = "https://oauth2.googleapis.com/token"
-        data = {
-            "code": code,
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "code_verifier": code_verifier,
-            "redirect_uri": "http://localhost:58765/",
-            "grant_type": "authorization_code"
-        }
+        data_with_secret = base_data.copy()
+        data_with_secret["client_secret"] = client_secret
         
-        response = requests.post(token_url, data=data)
-        response.raise_for_status()
-        tokens = response.json()
+        response = requests.post(token_url, data=data_with_secret, headers=headers)
+        
+        if response.status_code == 200:
+            tokens = response.json()
+        elif response.status_code in [400, 401]:
+            # Attempt 2: Without Secret (Public Client/Gemini CLI style)
+            console.print("[yellow]⚠️  Google menolak Client Secret. Mencoba metode Public Client (No-Secret)...[/yellow]")
+            response = requests.post(token_url, data=base_data, headers=headers)
+            
+            if response.status_code == 200:
+                tokens = response.json()
+            else:
+                console.print(f"[red]❌ Gagal menukarkan token: {response.status_code}[/red]")
+                try:
+                    err_data = response.json()
+                    console.print(f"[dim]Google Error: {err_data.get('error')} - {err_data.get('error_description')}[/dim]")
+                except:
+                    console.print(f"[dim]{response.text}[/dim]")
+                return None
+        else:
+            console.print(f"[red]❌ Unexpected Google Error: {response.status_code}[/red]")
+            return None
         
         # Save credentials
         save_path.parent.mkdir(parents=True, exist_ok=True)
@@ -151,4 +197,60 @@ def exchange_code_for_token(code: str, client_id: str, client_secret: str, code_
         Console().print(f"[red]❌ Gagal menukarkan token: {e}[/red]")
         if hasattr(e, 'response') and e.response:
              Console().print(f"[dim]Detail: {e.response.text}[/dim]")
+        return None
+def is_cli_installed(cmd: str) -> bool:
+    """Check if a CLI command is available in PATH."""
+    return shutil.which(cmd) is not None
+
+def verify_gemini_cli_bridge() -> bool:
+    """Verify if gemini-cli is authenticated and usable."""
+    if not is_cli_installed("gemini"):
+        return False
+    
+    try:
+        # Check if authenticated/usable by getting version
+        process = subprocess.Popen(
+            ["gemini", "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        _, _ = process.communicate(timeout=5)
+        return process.returncode == 0
+    except Exception:
+        return False
+
+def run_gemini_bridge(prompt: str, model: Optional[str] = None) -> Optional[str]:
+    """Run prompt via official gemini CLI subprocess."""
+    from rich.console import Console
+    console = Console()
+    
+    args = ["gemini"]
+    if model:
+        # Strip LiteLLM prefixes for official CLI compatibility
+        clean_model = model.replace("gemini/", "").replace("vertex_ai/", "")
+        args.extend(["--model", clean_model])
+    
+    # Add prompt as a single argument for one-shot execution
+    args.append(prompt)
+    
+    try:
+        process = subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        stdout, stderr = process.communicate(timeout=120)
+        
+        if process.returncode != 0:
+            console.print(f"[bold red]Bridge Error:[/bold red] {stderr}")
+            return None
+            
+        return stdout.strip()
+    except subprocess.TimeoutExpired:
+        process.kill()
+        console.print(f"[bold red]Bridge Exception:[/bold red] Command '{args}' timed out after 120 seconds")
+        return None
+    except Exception as e:
+        console.print(f"[bold red]Bridge Exception:[/bold red] {str(e)}")
         return None

@@ -1,0 +1,1 @@
+The user is asking a question or requesting a payload. DO NOT output JSON. Respond in PLAIN HELPFUL TEXT ONLY. DO NOT use any markdown characters like **, *, _, or `. Use plain text bullets or dashes if needed.

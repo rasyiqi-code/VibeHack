@@ -19,6 +19,7 @@ import litellm
 litellm.suppress_debug_info = True
 
 from vibehack.config import cfg
+from vibehack.core.auth import run_gemini_bridge
 
 
 class Finding(BaseModel):
@@ -36,6 +37,7 @@ class AgentResponse(BaseModel):
     is_destructive: bool = Field(False, description="True if command writes, deletes, or is high-risk")
     education: Optional[str] = Field(None, description="Educational note for dev-safe mode")
     finding: Optional[Finding] = Field(None, description="Security finding with confirmed evidence")
+    mission_goals: Optional[List[str]] = Field(None, description="List of mission objectives, use [DONE] or [IN_PROGRESS] prefix")
 
 
 def _repair_json(text: str) -> Optional[dict]:
@@ -83,7 +85,7 @@ class UniversalHandler:
             # Defaults per provider if none specified
             defaults = {
                 "openrouter": "openrouter/anthropic/claude-3.5-sonnet",
-                "google": "vertex_ai/gemini-1.5-pro-latest" if self.auth_type == "oauth" else "gemini/gemini-1.5-pro-latest",
+                "google": "vertex_ai/gemini-3-flash-preview" if self.auth_type == "oauth" else "gemini/gemini-3-flash-preview",
                 "anthropic": "anthropic/claude-3-5-sonnet-20240620",
                 "openai": "openai/gpt-4o",
                 "github": "openai/gpt-4o",
@@ -112,6 +114,24 @@ class UniversalHandler:
         self._google_creds_dict = None
         if self.auth_type == "oauth" and self.provider == "google":
             self._init_google_oauth()
+            
+    def _format_messages_for_bridge(self, messages: List[Dict[str, str]]) -> str:
+        """Convert message history to a single structured prompt for the CLI."""
+        prompt_lines = []
+        for m in messages:
+            role = m.get("role", "user")
+            content = m.get("content", "")
+            
+            if role == "system":
+                prompt_lines.append(f"INSTRUCTIONS: {content}")
+            elif role == "user":
+                prompt_lines.append(f"USER: {content}")
+            else:
+                prompt_lines.append(f"ASSISTANT: {content}")
+        
+        # Final primer for the model
+        prompt_lines.append("ASSISTANT: ")
+        return "\n\n".join(prompt_lines)
 
     def _init_google_oauth(self):
         """Initialize Google OAuth credentials from CLI session file."""
@@ -193,6 +213,20 @@ class UniversalHandler:
         Includes JSON repair for slightly malformed responses.
         Retries up to cfg.MAX_RETRIES on transient errors.
         """
+        if self.auth_type == "bridge" and self.provider == "google":
+            # ── Bridge Redirection Logic ──
+            prompt = self._format_messages_for_bridge(messages)
+            content = run_gemini_bridge(prompt, model=self.model)
+            
+            if not content:
+                raise Exception("Bridge Mode failed to return content from gemini-cli")
+                
+            parsed = _repair_json(content)
+            if parsed is None:
+                raise Exception(f"Bridge JSON repair failed. Raw content:\n{content[:400]}")
+                
+            return AgentResponse(**parsed)
+
         self._refresh_auth_if_needed()
         last_error = None
         for attempt in range(cfg.MAX_RETRIES):
@@ -204,7 +238,7 @@ class UniversalHandler:
                     "messages": messages,
                     "api_key": self.api_key,
                     "api_base": self.api_base,
-                    "response_format": {"type": "json_object"},
+                    "response_format": AgentResponse,
                     "timeout": cfg.API_TIMEOUT,
                     "headers": self.custom_headers,
                 }
@@ -243,6 +277,12 @@ class UniversalHandler:
         Call the LLM without JSON mode constraint. Returns raw text content.
         Useful for free-form explanations (Ask mode).
         """
+        if self.auth_type == "bridge" and self.provider == "google":
+            # ── Bridge Redirection Logic ──
+            prompt = self._format_messages_for_bridge(messages)
+            content = run_gemini_bridge(prompt, model=self.model)
+            return content or "Error: Bridge Mode failed."
+
         self._refresh_auth_if_needed()
         
         kwargs = {

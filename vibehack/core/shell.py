@@ -57,11 +57,87 @@ def execute_shell(
 
     truncated = False
     if len(stdout) > truncate_limit:
-        stdout = stdout[:truncate_limit] + "\n... [Output Truncated by VibeHack]"
+        half = truncate_limit // 2
+        stdout = stdout[:half] + f"\n... [Truncated Middle: {len(stdout)-truncate_limit} bytes removed by VibeHack] ...\n" + stdout[-half:]
         truncated = True
         
     if len(stderr) > truncate_limit:
-        stderr = stderr[:truncate_limit] + "\n... [Error Truncated by VibeHack]"
+        half = truncate_limit // 2
+        stderr = stderr[:half] + f"\n... [Error Truncated Middle: {len(stderr)-truncate_limit} bytes removed by VibeHack] ...\n" + stderr[-half:]
+        truncated = True
+
+    return ShellResult(stdout, stderr, exit_code, truncated)
+
+async def execute_shell_async(
+    command: str,
+    timeout: int = 120,
+    truncate_limit: int = 2500,
+    env: Optional[dict] = None,
+    output_callback = None
+) -> ShellResult:
+    import asyncio
+    from vibehack.config import cfg
+    from vibehack.core.sandbox import CONTAINER_NAME
+
+    target_command = command
+    if cfg.SANDBOX_ENABLED:
+        import shlex
+        target_command = f"docker exec -e PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.vibehack/bin -i {CONTAINER_NAME} bash -c {shlex.quote(command)}"
+        
+    try:
+        process = await asyncio.create_subprocess_shell(
+            target_command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
+            executable='/bin/bash' if os.path.exists('/bin/bash') else None
+        )
+    except Exception as e:
+        return ShellResult("", f"[VibeHack Error] Execution failed: {str(e)}", 1, False)
+
+    stdout_buf = []
+    stderr_buf = []
+
+    async def read_stream(stream, buffer, is_stderr):
+        while True:
+            line = await stream.readline()
+            if not line:
+                break
+            text = line.decode(errors='replace')
+            buffer.append(text)
+            if output_callback:
+                output_callback(text, is_stderr)
+
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(
+                read_stream(process.stdout, stdout_buf, False),
+                read_stream(process.stderr, stderr_buf, True)
+            ),
+            timeout=timeout
+        )
+        await process.wait()
+        exit_code = process.returncode
+    except asyncio.TimeoutError:
+        try:
+            process.kill()
+        except OSError:
+            pass
+        stderr_buf.append("\n[VibeHack Error] Command timed out.")
+        exit_code = 124
+
+    stdout = "".join(stdout_buf)
+    stderr = "".join(stderr_buf)
+
+    truncated = False
+    if len(stdout) > truncate_limit:
+        half = truncate_limit // 2
+        stdout = stdout[:half] + f"\n... [Truncated Middle: {len(stdout)-truncate_limit} bytes removed by VibeHack] ...\n" + stdout[-half:]
+        truncated = True
+        
+    if len(stderr) > truncate_limit:
+        half = truncate_limit // 2
+        stderr = stderr[:half] + f"\n... [Error Truncated Middle: {len(stderr)-truncate_limit} bytes removed by VibeHack] ...\n" + stderr[-half:]
         truncated = True
 
     return ShellResult(stdout, stderr, exit_code, truncated)

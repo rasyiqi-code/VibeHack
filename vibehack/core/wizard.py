@@ -3,7 +3,11 @@ from rich.console import Console
 from rich.prompt import Prompt
 from vibehack.config import cfg
 from vibehack.ui.tui import get_masked_input
-from vibehack.core.auth import manual_google_login
+from vibehack.core.auth import (
+    manual_google_login,
+    is_cli_installed,
+    verify_gemini_cli_bridge
+)
 from vibehack.core.discovery import (
     get_gemini_info,
     get_claude_info,
@@ -16,18 +20,27 @@ console = Console()
 
 def _save_and_sync(final_env):
     """Helper to save and sync environment."""
-    lines = []
+    import collections
+    env_dict = collections.OrderedDict()
+    
     if cfg.GLOBAL_ENV.exists():
         with open(cfg.GLOBAL_ENV, "r") as f:
             for line in f:
-                if not line.startswith("VH_"):
-                    lines.append(line)
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    if k.startswith("VH_"):
+                        continue
+                    env_dict[k] = v
     
     for k, v in final_env.items():
-        lines.append(f"{k}={v}\n")
+        env_dict[k] = v
         
     with open(cfg.GLOBAL_ENV, "w") as f:
-        f.writelines(lines)
+        for k, v in env_dict.items():
+            f.write(f"{k}={v}\n")
         
     console.print(f"\n[bold green]✓ Configuration saved to {cfg.GLOBAL_ENV}[/bold green]")
     
@@ -47,9 +60,9 @@ def _setup_wizard():
     console.print("\n[bold yellow]🤖 Vibe_Hack Configuration Wizard[/bold yellow]")
     console.print("Choose your setup path:\n")
     
-    console.print("  1. ⚡ [bold cyan]Auth CLI[/bold cyan] (Domestic/Hijacking)")
-    console.print("  2. 🔑 [bold green]API Key[/bold green] (Standard Provider Setup)")
-    console.print("  3. 🛠️  [bold magenta]Custom / Local Model[/bold magenta] (Ollama/LM Studio/Custom API)")
+    console.print("  1. ⚡ [bold cyan]Auth CLI[/bold cyan] (Inference via System Gemini CLI)")
+    console.print("  2. 🔑 [bold green]API Key[/bold green] (Direct Gemini API Access)")
+    console.print("  3. 🛠️  [bold magenta]Custom / Local Model[/bold magenta] (Vertex AI / Custom API)")
         
     path_choice = Prompt.ask("\n➤ Select path [1/2/3]", choices=["1", "2", "3"], default="1")
     
@@ -69,7 +82,36 @@ def _setup_wizard():
         pid, p_name, discovery_fn = providers[sub_choice]
         
         if pid == "google":
-            # ── Gemini CLI: Langsung Direct ke Manual Redirect (OpenClaw Style) ──
+            # ── Smart Detection for Gemini CLI ───────────────────────────
+            if is_cli_installed("gemini"):
+                if verify_gemini_cli_bridge():
+                    console.print("\n[bold green]✓ Gemini CLI terdeteksi dan aktif![/bold green]")
+                    use_bridge = Prompt.ask("➤ Gunakan sesi aktif (Seamless Bridge Mode)?", choices=["y", "n", "Y", "N"], default="Y")
+                    
+                    if use_bridge.upper() == "Y":
+                        final_env = {
+                            "VH_PROVIDER": "google",
+                            "VH_API_KEY": "BRIDGE_MODE",
+                            "VH_MODEL": "gemini-3-flash-preview",
+                            "VH_AUTH_TYPE": "bridge"
+                        }
+                        return _save_and_sync(final_env)
+                else:
+                    console.print("\n[bold yellow]! Gemini CLI ditemukan tapi belum login / tidak aktif.[/bold yellow]")
+            
+            console.print("\n[bold cyan]Google Auth Options:[/bold cyan]")
+            console.print("  1. Titan Auth (Manual Redirect - Tanpa install CLI)")
+            console.print("  2. Install Official Gemini CLI (Recommended)")
+            
+            sub_choice = Prompt.ask("➤ Select", choices=["1", "2"], default="1")
+            
+            if sub_choice == "2":
+                console.print("\n[bold yellow]Untuk menginstal Gemini CLI, jalankan:[/bold yellow]")
+                console.print("  [white]npm install -g @google/gemini-cli[/white]")
+                console.print("  [white]gemini auth login[/white]\n")
+                Prompt.ask("Tekan ENTER jika sudah selesai, atau kembali")
+                return _setup_wizard()
+            
             auth_path = cfg.HOME / "google_auth.json"
             info = manual_google_login(auth_path)
             
@@ -117,10 +159,27 @@ def _setup_wizard():
         sub_choice = Prompt.ask("\n➤ Select provider", choices=list(providers.keys()), default="1")
         pid, p_name, p_env, p_model = providers[sub_choice]
         
-        key = get_masked_input(f"[bold cyan]➤ Enter your {p_env}[/bold cyan]")
+        key = ""
+        existing_key = os.getenv(p_env)
+        if not existing_key and cfg.GLOBAL_ENV.exists():
+            with open(cfg.GLOBAL_ENV, "r") as f:
+                for line in f:
+                    if line.startswith(f"{p_env}="):
+                        existing_key = line.strip().split("=", 1)[1]
+                        break
+
+        if existing_key:
+            use_exist = Prompt.ask(f"\n[bold green]➤ Existing {p_env} found.[/bold green] Use existing?", choices=["y", "n"], default="y")
+            if use_exist.lower() == "y":
+                key = existing_key
+                
+        if not key:
+            key = get_masked_input(f"\n[bold cyan]➤ Enter your {p_env}[/bold cyan]")
+            
         if not key: return _setup_wizard()
         
         final_env = {
+            p_env: key,
             "VH_PROVIDER": pid,
             "VH_API_KEY": key,
             "VH_MODEL": p_model,

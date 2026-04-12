@@ -8,6 +8,7 @@ from rich.table import Table
 from rich.columns import Columns
 from rich.text import Text
 from rich.markdown import Markdown
+from rich.tree import Tree
 
 console = Console()
 
@@ -19,7 +20,7 @@ def get_masked_input(prompt_text: str) -> str:
         return Prompt.ask(prompt_text, password=True)
 
     import tty, termios
-    sys.stdout.write(prompt_text + " ")
+    console.print(prompt_text + " ", end="")
     sys.stdout.flush()
     
     buf = ""
@@ -66,8 +67,10 @@ def display_banner():
 
 
 def display_thought(thought: str):
-    md = Markdown(thought)
-    console.print(Panel(md, title="🤖 AI Thought", border_style="blue"))
+    summary = thought.split('\n')[0][:100]
+    if len(thought) > len(summary):
+        summary += "..."
+    console.print(f"[dim]🤖 AI Thought: {summary}[/dim]")
 
 def display_command(command: str):
     syntax = Syntax(command, "bash", theme="monokai", line_numbers=False)
@@ -94,14 +97,19 @@ def display_knowledge_update(ports: list, technologies: list, endpoints: list):
     if lines:
         console.print(Panel("\n".join(lines), title="[bold]📡 New Intel Gathered[/bold]", border_style="cyan"))
 
-def ask_approval() -> str:
+async def ask_approval() -> str:
     """The Ultimate Firewall: HitL Approval Matrix"""
-    choice = Prompt.ask(
-        "❓ Execute? [bold cyan][y][/bold cyan]es / [bold red][n][/bold red]o / [bold yellow][a][/bold yellow]llow session",
-        choices=["y", "n", "a"],
-        default="n"
-    )
-    return choice
+    from prompt_toolkit.shortcuts import button_dialog
+    result = await button_dialog(
+        title='⚠️ Security Gate: HitL Required',
+        text='Execute this shell command?',
+        buttons=[
+            ('Yes', 'y'),
+            ('No', 'n'),
+            ('Auto-Allow', 'a'),
+        ],
+    ).run_async()
+    return result or "n"
 
 def display_output(output: str, is_error: bool = False):
     style = "red" if is_error else "dim white"
@@ -141,3 +149,61 @@ def display_session_info(target: str, mode: str, unchained: bool, session_id: st
         f"[bold]Session:[/bold]    {session_id}"
     )
     console.print(Panel(content, title="[bold]🎯 Session Initialised[/bold]", border_style="cyan"))
+
+def display_map(target: str, knowledge_state: dict):
+    """Visualises the attack surface as a Tree."""
+    tree = Tree(f"🎯 [bold cyan]Target: {target}[/bold cyan]")
+    
+    # ── Services Branch ──
+    if knowledge_state.get("open_ports"):
+        svc = tree.add("🔌 [bold white]Services (Open Ports)[/bold white]")
+        for port in knowledge_state["open_ports"]:
+            svc.add(f"[cyan]Port {port}[/cyan]")
+            
+    # ── Stack Branch ──
+    if knowledge_state.get("technologies"):
+        stack = tree.add("⚙️ [bold magenta]Technology Stack[/bold magenta]")
+        for tech in knowledge_state["technologies"]:
+            stack.add(f"[magenta]{tech}[/magenta]")
+            
+    # ── Surface Branch ──
+    if knowledge_state.get("endpoints"):
+        surface = tree.add("🗺️ [bold green]Mapped Endpoints[/bold green]")
+        for ep in knowledge_state["endpoints"][:15]:
+            surface.add(f"[green]{ep}[/green]")
+        if len(knowledge_state["endpoints"]) > 15:
+            surface.add("[dim]... and more[/dim]")
+            
+    # ── Intel Branch ──
+    if knowledge_state.get("notes") or knowledge_state.get("credentials") or knowledge_state.get("tested_surfaces"):
+        intel = tree.add("🔑 [bold yellow]Intel & Findings[/bold yellow]")
+        if knowledge_state.get("credentials"):
+            intel.add(f"[yellow]{len(knowledge_state['credentials'])} credentials found[/yellow]")
+        if knowledge_state.get("tested_surfaces"):
+            intel.add(f"[dim]Tested: {', '.join(knowledge_state['tested_surfaces'])}[/dim]")
+        for note in knowledge_state.get("notes", [])[-5:]:
+            intel.add(f"[dim]{note}[/dim]")
+
+    console.print(Panel(tree, border_style="dim", expand=False))
+
+def display_mission(goals: list):
+    """Displays the active mission objectives."""
+    if not goals:
+        return
+    
+    table = Table(show_header=False, box=None, padding=(0, 1))
+    table.add_column("Objective", style="dim")
+    table.add_column("Status", justify="right")
+    
+    for goal in goals:
+        if "[DONE]" in goal.upper():
+            status = "[bold green]COMPLETE[/bold green]"
+            color = "dim green"
+        else:
+            status = "[bold yellow]RUNNING[/bold yellow]"
+            color = "white"
+            
+        clean_goal = goal.replace("[DONE]", "").replace("[IN_PROGRESS]", "").strip()
+        table.add_row(f"[{color}]{clean_goal}[/{color}]", status)
+        
+    console.print(Panel(table, title="🏁 Active Mission Plan", border_style="magenta", expand=False))
