@@ -26,7 +26,7 @@ from vibehack.toolkit.provisioner import DOWNLOADABLE_TOOLS, APT_TOOLS, get_inst
 load_dotenv()
 
 app = typer.Typer(
-    help="🔥 Vibe_Hack v1.7 — Agentic Hacking Co-Pilot (like Claude Code, but for security)",
+    help="🔥 Vibe_Hack v2.2 — The Autonomous Weapon (Self-Updating Edition)",
     no_args_is_help=False,  # Allow bare `vibehack` to open REPL
     invoke_without_command=True,
 )
@@ -303,10 +303,35 @@ def sessions():
 
 
 @app.command()
+async def update():
+    """Self-update Vibe_Hack to the latest version from GitHub."""
+    console.print("\n[bold yellow]📡 Checking for updates...[/bold yellow]")
+    import sys
+    import subprocess
+    
+    repo_url = "git+https://github.com/rasyiqi-code/VibeHack.git"
+    
+    try:
+        with console.status("[bold cyan]Updating Vibe_Hack core...[/bold cyan]"):
+            # We use sys.executable to ensure we update the current venv
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--upgrade", repo_url],
+                check=True,
+                capture_output=True
+            )
+        console.print("[bold green]✅ Vibe_Hack successfully updated to the latest version![/bold green]")
+        console.print("[dim]Restart vibehack to apply changes.[/dim]\n")
+    except subprocess.CalledProcessError as e:
+        console.print(f"[bold red]Update failed![/bold red]")
+        console.print(f"[dim]{e.stderr.decode()}[/dim]")
+
+
+
+@app.command()
 def version():
     """Show version and build info."""
-    console.print("[bold red]🔥 Vibe_Hack v1.7.0 (Alpha)[/bold red]")
-    console.print("[dim]Raw Shell / HitL Edition — Pre-Release Build[/dim]")
+    console.print("[bold red]🔥 Vibe_Hack v2.2.0[/bold red]")
+    console.print("[dim]The Autonomous Weapon Update — Self-Updating Edition[/dim]")
     console.print(f"[dim]Home: {VIBEHACK_HOME}[/dim]")
     console.print(f"[dim]Default model: {cfg.MODEL}[/dim]")
 

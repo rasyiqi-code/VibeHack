@@ -1,6 +1,6 @@
 [project]
 name = "vibehack"
-version = "2.1.0"
+version = "2.2.0"
 description = "Raw Shell / HitL Agentic Security Co-Pilot"
 readme = "README.md"
 requires-python = ">=3.11"
