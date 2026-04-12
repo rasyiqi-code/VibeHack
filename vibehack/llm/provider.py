@@ -134,15 +134,16 @@ class UniversalHandler:
                 self._google_creds.refresh(Request())
                 
             self.api_key = self._google_creds.token
-            # Convert to JSON for LiteLLM vertex_credentials
-            self._google_creds_json = json.dumps({
+            
+            # LiteLLM vertex_credentials works best as a dict
+            self._google_creds_dict = {
                 "token": self._google_creds.token,
                 "refresh_token": self._google_creds.refresh_token,
                 "token_uri": self._google_creds.token_uri,
                 "client_id": self._google_creds.client_id,
                 "client_secret": self._google_creds.client_secret,
                 "scopes": self._google_creds.scopes
-            })
+            }
         except Exception as e:
             print(f"[DEBUG] Google OAuth Hijack failed: {e}")
 
@@ -154,15 +155,15 @@ class UniversalHandler:
                 import json
                 self._google_creds.refresh(Request())
                 self.api_key = self._google_creds.token
-                # Sync JSON for LiteLLM
-                self._google_creds_json = json.dumps({
+                # Sync dict for LiteLLM
+                self._google_creds_dict = {
                     "token": self._google_creds.token,
                     "refresh_token": self._google_creds.refresh_token,
                     "token_uri": self._google_creds.token_uri,
                     "client_id": self._google_creds.client_id,
                     "client_secret": self._google_creds.client_secret,
                     "scopes": self._google_creds.scopes
-                })
+                }
 
     async def complete(self, messages: List[Dict[str, str]]) -> AgentResponse:
         """
@@ -180,7 +181,8 @@ class UniversalHandler:
                     messages=messages,
                     api_key=self.api_key,
                     api_base=self.api_base,
-                    vertex_credentials=self._google_creds_json,
+                    vertex_credentials=self._google_creds_dict,
+                    vertex_project=os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli",
                     response_format={"type": "json_object"},
                     timeout=cfg.API_TIMEOUT,
                     headers=self.custom_headers,
@@ -219,7 +221,8 @@ class UniversalHandler:
             messages=messages,
             api_key=self.api_key,
             api_base=self.api_base,
-            vertex_credentials=self._google_creds_json,
+            vertex_credentials=self._google_creds_dict,
+            vertex_project=os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli",
             timeout=cfg.API_TIMEOUT,
             headers=self.custom_headers,
         )
