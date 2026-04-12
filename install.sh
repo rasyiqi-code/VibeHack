@@ -6,7 +6,7 @@ set -e
 
 echo -e "\033[1;31m"
 echo "╔══════════════════════════════════════════╗"
-echo "║  🔥 Vibe_Hack v2.0 Installer             ║"
+echo "║  🔥 Vibe_Hack v2.2.1 Installer           ║"
 echo "╚══════════════════════════════════════════╝"
 echo -e "\033[0m"
 

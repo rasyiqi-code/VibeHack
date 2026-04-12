@@ -1,4 +1,4 @@
-# 🔥 Vibe_Hack v2.0 — The Autonomous Weapon Update
+# 🔥 Vibe_Hack v2.2.1 — The Autonomous Weapon Update
 
 > **Agentic Security Co-Pilot for Red Teams, Blue Teams, and Security-Conscious Developers.**
 

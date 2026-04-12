@@ -51,7 +51,7 @@ def get_masked_input(prompt_text: str) -> str:
 def display_banner():
     banner = """
 ╔══════════════════════════════════════════╗
-║  🔥 [bold red]Vibe_Hack v2.2[/bold red]                      ║  
+║  🔥 [bold red]Vibe_Hack v2.2.1[/bold red]                    ║  
 ║  [dim]The Autonomous Weapon Update[/dim]             ║
 ╚══════════════════════════════════════════╝
     [dim]Type [cyan]/help[/cyan] in REPL to see Slash Commands[/dim]
