@@ -146,9 +146,10 @@ class UniversalHandler:
         import json
         adc_data = {
             "type": "authorized_user",
-            "client_id": self._google_creds.client_id,
-            "client_secret": self._google_creds.client_secret,
+            "client_id": self._google_creds.client_id or "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com",
+            "client_secret": self._google_creds.client_secret or "",
             "refresh_token": self._google_creds.refresh_token,
+            "token_uri": "https://oauth2.googleapis.com/token",
             "quota_project_id": os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("VERTEX_PROJECT") or "gemini-cli"
         }
         with open(self._google_adc_path, "w") as f:
