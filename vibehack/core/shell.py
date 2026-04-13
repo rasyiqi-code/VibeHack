@@ -47,7 +47,7 @@ class PersistentSession:
             # Fallback for local testing if docker fails
             pass
 
-    async def execute(self, command: str, timeout: int = 120, callback=None) -> ShellResult:
+    async def execute(self, command: str, timeout: int = 120, callback=None, interrupter=None) -> ShellResult:
         """Executes a command in the persistent shell and captures output."""
         if not self.process:
             await self.start()
@@ -70,7 +70,12 @@ class PersistentSession:
                     line = await self.process.stdout.readline()
                     if not line: break
                     line_str = line.decode(errors="replace").strip()
-                    
+                    if interrupter and interrupter() if callable(interrupter) else interrupter:
+                        # Kill the current bash command if interrupted
+                        self.process.stdin.write(b"\x03") # Send Ctrl+C to the bash session
+                        await self.process.stdin.drain()
+                        break
+
                     if line_str == delimiter:
                         if stdout_lines:
                             exit_code_str = stdout_lines.pop()
@@ -99,13 +104,13 @@ class PersistentSession:
 # Global session instance
 _SESSION = PersistentSession()
 
-async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 2500, env=None, output_callback=None) -> ShellResult:
+async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 2500, env=None, output_callback=None, interrupter=None) -> ShellResult:
     """Facade for the persistent session or stateless fallback."""
     from vibehack.config import cfg
     if not cfg.SANDBOX_ENABLED:
         return await _execute_stateless(command, timeout, env)
     
-    res = await _SESSION.execute(command, timeout, callback=output_callback)
+    res = await _SESSION.execute(command, timeout, callback=output_callback, interrupter=interrupter)
     
     # Handle truncation
     stdout = res.stdout

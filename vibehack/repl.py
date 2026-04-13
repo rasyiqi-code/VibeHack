@@ -63,6 +63,19 @@ class VibehackREPL:
         self.env = get_toolkit_env()
         self._system_built = False
         self._available_tools: List[str] = []
+        self.interrupted = False
+        
+        # ── Interruption Hook (ESC) ──────────────────────────────────────
+        try:
+            from pynput import keyboard
+            def on_press(key):
+                if key == keyboard.Key.esc:
+                    self.interrupted = True
+            
+            self._kb_listener = keyboard.Listener(on_press=on_press)
+            self._kb_listener.start()
+        except:
+            self._kb_listener = None
 
         # ── TUI Setup ─────────────────────────────────────────────────────
         self.completer = SlashCommandCompleter()
@@ -265,6 +278,11 @@ class VibehackREPL:
                 break
 
         self._persist()
+        if hasattr(self, '_kb_listener') and self._kb_listener:
+            try:
+                self._kb_listener.stop()
+            except:
+                pass
         if not self.no_memory and len(self.history) > 2:
             ingest_session(self.target or "unknown", self.history, self.key_findings)
         console.print(f"\n[bold green]Session {self.session_id} saved.[/bold green]\n")

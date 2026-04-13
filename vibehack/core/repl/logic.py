@@ -49,6 +49,11 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
 
     while True:
         try:
+            if getattr(repl, "interrupted", False):
+                repl.interrupted = False
+                console.print("\n[bold red]🛑 Process stopped by user (ESC).[/bold red]\n")
+                return
+
             repl._trim_history() # Safeguard context window
             if is_ask_mode:
                 await _handle_ask_mode(repl)
@@ -105,6 +110,10 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
 
         # Process Command
         if response.raw_command:
+            if getattr(repl, "interrupted", False):
+                repl.interrupted = False
+                console.print("\n[bold red]🛑 Command execution cancelled by user (ESC).[/bold red]\n")
+                return
             await _execute_proposed_command(repl, response)
             repl._trim_history()
             repl._persist()
@@ -167,7 +176,7 @@ async def _execute_proposed_command(repl, response: AgentResponse):
         _live.update(Panel(display_lines, title="📝 Streaming Output", border_style=style))
 
     with Live(Panel("Initializing...", title="📝 Streaming Output", border_style="dim white"), refresh_per_second=4, transient=True) as _live:
-        result = await execute_shell(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=repl.env, output_callback=live_callback)
+        result = await execute_shell(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=repl.env, output_callback=live_callback, interrupter=lambda: getattr(repl, "interrupted", False))
 
     display_output(result.stdout)
     if result.stderr: display_output(result.stderr, is_error=True)
