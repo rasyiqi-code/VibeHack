@@ -2,7 +2,7 @@
 vibehack/cli.py — CLI entry point for Vibe_Hack v1.7
 
 Primary UX: run `vibehack` with no arguments → opens interactive REPL
-            (like Claude Code / Gemini CLI, but for offensive security)
+            (like official security CLIs, but for offensive security)
 
 Secondary UX: `vibehack start <target>` for quick one-shot sessions
 """
@@ -71,11 +71,11 @@ def default(
     unchained: bool = typer.Option(False, "--unchained", help="Bypass regex guardrails (requires waiver)"),
     no_memory: bool = typer.Option(False, "--no-memory", help="Disable Long-Term Memory"),
     sandbox: bool = typer.Option(False, "--sandbox", help="Run LLM shell commands inside a Docker container"),
-    model: Optional[str] = typer.Option(None, "--model", help="Override LLM model (e.g. openai/gpt-4o)"),
+    model: Optional[str] = typer.Option(None, "--model", help="Override LLM model (e.g. model-provider/model-name)"),
     target: Optional[str] = typer.Option(None, "--target", "-t", help="Pre-load target URL/IP"),
 ):
     """
-    🔥 Interactive hacking REPL — like Claude Code, but for offensive security.
+    🔥 Interactive hacking REPL — an advanced co-pilot for offensive security.
 
     Run with no arguments to open the AI hacking assistant.
     Type naturally: 'scan localhost:3000', 'fuzz the API', 'check for SQLi'.
@@ -91,6 +91,9 @@ def default(
     if ctx.invoked_subcommand is not None:
         return  # Let the subcommand handle it
 
+    # Force hard clear immediately for clean transition
+    os.system('clear' if os.name == 'posix' else 'cls')
+
     if model:
         os.environ["VH_MODEL"] = model
         cfg.MODEL = model
@@ -101,6 +104,7 @@ def default(
         start_sandbox()
 
     api_key = _get_api_key()
+    console.clear()
 
     if not no_memory:
         init_memory()
@@ -136,6 +140,7 @@ def start(
         start_sandbox()
 
     api_key = _get_api_key()
+    console.clear()
     if not no_memory:
         init_memory()
 
@@ -159,6 +164,7 @@ def resume(
     from vibehack.llm.provider import Finding
 
     api_key = _get_api_key()
+    console.clear()
     state = load_session(session_id)
     if not state:
         console.print(f"[bold red]Session '{session_id}' not found.[/bold red]")

@@ -11,7 +11,7 @@ VibeHack is an advanced AI-powered security assistant that bridges the gap betwe
 -   **🎯 Mission Orchestration**: AI-driven task management. It doesn't just run commands; it pursues goals.
 -   **🗺️ Attack Surface Mapping**: Visualise ports, tech stacks, and endpoints in a hierarchical tree via `/map`.
 -   **📝 Live Streaming Engine**: Real-time terminal output streaming with zero UI freeze.
--   **🔑 Profile Switching**: Seamlessly swap between Gemini, Claude, and OpenAI mid-session.
+-   **🔑 Profile Switching**: Seamlessly swap between advanced LLM providers mid-session.
 -   **🛡️ Security Gate (HitL)**: Keyboard-driven modal dialogs for safety-first command execution.
 -   **📦 Sandbox Isolation**: Runs tools in isolated Docker containers to protect your host OS.
 

@@ -17,6 +17,7 @@ dependencies = [
     "PyYAML>=6.0.0",
     "google-auth>=2.20.0",
     "google-auth-oauthlib>=1.0.0",
+    "nest-asyncio>=1.6.0",
 ]
 
 [project.optional-dependencies]

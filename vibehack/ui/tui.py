@@ -50,32 +50,27 @@ def get_masked_input(prompt_text: str) -> str:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     return buf
 
-def display_banner():
-    """Modern, prominent full-width header for VibeHack."""
-    from vibehack import __version__
-    
-    # Gemini-style logo sequence
+def get_banner_renderable():
+    """Returns the banner as a Rich renderable object."""
     logo = "[bold #0000ff]❱[/bold #0000ff][bold #00ffff]❱[/bold #00ffff][bold #00ff00]❱[/bold #00ff00]"
-    
     header = Table.grid(expand=True)
     header.add_column(style="bold white")
     header.add_column(justify="right", style="dim")
-    
     header.add_row(
         f"{logo}  [bold white]VibeHack[/bold white] [cyan]v{__version__}[/cyan]",
         "The Autonomous Weapon [green]●[/green] Ready"
     )
-    
-    console.print(Panel(
-        header, 
-        border_style="#1e1e1e", 
-        expand=True, 
-        padding=(0, 1)
-    ))
+    return Panel(header, border_style="#1e1e1e", expand=True, padding=(0, 1))
 
-def display_notice(message: str, title: str = "NOTICE"):
-    """Gemini-style yellow boxed notice."""
-    console.print(Panel(
+def display_banner(target_console=None):
+    """Modern, prominent full-width header for VibeHack."""
+    c = target_console or console
+    c.print(get_banner_renderable())
+
+def display_notice(message: str, title: str = "NOTICE", target_console=None):
+    """Modern yellow boxed notice."""
+    c = target_console or console
+    c.print(Panel(
         message,
         title=f"[bold yellow]{title}[/bold yellow]",
         border_style="yellow",
@@ -83,26 +78,31 @@ def display_notice(message: str, title: str = "NOTICE"):
         padding=(0, 1)
     ))
 
-def display_thought(thought: str):
+def display_thought(thought: str, target_console=None):
+    c = target_console or console
     summary = thought.split('\n')[0][:120]
     if len(thought) > len(summary):
         summary += "..."
-    console.print(f"[dim]🤖 AI Thought: {summary}[/dim]")
+    c.print(f"[dim]🤖 AI Thought: {summary}[/dim]")
 
-def display_command(command: str):
+def display_command(command: str, target_console=None):
+    c = target_console or console
     syntax = Syntax(command, "bash", theme="monokai", line_numbers=False)
-    console.print(Panel(syntax, title="⚙️ Suggested Command", border_style="yellow"))
+    c.print(Panel(syntax, title="⚙️ Suggested Command", border_style="yellow"))
 
-def display_education(education: str):
+def display_education(education: str, target_console=None):
+    c = target_console or console
     if education:
-        console.print(Panel(education, title="📚 Education", border_style="green", subtitle="Dev-Safe Mode"))
+        c.print(Panel(education, title="📚 Education", border_style="green", subtitle="Dev-Safe Mode"))
 
-def display_finding(severity: str, title: str, description: str):
+def display_finding(severity: str, title: str, description: str, target_console=None):
+    c = target_console or console
     color = "red" if severity.lower() in ["critical", "high"] else "yellow"
-    console.print(Panel(f"[bold]{title}[/bold]\n{description}", title=f"🚨 Finding: {severity.upper()}", border_style=color))
+    c.print(Panel(f"[bold]{title}[/bold]\n{description}", title=f"🚨 Finding: {severity.upper()}", border_style=color))
 
-def display_knowledge_update(ports: list, technologies: list, endpoints: list):
+def display_knowledge_update(ports: list, technologies: list, endpoints: list, target_console=None):
     """Prints a brief intelligence dashboard update."""
+    c = target_console or console
     lines = []
     if ports:
         lines.append(f"[bold cyan]Ports:[/bold cyan] {', '.join(map(str, ports))}")
@@ -112,7 +112,7 @@ def display_knowledge_update(ports: list, technologies: list, endpoints: list):
         lines.append(f"[bold green]Endpoints:[/bold green] {len(endpoints)} mapped")
         
     if lines:
-        console.print(Panel("\n".join(lines), title="[bold]📡 New Intel Gathered[/bold]", border_style="cyan"))
+        c.print(Panel("\n".join(lines), title="[bold]📡 New Intel Gathered[/bold]", border_style="cyan"))
 
 async def ask_approval() -> str:
     """The Ultimate Firewall: HitL Approval Matrix"""
@@ -128,10 +128,11 @@ async def ask_approval() -> str:
     ).run_async()
     return result or "n"
 
-def display_output(output: str, is_error: bool = False):
+def display_output(output: str, is_error: bool = False, target_console=None):
+    c = target_console or console
     style = "red" if is_error else "dim white"
     if output:
-        console.print(Panel(output, title="📝 Terminal Output", border_style=style, expand=True))
+        c.print(Panel(output, title="📝 Terminal Output", border_style=style, expand=True))
 
 def ask_waiver() -> bool:
     """Liability waiver for Unchained mode."""
@@ -151,8 +152,9 @@ def ask_waiver() -> bool:
         console.print("[bold red]Waiver text mismatch. Session aborted.[/bold red]")
         return False
 
-def display_session_info(target: str, mode: str, unchained: bool, session_id: str, tools_count: int):
+def display_session_info(target: str, mode: str, unchained: bool, session_id: str, tools_count: int, target_console=None):
     """Displays a startup summary panel."""
+    c = target_console or console
     from vibehack.config import cfg
     mode_label = f"[bold green]{mode.upper()}[/bold green]" if mode == "dev-safe" else f"[bold red]{mode.upper()}[/bold red]"
     unchained_label = "[bold red]UNCHAINED 🔓[/bold red]" if unchained else "[green]GUARDED 🔒[/green]"
@@ -165,7 +167,7 @@ def display_session_info(target: str, mode: str, unchained: bool, session_id: st
         f"[bold]Tools:[/bold]      {tools_count} available in PATH\n"
         f"[bold]Session:[/bold]    {session_id}"
     )
-    console.print(Panel(content, title="[bold]🎯 Session Initialised[/bold]", border_style="cyan"))
+    c.print(Panel(content, title="[bold]🎯 Session Initialised[/bold]", border_style="cyan"))
 
 def display_map(target: str, knowledge_state: dict):
     """Visualises the attack surface as a Tree."""

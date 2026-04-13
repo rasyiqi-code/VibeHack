@@ -1,7 +1,7 @@
 """
 vibehack/agent/prompts/options.py — Structured prompt configuration.
 
-Like Gemini CLI's SystemPromptOptions interface:
+# Like Modern CLI's SystemPromptOptions interface:
 Controls WHAT sections are included and WITH WHAT data.
 Each field is independently toggleable.
 """

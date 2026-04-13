@@ -11,8 +11,9 @@ from typing import List, Dict, Optional
 from prompt_toolkit import Application, PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.filters import Condition
-from prompt_toolkit.layout import Layout, HSplit, Window
+from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
+from prompt_toolkit.layout.processors import BeforeInput, Placeholder
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import HTML, ANSI
@@ -56,6 +57,11 @@ class VibehackREPL:
         self._system_built = False
         self._available_tools: List[str] = []
 
+        # Output Capture Setup
+        from io import StringIO
+        self.log_io = StringIO()
+        self.target_console = Console(file=self.log_io, force_terminal=True, width=120, color_system="truecolor")
+
         # ── TUI Setup ─────────────────────────────────────────────────────
         self.completer = SlashCommandCompleter()
         self.style = get_repl_style()
@@ -76,12 +82,34 @@ class VibehackREPL:
 
         @self.kb.add('enter', filter=is_not_completing)
         def _(event):
-            # Process input and clear buffer
-            text = self.input_buffer.text
+            text = self.input_buffer.text.strip()
+            if not text:
+                return
+            
             self.input_buffer.reset()
-            # This will be handled in the main loop logic via a flag or queue
-            # but for simplicity in Application.run_async, we can trigger a task
-            pass
+            # Append human message to history UI
+            self.log(HTML(f"<ansicyan><b>you:</b></ansicyan> {text}"))
+            
+            # Start processing in background
+            asyncio.create_task(self._handle_input(text))
+
+    async def _handle_input(self, text: str):
+        if text.startswith("/"):
+            result = handle_slash_command(self, text)
+            if result is False:
+                self.app.exit()
+            elif isinstance(result, tuple) and result[0] == "__install__":
+                from vibehack.toolkit.provisioner import download_tool
+                if await download_tool(result[1]):
+                    clear_discovery_cache()
+                    self._discover_tools()
+                    self._rebuild_system_prompt()
+            return
+
+        try:
+            await process_llm_turn(self, text)
+        except Exception as e:
+            self.log(f"[bold red]Error:[/bold red] {e}")
 
         # Full-Screen Layout
         self.layout = Layout(
@@ -93,7 +121,17 @@ class VibehackREPL:
                 # Sticky Bottom Bar
                 Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar'),
                 # Input Area
-                Window(content=BufferControl(buffer=self.input_buffer), height=1, style='class:prompt'),
+                Window(
+                    content=BufferControl(
+                        buffer=self.input_buffer,
+                        input_processors=[
+                            BeforeInput([('class:prompt', '> ')]),
+                            Placeholder([('class:placeholder', 'Type your message or @path/to/file')])
+                        ]
+                    ),
+                    height=1,
+                    style='class:prompt'
+                ),
             ])
         )
         
@@ -103,20 +141,28 @@ class VibehackREPL:
             style=self.style,
             full_screen=True,
             key_bindings=self.kb,
-            mouse_support=True
+            mouse_support=True,
+            on_invalidate=lambda _: self._scroll_to_bottom()
         )
         
-        self.session = PromptSession(
-            history=FileHistory(os.path.join(cfg.HOME, ".history")),
-            completer=self.completer,
-            complete_while_typing=True,
-            style=self.style,
-            bottom_toolbar=lambda: get_bottom_toolbar(self)
-        )
+    def _scroll_to_bottom(self):
+        """Ensures the history window is always scrolled to the latest logs."""
+        pass # Will be handled by layout configuration or manual buffer positioning
+        
+    def log(self, renderable):
+        """Capture Rich renderables as ANSI and append to history buffer."""
+        self.target_console.print(renderable)
+        ansi_text = self.log_io.getvalue()
+        self.log_io.truncate(0)
+        self.log_io.seek(0)
+        
+        self.history_buffer.insert_text(ansi_text)
+        # Force scroll to bottom by moving cursor in history buffer
+        self.history_buffer.cursor_position = len(self.history_buffer.text)
 
     def _check_sudo(self):
         if os.geteuid() == 0:
-            console.print("[bold red on white]  ⚠  ROOT — AI hallucinations can destroy your OS  ⚠  [/bold red on white]")
+            self.log("[bold red on white]  ⚠  ROOT — AI hallucinations can destroy your OS  ⚠  [/bold red on white]")
 
     def _discover_tools(self):
         self._available_tools = discover_tools()
@@ -170,50 +216,21 @@ class VibehackREPL:
         self.history_buffer.text = new_text
 
     async def run(self):
-        # ── Sticky TUI Initialization ─────────────────────────────────────
-        # For the transitional period, we print the banner and notice once
-        # before the full-screen app takes over, or integrate them into the buffer.
-        display_banner()
+        # ── Setup ──
         self._check_sudo()
         self._discover_tools()
         if self.no_memory is False: init_memory()
         self._rebuild_system_prompt()
 
-        # Capture initial banner/notice into history if moving to full TUI
-        # For now, we continue using the scrolling model but with enhanced toolbars.
+        # Render initial banner to history buffer
+        from vibehack.ui.tui import get_banner_renderable
+        self.log(get_banner_renderable())
         
-        while True:
-            try:
-                # The bottom_toolbar in prompt_async is already 'sticky' at 
-                # the bottom of the screen while the prompt is active.
-                user_input = await self.session.prompt_async(
-                    HTML('<ansicyan><b>you: </b></ansicyan>'),
-                    placeholder=HTML('<ansigray>Type your message or /command...</ansigray>'),
-                    bottom_toolbar=lambda: get_bottom_toolbar(self),
-                    style=self.style
-                )
-                if not user_input.strip(): continue
-
-                if user_input.startswith("/"):
-                    result = handle_slash_command(self, user_input)
-                    if result is False: break
-                    if isinstance(result, tuple) and result[0] == "__install__":
-                        from vibehack.toolkit.provisioner import download_tool
-                        if await download_tool(result[1]):
-                            clear_discovery_cache()
-                            self._discover_tools()
-                            self._rebuild_system_prompt()
-                    continue
-
-                await process_llm_turn(self, user_input)
-
-            except (EOFError, KeyboardInterrupt):
-                break
-            except Exception as e:
-                console.print(f"[red]Error:[/red] {e}")
-                await asyncio.sleep(1)
-
-        self._persist()
-        if not self.no_memory and len(self.history) > 2:
-            ingest_session(self.target or "unknown", self.history, self.key_findings)
-        console.print(f"\n[bold green]Session {self.session_id} saved.[/bold green]\n")
+        # Start Application
+        try:
+            await self.app.run_async()
+        finally:
+            self._persist()
+            if not self.no_memory and len(self.history) > 2:
+                ingest_session(self.target or "unknown", self.history, self.key_findings)
+            print(f"\nSession {self.session_id} saved.\n")

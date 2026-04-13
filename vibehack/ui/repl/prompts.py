@@ -34,7 +34,8 @@ def get_repl_style():
     return Style.from_dict({
         'bottom-toolbar': '#ffd700 bg:#1e1e1e',
         'top-toolbar':    '#ffd700 bg:#1e1e1e',
-        'prompt':         '#00ffff bold',
+        'prompt':         '#00ffff bg:#1c2529 bold',
+        'placeholder':    '#666666 bg:#1c2529',
         'logo':           '#00ffff bold',
         'version':        '#bbbbbb',
         'auth':           '#ffd700',
@@ -49,7 +50,7 @@ def get_top_toolbar(repl):
     from vibehack import __version__
     provider = repl.handler.provider.upper() if hasattr(repl, 'handler') else "UNKNOWN"
     
-    # Gemini-style multi-colored arrow logo
+    # Modern-style multi-colored arrow logo
     logo = HTML('<ansiblue><b>❱</b></ansiblue><ansicyan><b>❱</b></ansicyan><ansigreen><b>❱</b></ansigreen>')
     
     return HTML(

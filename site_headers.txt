@@ -1,0 +1,676 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:--  0:00:01 --:--:--     0* Host sumenepkab.go.id:443 was resolved.
+* IPv6: 2606:4700:3037::6815:4b50, 2606:4700:3035::ac43:d991
+* IPv4: 172.67.217.145, 104.21.75.80
+*   Trying 172.67.217.145:443...
+* Connected to sumenepkab.go.id (172.67.217.145) port 443
+* ALPN: curl offers h2,http/1.1
+} [5 bytes data]
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+} [512 bytes data]
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+{ [19 bytes data]
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+{ [2547 bytes data]
+* TLSv1.3 (IN), TLS handshake, CERT verify (15):
+{ [79 bytes data]
+* TLSv1.3 (IN), TLS handshake, Finished (20):
+{ [52 bytes data]
+* TLSv1.3 (OUT), TLS change cipher, Change cipher spec (1):
+} [1 bytes data]
+* TLSv1.3 (OUT), TLS handshake, Finished (20):
+} [52 bytes data]
+* SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384 / X25519 / id-ecPublicKey
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=sumenepkab.go.id
+*  start date: Apr  5 02:54:26 2026 GMT
+*  expire date: Jul  4 03:52:52 2026 GMT
+*  issuer: C=US; O=Google Trust Services; CN=WE1
+*  SSL certificate verify result: unable to get local issuer certificate (20), continuing anyway.
+*   Certificate level 0: Public key type EC/prime256v1 (256/128 Bits/secBits), signed using ecdsa-with-SHA256
+*   Certificate level 1: Public key type EC/prime256v1 (256/128 Bits/secBits), signed using ecdsa-with-SHA384
+*   Certificate level 2: Public key type EC/secp384r1 (384/192 Bits/secBits), signed using sha256WithRSAEncryption
+} [5 bytes data]
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://sumenepkab.go.id/
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: sumenepkab.go.id]
+* [HTTP/2] [1] [:path: /]
+* [HTTP/2] [1] [user-agent: curl/8.5.0]
+* [HTTP/2] [1] [accept: */*]
+} [5 bytes data]
+> GET / HTTP/2
+> Host: sumenepkab.go.id
+> User-Agent: curl/8.5.0
+> Accept: */*
+> 
+{ [5 bytes data]
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+{ [230 bytes data]
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+{ [230 bytes data]
+* old SSL session ID is stale, removing
+{ [5 bytes data]
+< HTTP/2 200 
+< date: Mon, 13 Apr 2026 02:24:56 GMT
+< content-type: text/html; charset=UTF-8
+< server: cloudflare
+< x-powered-by: PHP/7.4.23
+< expires: Thu, 19 Nov 1981 08:52:00 GMT
+< cache-control: no-store, no-cache, must-revalidate
+< pragma: no-cache
+< set-cookie: ci_session=36mmpgnlfipko7bqqsngo20qql6l70pc; expires=Mon, 13-Apr-2026 04:24:55 GMT; Max-Age=7200; path=/; HttpOnly; SameSite=Lax
+< vary: Accept-Encoding
+< report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=9GYhNVfom0XdjxdHka7WaujQvoOzLVrCvHTqeVrkGA%2BCU95lOpm3dUxthouQnMrCvf6It3GyDXutXF4%2FX%2FxIedxoLY8a%2BgH%2BGsOTfMb%2BtXUI28OzxbrzTJfq25HX1b3PzpP7"}]}
+< cf-cache-status: DYNAMIC
+< nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+< cf-ray: 9eb7046c2d828959-SIN
+< alt-svc: h3=":443"; ma=86400
+< 
+{ [1360 bytes data]
+100  1360    0  1360    0     0    485      0 --:--:--  0:00:02 --:--:--   485<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website | Kabupaten Sumenep</title>
+    <meta name="description" content="Situs Resmi Pemerintah Kabupaten Sumenep">
+    <meta name="keyword" content="Sumenep, kota keris, the soul of madura, sumenep event, lombang, slopeng, busyro karim, kota keris, negeri para empu">
+
+    <meta property="og:url" content="http://www.sumenepkab.go.id" />
+    <meta property="og:title" content="Pemerintah Kabupaten Sumenep" />
+    <meta property="og:description" content="Situs Resmi Pemerintah Kabupaten Sumenep" />
+    <meta property="og:image" content="https://sumenepkab.go.id/assets/theme2/img/sumenep.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/favicon.png" href="https://sumenepkab.go.id/assets/theme2/img/favicon.png">
+    <!-- Web Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+
+    <!-- Bizwheel Plugins CSS -->
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/animate.min.css">
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/cubeportfolio.min.css">
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/font-awesome.css">
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/jquery.fancybox.min.css">
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/magnific-popup.min.css">
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/owl-carousel.min.css">
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/slicknav.min.css">
+
+    <!-- Bizwheel Stylesheet -->
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/reset.css">
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/style.css">
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/style-sms.css">
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/css/responsive.css">
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4817198004936497" crossorigin="anonymous"></script>
+
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.2/html5shiv.min.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <link rel="stylesheet" href="https://sumenepkab.go.id/assets/theme2/#" id="elena_custom">
+</head>
+
+<body id="bg">
+    <div id="page" class="site">
+        <header class="header">
+            <!-- Topbar -->
+            <div class="topbar">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-lg-2 col-12">
+                            <!-- Top Contact -->
+                            <div class="top-contact">
+                                <div class="single-contact"><i class="fa fa-envelope"></i>Sms Pengaduan : </div>
+                            </div>
+                            <!-- End Top Contact -->
+                        </div>
+                        <div class="col-lg-10 col-12">
+                            <div class="news">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+             <!-- Middle Header -->
+ <div class="middle-header">
+     <div class="container">
+         <div class="row">
+             <div class="col-12">
+                 <div class="middle-inner">
+                     <div class="row">
+                         <div class="col-lg-2 col-md-3 col-12">
+                             <!-- Logo -->
+                             <div class="logo">
+                                 <!-- Image Logo -->
+                                 <div class="img-logo">
+                                     <a href="https://sumenepkab.go.id/">
+                                         <img src="https://sumenepkab.go.id/assets/theme2/img/logo.png" alt="#">
+                                     </a>
+                                 </div>
+
+                             </div>
+
+                             <div class="mobile-nav"></div>
+                         </div>
+
+                         <div class="col-lg-7 col-md-8 col-12">
+                             <div class="menu-area">
+                                 <!-- Main Menu -->
+                                 <nav class="navbar navbar-expand-lg">
+                                     <div class="navbar-collapse">
+                                         <div class="nav-inner">
+                                             <div class="menu-home-menu-container">
+                                                 <!-- Naviagiton -->
+                                                 <ul id="nav" class="nav main-menu menu navbar-nav">
+                                                     <li><a href="https://sumenepkab.go.id/site">Home</a></li>
+                                                     <li class="icon-active"><a href="#">Profil</a>
+                                                         <ul class="sub-menu">
+                                                             <li><a href="https://sumenepkab.go.id/profil/selayang-pandang">Selayang Pandang</a></li>
+                                                             <li><a href="https://sumenepkab.go.id/profil/arya-wiraraja">Arya Wiraraja</a></li>
+                                                             <li><a href="https://sumenepkab.go.id/profil/letak-geografis">Letak Geografis</a></li>
+                                                             <li><a href="#">Visi Misi</a></li>
+                                                         </ul>
+                                                     </li>
+                                                     <li class="icon-active"><a href="#">Pimpinan Daerah</a>
+                                                         <ul class="sub-menu">
+                                                             <li><a href="https://sumenepkab.go.id/profil/profil-bupati">Bupati</a></li>
+                                                             <li><a href="https://sumenepkab.go.id/profil/profil-wakil">Wakil Bupati</a></li>
+                                                             <li><a href="https://sumenepkab.go.id/profil/profil-sekda">Sekretaris Daerah</a></li>
+                                                         </ul>
+                                                     </li>
+                                                     <!-- <li class="icon-active"><a href="#">Produk Hukum</a>
+                                                         <ul class="sub-menu">
+                                                             <li><a href="http://jdih.sumenepkab.go.id/peraturan?jenis=peraturan-daerah">Peraturan Daerah</a></li>
+                                                             <li><a href="http://jdih.sumenepkab.go.id/peraturan?jenis=peraturan-bupati">Peraturan Bupati</a></li>
+                                                         </ul>
+                                                     </li> -->
+                                                     <li class="icon-active"><a href="#">Statistik</a>
+                                                         <ul class="sub-menu">
+                                                             <li><a href="https://www.sumenepkab.go.id/buku/sumenep-dalam-angka/page">Sumenep Dalam Agnka</a></li>
+                                                             <li><a href="https://www.sumenepkab.go.id/buku/kecamatan-dalam-angka/page">Kecamatan Dalam Angka</a></li>
+                                                             <li><a href="https://www.sumenepkab.go.id/buku/indikator-makro-ekonomi/page">Indikator Makro Ekonomi</a></li>
+                                                             <li><a href="https://www.sumenepkab.go.id/buku/data-statistik-sektoral/page">Data Statistik Sektoral</a></li>
+                                                         </ul>
+                                                     </li>
+                                                     <li><a href="https://ppid.sumenepkab.go.id/">PPID</a></li>
+                                                 </ul>
+                                                 <!--/ End Naviagiton -->
+                                             </div>
+                                         </div>
+                                     </div>
+                                 </nav>
+                                 <!--/ End Main Menu -->
+                                 <!-- Right Bar -->
+                                 <div class="">
+
+                                     <!-- Search Bar -->
+                                     <!-- <ul class="right-nav">
+                                         <li class="top-search"><a href="#0"><i class="fa fa-search"></i></a></li>
+                                         <li class="bar"><a class="fa fa-bars"></a></li>
+                                     </ul> -->
+                                     <!--/ End Search Bar -->
+                                     <!-- Search Form -->
+                                     <!-- <div class="search-top">
+                                         <form action="#" class="search-form" method="get">
+                                             <input type="text" name="s" value="" placeholder="Search here" />
+                                             <button type="submit" id="searchsubmit"><i class="fa fa-search"></i></button>
+                                         </form>
+                                     </div> -->
+                                     <!--/ End Search Form -->
+                                 </div>
+                                 <!--/ End Right Bar -->
+                             </div>
+                         </div>
+                         <div class="col-lg-2 col-md-1 col-8">
+                             <div class="logo">
+                                 <!-- Image Logo -->
+                                 <div class="img-logo">
+                                     <a href="https://sumenepkab.go.id/">
+                                         <img src="https://sumenepkab.go.id/assets/theme2/img/berakhlak-bangga-melayani-bangsa.png">
+
+                                     </a>
+                                 </div>
+
+                             </div>
+                         </div>
+
+                     </div>
+                 </div>
+             </div>
+         </div>
+     </div>
+ </div>
+ <!--/ End Middle Header -->        </header>
+        <section class="hero-slider style1">
+    <div class="home-slider">
+        <!-- Single Slider -->
+                    <div class="single-slider" style="background-image:url('https://sumenepkab.go.id/uploads/images/sliders_slider/efeceb0b58f89283776aef5731c2b395a4d5763c.png')">
+            </div>
+                <!--/ End Single Slider -->
+    </div>
+</section>
+<!-- BERITA -->
+<section class="latest-blog section-space">
+    <div class="container">
+        <div class="row     ">
+            <div class="col-12">
+                <div class="blog-latest blog-latest-slider">
+                                            <div class="single-slider">
+                            <!-- Single Blog -->
+                            <div class="single-news ">
+                                <div class="news-head overlay">
+                                    <span class="news-img" style="background-image:url('https://sumenepkab.go.id/uploads/images/news_news/4bc56d0c3b5b92a44b03db8dae1a0dcbb7ce2238.jpg')"></span>
+                                    <a href="#" class="bizwheel-btn theme-2">Read more</a>
+                                </div>
+                                <div class="news-body">
+                                    <div class="news-content">
+                                        <h3 class="news-title"><a href="https://sumenepkab.go.id/berita/baca/sekda-sumenep-ojung-terus-berkembang-dan-mengakar-di-masyarakat">Sekda Sumenep: Ojung Terus Berkembang dan Mengakar di Masyarakat</a></h3>
+                                        <div class="news-text">
+                                            <p><p>Media Center, Minggu ( 12/04 ) Pemerintah Kabupaten Sumenep membuktikan komitmennya dalam melestarikan budaya lokal melalui berbagai...</p>
+                                        </div>
+                                        <ul class="news-meta">
+                                            <li class="date"><i class="fa fa-calendar"></i>12-04-2026</li>
+                                            <li class="view"><i class="fa fa-book"></i>117 kali</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--/ End Single Blog -->
+                        </div>
+                                            <div class="single-slider">
+                            <!-- Single Blog -->
+                            <div class="single-news ">
+                                <div class="news-head overlay">
+                                    <span class="news-img" style="background-image:url('https://sumenepkab.go.id/uploads/images/news_news/98bf20d2e27a5c829f9243544bc5d8b856840e69.jpg')"></span>
+                                    <a href="#" class="bizwheel-btn theme-2">Read more</a>
+                                </div>
+                                <div class="news-body">
+                                    <div class="news-content">
+                                        <h3 class="news-title"><a href="https://sumenepkab.go.id/berita/baca/gandeng-perangkat-desa-sendang-camat-pragaan-sterilkan-tugu-keris-dari-sampah">Gandeng Perangkat Desa Sendang, Camat Pragaan Sterilkan Tugu Keris dari Sampah</a></h3>
+                                        <div class="news-text">
+                                            <p><p>Media Center, Jumat ( 10/04 ) Sebagai langkah nyata dalam menyukseskan program nasional Gerakan Indonesia Aman, Sehat,...</p>
+                                        </div>
+                                        <ul class="news-meta">
+                                            <li class="date"><i class="fa fa-calendar"></i>10-04-2026</li>
+                                            <li class="view"><i class="fa fa-book"></i>208 kali</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--/ End Single Blog -->
+                        </div>
+                                            <div class="single-slider">
+                            <!-- Single Blog -->
+                            <div class="single-news ">
+                                <div class="news-head overlay">
+                                    <span class="news-img" style="background-image:url('https://sumenepkab.go.id/uploads/images/news_news/4a2be0d2053d8be834d5ae79113dfb3cd99cb936.jpg')"></span>
+                                    <a href="#" class="bizwheel-btn theme-2">Read more</a>
+                                </div>
+                                <div class="news-body">
+                                    <div class="news-content">
+                                        <h3 class="news-title"><a href="https://sumenepkab.go.id/berita/baca/pemkab-sumenep-kembali-laksanakan-gerakan-asri-melalui-jumat-bersih">Pemkab Sumenep Kembali Laksanakan Gerakan ASRI Melalui Jumat Bersih</a></h3>
+                                        <div class="news-text">
+                                            <p><p>Media Center, Jumat ( 10/04 ) Pemerintah Kabupaten Sumenep kembali menggelar Gerakan Aman, Sehat, Resik dan Indah...</p>
+                                        </div>
+                                        <ul class="news-meta">
+                                            <li class="date"><i class="fa fa-calendar"></i>10-04-2026</li>
+                                            <li class="view"><i class="fa fa-book"></i>283 kali</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--/ End Single Blog -->
+                        </div>
+                                            <div class="single-slider">
+                            <!-- Single Blog -->
+                            <div class="single-news ">
+                                <div class="news-head overlay">
+                                    <span class="news-img" style="background-image:url('https://sumenepkab.go.id/uploads/images/news_news/1822341b077f1b1db38d6d24d76a687f19a352d4.jpg')"></span>
+                                    <a href="#" class="bizwheel-btn theme-2">Read more</a>
+                                </div>
+                                <div class="news-body">
+                                    <div class="news-content">
+                                        <h3 class="news-title"><a href="https://sumenepkab.go.id/berita/baca/dprd-tetapkan-program-pembentukan-perda-kabupaten-sumenep-2026">DPRD Tetapkan Program Pembentukan Perda Kabupaten Sumenep 2026</a></h3>
+                                        <div class="news-text">
+                                            <p><p>Media Center, Jumat ( 10/04 ) Dewan Perwakilan Rakyat Daerah (DPRD) Kabupaten Sumenep menggelar Rapat Paripurna dengan...</p>
+                                        </div>
+                                        <ul class="news-meta">
+                                            <li class="date"><i class="fa fa-calendar"></i>10-04-2026</li>
+                                            <li class="view"><i class="fa fa-book"></i>234 kali</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--/ End Single Blog -->
+                        </div>
+                                            <div class="single-slider">
+                            <!-- Single Blog -->
+                            <div class="single-news ">
+                                <div class="news-head overlay">
+                                    <span class="news-img" style="background-image:url('https://sumenepkab.go.id/uploads/images/news_news/b0d0fd4175fb9e611a994e2b3985de2e2ea5d91d.jpg')"></span>
+                                    <a href="#" class="bizwheel-btn theme-2">Read more</a>
+                                </div>
+                                <div class="news-body">
+                                    <div class="news-content">
+                                        <h3 class="news-title"><a href="https://sumenepkab.go.id/berita/baca/upaya-nyata-wujudkan-sumenep-asri-karya-bakti-di-pantai-slopeng">Upaya Nyata Wujudkan Sumenep ASRI, Karya Bakti di Pantai Slopeng</a></h3>
+                                        <div class="news-text">
+                                            <p><p>Media Center, Jumat ( 10/04 ) Forum Koordinasi Pimpinan Kecamatan (Forkopimca) Dasuk menggelar karya bakti, di kawasan...</p>
+                                        </div>
+                                        <ul class="news-meta">
+                                            <li class="date"><i class="fa fa-calendar"></i>10-04-2026</li>
+                                            <li class="view"><i class="fa fa-book"></i>185 kali</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--/ End Single Blog -->
+                        </div>
+                                            <div class="single-slider">
+                            <!-- Single Blog -->
+                            <div class="single-news ">
+                                <div class="news-head overlay">
+                                    <span class="news-img" style="background-image:url('https://sumenepkab.go.id/uploads/images/news_news/5c7e1c3149ac60598f2c6b1727a39c1dca370860.jpg')"></span>
+                                    <a href="#" class="bizwheel-btn theme-2">Read more</a>
+                                </div>
+                                <div class="news-body">
+                                    <div class="news-content">
+                                        <h3 class="news-title"><a href="https://sumenepkab.go.id/berita/baca/wujudkan-ketahanan-pangan-2026-kapolres-sumenep-bersama-bhayangkari-tanam-jagung">Wujudkan Ketahanan Pangan 2026, Kapolres Sumenep Bersama Bhayangkari Tanam Jagung</a></h3>
+                                        <div class="news-text">
+                                            <p><p>Media Center, Kamis ( 09/04 ) Dalam rangka mendukung program swasembada pangan 2026, Kapolres Sumenep AKBP Anang...</p>
+                                        </div>
+                                        <ul class="news-meta">
+                                            <li class="date"><i class="fa fa-calendar"></i>09-04-2026</li>
+                                            <li class="view"><i class="fa fa-book"></i>223 kali</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <!--/ End Single Blog -->
+                        </div>
+                                    </div>
+            </div>
+        </div>
+        <a href="https://sumenepkab.go.id/berita" class="btn btn-primary btn-lg btn-block">Indeks Berita</a>
+    </div>
+</section>
+<!-- End BERITA -->
+<div class="clients section-bg">
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="partner-slider">
+                    <!-- Single client -->
+                    <div class="single-slider">
+                        <div class="single-client">
+                            <a href="https://sumenepkab.bps.go.id/" target="_blank"><img src="https://sumenepkab.go.id/assets/link/bpssumenep.jpg" alt="BPS SUMENEP"></a>
+                        </div>
+                    </div>
+                    <div class="single-slider">
+                        <div class="single-client">
+                            <a href="http://kotaku.pu.go.id/" target="_blank"><img src="https://sumenepkab.go.id/assets/link/kotaku.jpg" alt="BPS SUMENEP"></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<section class="hero-agency">
+    <div class="space-landing">
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <div class="agency-feature">
+                        <div class="a-feature">
+                            <a href="https://sumenepkab.go.id/site">
+                                <i class="fa fa-globe"></i>
+                                <h4>Website</h4>
+                            </a>
+                        </div>
+                        <div class="a-feature">
+                            <a href="https://sumenepkab.go.id/egov">
+                                <i class="fa fa-laptop"></i>
+                                <h4>E-Gov</h4>
+                            </a>
+                        </div>
+                        <div class="a-feature">
+                            <a href="https://sumenepkab.go.id/anggaran/apbd">
+                                <i class="fa fa-pie-chart"></i>
+                                <h4>APBD</h4>
+                            </a>
+                        </div>
+                        <div class="a-feature">
+                            <a href="https://sumenepkab.go.id/berita">
+                                <i class="fa fa-newspaper-o"></i>
+                                <h4>Berita</h4>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="agency-feature">
+                        <div class="a-feature">
+                            <a href="https://www.lapor.go.id/">
+                                <i class="fa fa-users"></i>
+                                <h4>Pengaduan</h4>
+                            </a>
+                        </div>
+                        <div class="a-feature">
+                            <i class="fa fa-plane"></i>
+                            <h4>Wisata Sumenep</h4>
+                        </div>
+                        <div class="a-feature">
+                            <a href="https://sumenepkab.go.id/event">
+
+                                <i class="fa fa-television"></i>
+                                <h4>Hari Jadi 754</h4>
+                            </a>
+                        </div>
+                        <div class="a-feature">
+                            <a href="https://sumenepkab.go.id/site/medsos">
+                                <i class="fa fa-share-alt"></i>
+                                <h4>Media Sosial</h4>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="agency-feature">
+                        <div class="a-feature">
+                            <a href="https://regionalinvestment.bkpm.go.id/pir/peluang-investasi/detail/?id=1138">
+                                <i class="fa fa-money"></i>
+                                <h4>Potensi Investasi</h4>
+                            </a>
+                        </div>
+                        <div class="a-feature">
+                            <a href="https://ppid.sumenepkab.go.id/">
+                                <i class="fa fa-info"></i>
+                                <h4>PPID</h4>
+                            </a>
+                        </div>
+                        <div class="a-feature">
+                            <a href="https://sumenepkab.go.id/site/ipkd">
+                                <i class="fa fa-bar-chart"></i>
+                                <h4>IPKD</h4>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="modal fade" id="modalGambar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body p-0">
+        <button type="button" class="btn-close position-absolute end-0 m-2" data-bs-dismiss="modal" aria-label="Close" style="z-index: 1051;"></button>
+        <img src="https://sumenepkab.go.id/assets/global/img/blud-2026-rev.jpeg" class="img-fluid w-100" alt="REKRUTMEN BLUD 2026">
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    var myModal = new bootstrap.Modal(document.getElementById('modalGambar'));
+    myModal.show();
+  });
+</script>        <footer class="footer" style="background-image:url('https://sumenepkab.go.id/assets/theme2/img/map.png')">
+            <!-- Footer Top -->
+            <div class="footer-top">
+                <div class="container">
+                    <div class="row">
+                        <div class="col-lg-4 col-md-6 col-12">
+                            <div class="single-widget footer_contact widget">
+                                <h3 class="widget-title">Contact</h3>
+                                <p>Dinas Komunikasi dan Informatika Kabupaten Sumenep</p>
+                                <ul class="address-widget-list">
+                                    <li class="footer-mobile-number"><i class="fa fa-phone"></i>(0328) 662 635</li>
+                                    <li class="footer-mobile-number"><i class="fa fa-envelope"></i>info@sumenepkab.go.id</li>
+                                    <li class="footer-mobile-number"><i class="fa fa-map-marker"></i>Jl KH. Mansur No 71 Sumenep</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-lg-5 col-md-6 col-12">
+                            <!-- Footer News -->
+                            <div class="single-widget footer-news widget">
+                                <h3 class="widget-title">Berita Terbaru</h3>
+                                                                    <div class="single-f-news">
+                                        <div class="post-thumb"><a href="#"><img src="https://sumenepkab.go.id/uploads/images/news_news/4bc56d0c3b5b92a44b03db8dae1a0dcbb7ce2238_thumb.jpg" alt="#"></a></div>
+                                        <div class="content">
+                                            <p class="post-meta"><time class="post-date"><i class="fa fa-clock-o"></i>12-04-2026</time></p>
+                                            <h4 class="title"><a href="https://sumenepkab.go.id/berita/baca/sekda-sumenep-ojung-terus-berkembang-dan-mengakar-di-masyarakat">Sekda Sumenep: Ojung Terus Berkembang dan Mengakar di Masyarakat</a></h4>
+                                        </div>
+                                    </div>
+                                                                    <div class="single-f-news">
+                                        <div class="post-thumb"><a href="#"><img src="https://sumenepkab.go.id/uploads/images/news_news/98bf20d2e27a5c829f9243544bc5d8b856840e69_thumb.jpg" alt="#"></a></div>
+                                        <div class="content">
+                                            <p class="post-meta"><time class="post-date"><i class="fa fa-clock-o"></i>10-04-2026</time></p>
+                                            <h4 class="title"><a href="https://sumenepkab.go.id/berita/baca/gandeng-perangkat-desa-sendang-camat-pragaan-sterilkan-tugu-keris-dari-sampah">Gandeng Perangkat Desa Sendang, Camat Pragaan Sterilkan Tugu Keris dari Sampah</a></h4>
+                                        </div>
+                                    </div>
+                                                                    <div class="single-f-news">
+                                        <div class="post-thumb"><a href="#"><img src="https://sumenepkab.go.id/uploads/images/news_news/4a2be0d2053d8be834d5ae79113dfb3cd99cb936_thumb.jpg" alt="#"></a></div>
+                                        <div class="content">
+                                            <p class="post-meta"><time class="post-date"><i class="fa fa-clock-o"></i>10-04-2026</time></p>
+                                            <h4 class="title"><a href="https://sumenepkab.go.id/berita/baca/pemkab-sumenep-kembali-laksanakan-gerakan-asri-melalui-jumat-bersih">Pemkab Sumenep Kembali Laksanakan Gerakan ASRI Melalui Jumat Bersih</a></h4>
+                                        </div>
+                                    </div>
+                                                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 col-12">
+                            <!-- Footer About -->
+                            <div class="single-widget footer-about widget">
+                                <h3 class="widget-title">Pengumuman </h3>
+                                <ul class="address-widget-list">
+                                    <li class="footer-mobile-number"><a href="https://sumenepkab.go.id/uploads/document/information/PENGUMUMAN-BLUD-2026.pdf" target="_blank">PENGUMUMAN REKRUTMEN BLUD 2026</a></li>
+                                    <li class="footer-mobile-number"><a href="https://sumenepkab.go.id/uploads/document/information/pengumuman-seleksi-direksi-pt-sumekar-iii.pdf" target="_blank">PENGUMUMAN PERPANJANGAN SELEKSI DIRAKSI PT SUMEKAR 2026</a></li>
+                                    <li class="footer-mobile-number"><a href="https://sumenepkab.go.id/uploads/document/information/lampiran-seleksi-sumekar-iii.docx" target="_blank">LAMPIRAN SELEKSI DIRAKSI PT SUMEKAR 2026</a></li>
+                            
+                                	<li class="footer-mobile-number"><a href="https://sumenepkab.go.id/uploads/document/information/perbup-ssh-2025.pdf" target="_blank">STANDAR SATUAN HARGA BARANG 2025</a></li>
+                                    
+                                </ul>
+                                <h3 class="widget-title">Ikuti Kami di :</h3>
+                                <div class="social">
+                                    <!-- Social Icons -->
+                                    <ul class="social-icons">
+                                        <li><a class="facebook" href="https://www.facebook.com/diskominfosumenep/" target="_blank"><i class="fa fa-facebook"></i></a></li>
+                                        <li><a class="twitter" href="https://twitter.com/kominfosumenep" target="_blank"><i class="fa fa-twitter"></i></a></li>
+                                        <li><a class="instagram" href="https://www.instagram.com/kominfosumenep/?hl=id" target="_blank"><i class="fa fa-instagram"></i></a></li>
+                                        <li><a class="youtube" href="https://www.youtube.com/channel/UC3brb61Fk7YAyNHdjP0ogTA" target="_blank"><i class="fa fa-youtube"></i></a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+    <!-- Jquery JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/jquery.min.js"></script>
+    <script src="https://sumenepkab.go.id/assets/theme2/js/jquery-migrate-3.0.0.js"></script>
+    <!-- Popper JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/popper.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/bootstrap.min.js"></script>
+    <!-- Modernizr JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/modernizr.min.js"></script>
+    <!-- ScrollUp JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/scrollup.js"></script>
+    <!-- FacnyBox JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/jquery-fancybox.min.js"></script>
+    <!-- Cube Portfolio JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/cubeportfolio.min.js"></script>
+    <!-- Slick Nav JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/slicknav.min.js"></script>
+    <!-- Way Points JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/waypoints.min.js"></script>
+    <!-- CounterUp JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/jquery.counterup.min.js"></script>
+    <!-- Slick Nav JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/slicknav.min.js"></script>
+    <!-- Slick Slider JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/owl-carousel.min.js"></script>
+    <!-- Easing JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/easing.js"></script>
+    <!-- Theme Option JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/theme-option.js"></script>
+    <!-- Magnipic Popup JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/magnific-popup.min.js"></script>
+    <!-- Active JS -->
+    <script src="https://sumenepkab.go.id/assets/theme2/js/active.js"></script>
+
+    <script src="https://website-widgets.pages.dev/dist/sienna.min.js" defer></script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-BZS78EEHDN"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+
+        fun100 37950    0 37950    0     0  13486      0 --:--:--  0:00:02 --:--:-- 13486
+* Connection #0 to host sumenepkab.go.id left intact
+ction gtag() {
+            dataLayer.push(arguments);
+        }
+        gtag('js', new Date());
+
+        gtag('config', 'G-BZS78EEHDN');
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9eb7046c2d828959',t:'MTc3NjA0NzA5NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+
+</html># As a condition of accessing this website, you agree to abide by the following
+# content signals:
+
+# (a)  If a content-signal = yes, you may collect content for the corresponding
+#      use.
+# (b)  If a content-signal = no, you may not collect content for the
+#      corresponding use.
+# (c)  If the website operator does not include a content signal for a
+#      corresponding use, the website operator neither grants nor restricts
+#      permission via content signal with respect to the corresponding use.
+
+# The content signals and their meanings are:
+
+# search:   building a search index and providing search results (e.g., returning
+#           hyperlinks and short excerpts from your website's contents). Search does not
+#           include providing AI-generated search summaries.
+# ai-input: inputting content into one or more AI models (e.g., retrieval
+#           augmented generation, grounding, or other real-time taking of content for
+#           generative AI search answers).
+# ai-train: training or fine-tuning AI models.
+
+# ANY RESTRICTIONS EXPRESSED VIA CONTENT SIGNALS ARE EXPRESS RESERVATIONS OF
+# RIGHTS UNDER ARTICLE 4 OF THE EUROPEAN UNION DIRECTIVE 2019/790 ON COPYRIGHT
+# AND RELATED RIGHTS IN THE DIGITAL SINGLE MARKET.

@@ -56,34 +56,34 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
 
     if verb == "/help":
         lines = [f"  [cyan]{k}[/cyan]  [dim]{v}[/dim]" for k, v in SLASH_COMMANDS.items()]
-        console.print(Panel("\n".join(lines), title="Slash Commands", border_style="dim"))
+        repl.log(Panel("\n".join(lines), title="Slash Commands", border_style="dim"))
 
     elif verb == "/target":
         if arg:
             err = check_target(arg)
             if err:
-                console.print(f"[red]Blocked:[/red] {err}")
+                repl.log(f"[red]Blocked:[/red] {err}")
             else:
                 repl.target = arg
-                console.print(f"[green]✓ Target:[/green] {arg}")
+                repl.log(f"[green]✓ Target:[/green] {arg}")
                 repl._rebuild_system_prompt()
         else:
-            console.print(f"Target: [cyan]{repl.target or 'not set'}[/cyan]")
+            repl.log(f"Target: [cyan]{repl.target or 'not set'}[/cyan]")
 
     elif verb == "/mode":
         if arg in ("agent", "ask"):
             repl.op_mode = arg
-            console.print(f"[green]✓ Operation mode:[/green] {arg}")
+            repl.log(f"[green]✓ Operation mode:[/green] {arg}")
         else:
-            console.print(f"Mode: {repl.op_mode} | Use: /mode agent  or  /mode ask")
+            repl.log(f"Mode: {repl.op_mode} | Use: /mode agent  or  /mode ask")
 
     elif verb == "/persona":
         if arg in ("dev-safe", "pro"):
             repl.persona = arg
-            console.print(f"[green]✓ Persona:[/green] {arg}")
+            repl.log(f"[green]✓ Persona:[/green] {arg}")
             repl._rebuild_system_prompt()
         else:
-            console.print(f"Persona: {repl.persona} | Use: /persona dev-safe  or  /persona pro")
+            repl.log(f"Persona: {repl.persona} | Use: /persona dev-safe  or  /persona pro")
 
     elif verb == "/auth":
         from vibehack.core.wizard import _setup_wizard
@@ -92,7 +92,7 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
         load_config_env()
         cfg.load()
         repl.handler = UniversalHandler(api_key=cfg.API_KEY, model=cfg.MODEL)
-        console.print("[bold green]✓ Authentication updated & AI engine re-initialized.[/bold green]")
+        repl.log("[bold green]✓ Authentication updated & AI engine re-initialized.[/bold green]")
 
     elif verb == "/switch":
         _handle_switch(repl, arg)
@@ -104,21 +104,21 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
         if not repl.unchained:
             if verify_unchained_access(True):
                 repl.unchained = True
-                console.print("[bold red]🔓 Unchained mode enabled.[/bold red]")
+                repl.log("[bold red]🔓 Unchained mode enabled.[/bold red]")
                 repl._rebuild_system_prompt()
         else:
             repl.unchained = False
-            console.print("[green]🔒 Guardrails restored.[/green]")
+            repl.log("[green]🔒 Guardrails restored.[/green]")
             repl._rebuild_system_prompt()
 
     elif verb == "/install":
         if not arg:
-            console.print("[dim]Usage: /install <tool>[/dim]")
+            repl.log("[dim]Usage: /install <tool>[/dim]")
         else:
             from vibehack.toolkit.provisioner import DOWNLOADABLE_TOOLS
             if arg not in DOWNLOADABLE_TOOLS:
-                console.print(f"[red]'{arg}' not in registry.[/red]")
-                console.print(f"[dim]{', '.join(DOWNLOADABLE_TOOLS.keys())}[/dim]")
+                repl.log(f"[red]'{arg}' not in registry.[/red]")
+                repl.log(f"[dim]{', '.join(DOWNLOADABLE_TOOLS.keys())}[/dim]")
             else:
                 return ("__install__", arg)
 
@@ -127,9 +127,9 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
 
     elif verb == "/map":
         if not repl.target:
-            console.print("[red]Set a target first using /target[/red]")
+            repl.log("[red]Set a target first using /target[/red]")
         else:
-            display_map(repl.target, repl.knowledge.to_dict())
+            display_map(repl.target, repl.knowledge.to_dict(), target_console=repl.target_console)
 
     elif verb == "/findings":
         _display_findings(repl)
@@ -137,31 +137,31 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
     elif verb == "/report":
         from vibehack.reporting.exporter import export_report
         path = export_report(repl.target or "unknown", repl.key_findings, repl.history, cfg.HOME / "reports")
-        console.print(f"[bold green]✅ Report:[/bold green] {path}")
+        repl.log(f"[bold green]✅ Report:[/bold green] {path}")
 
     elif verb == "/clear":
         sys_msg = repl.history[0] if repl.history and repl.history[0]["role"] == "system" else None
         repl.history = [sys_msg] if sys_msg else []
-        console.print("[dim]History cleared. Knowledge and findings preserved.[/dim]")
+        repl.log("[dim]History cleared. Knowledge and findings preserved.[/dim]")
 
     elif verb == "/memory":
         from vibehack.memory.db import search_experience, get_memory_stats
         from rich.table import Table
 
         if repl.no_memory:
-            console.print("[dim]LTM disabled.[/dim]")
+            repl.log("[dim]LTM disabled.[/dim]")
             return True
 
         if not arg:
             s = get_memory_stats()
-            console.print(f"🧠 LTM: [bold]{s['total']}[/bold] experiences ([green]{s['successes']} ✅[/green] / [red]{s['failures']} ❌[/red])")
-            console.print("[dim]Use /memory list or /memory search <keyword> to browse.[/dim]")
+            repl.log(f"🧠 LTM: [bold]{s['total']}[/bold] experiences ([green]{s['successes']} ✅[/green] / [red]{s['failures']} ❌[/red])")
+            repl.log("[dim]Use /memory list or /memory search <keyword> to browse.[/dim]")
         
         elif arg.startswith("list"):
             # Use '%' to search for everything
             results = search_experience("", limit=15) # empty string for tech matches all 'LIKE %%%'
             if not results:
-                console.print("[dim]No experiences in database yet.[/dim]")
+                repl.log("[dim]No experiences in database yet.[/dim]")
             else:
                 table = Table(title="🧠 Recent Experiences (LTM)")
                 table.add_column("Target", style="cyan")
@@ -172,13 +172,13 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
                 for target, tech, payload, score, summary in results:
                     label = "[green]✅[/green]" if score > 0 else ("[red]❌[/red]" if score < 0 else "[dim]ℹ[/dim]")
                     table.add_row(target[:20], tech, label, summary)
-                console.print(table)
+                repl.log(table)
                 
         elif arg.startswith("search "):
             keyword = arg[7:].strip()
             results = search_experience(keyword, limit=10)
             if not results:
-                console.print(f"[dim]No experiences found for '{keyword}'.[/dim]")
+                repl.log(f"[dim]No experiences found for '{keyword}'.[/dim]")
             else:
                 table = Table(title=f"🔎 Memory search: '{keyword}'")
                 table.add_column("Target", style="cyan")
@@ -188,29 +188,29 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
                 for target, tech, payload, score, summary in results:
                     label = "[green]✅[/green]" if score > 0 else ("[red]❌[/red]" if score < 0 else "[dim]ℹ[/dim]")
                     table.add_row(target[:20], tech, label, summary)
-                console.print(table)
+                repl.log(table)
         else:
-            console.print("[dim]Usage: /memory [list | search <keyword>][/dim]")
+            repl.log("[dim]Usage: /memory [list | search <keyword>][/dim]")
 
     elif verb == "/tokens":
         _handle_tokens_command(repl, arg)
 
     elif verb == "/tools":
         tools = repl._available_tools
-        console.print(f"[green]Discovered ({len(tools)}):[/green] {', '.join(tools) or 'none'}")
-        console.print("[dim]Scanned from $PATH + ~/.vibehack/bin/[/dim]")
+        repl.log(f"[green]Discovered ({len(tools)}):[/green] {', '.join(tools) or 'none'}")
+        repl.log("[dim]Scanned from $PATH + ~/.vibehack/bin/[/dim]")
 
     elif verb in ("/exit", "/quit", "/q"):
         return False
 
     else:
-        console.print(f"[red]Unknown:[/red] {verb}. Type /help")
+        repl.log(f"[red]Unknown:[/red] {verb}. Type /help")
 
     return True
 
 def _handle_switch(repl, arg: str):
     if not arg:
-        console.print("[dim]Usage: /switch <provider|model>[/dim]\n[dim]Examples: /switch openai, /switch claude, /switch gemini-1.5-pro[/dim]")
+        repl.log("[dim]Usage: /switch <provider|model>[/dim]\n[dim]Examples: /switch openai, /switch claude, /switch gemini-1.5-pro[/dim]")
         return
     
     arg = arg.lower()
@@ -232,10 +232,10 @@ def _handle_switch(repl, arg: str):
          new_key = os.getenv(env_map[new_provider])
 
     if new_provider and not new_key:
-        console.print(f"[red]Error: No API Key found for {new_provider or new_model}.[/red]\n[dim]Run /auth first.[/dim]")
+        repl.log(f"[red]Error: No API Key found for {new_provider or new_model}.[/red]\n[dim]Run /auth first.[/dim]")
     else:
         repl.handler.switch_model(model=new_model, api_key=new_key, provider=new_provider)
-        console.print(f"[bold green]✓ Seamless Switch:[/bold green] Brain swapped to [cyan]{new_model}[/cyan]")
+        repl.log(f"[bold green]✓ Seamless Switch:[/bold green] Brain swapped to [cyan]{new_model}[/cyan]")
 
 def _display_status(repl):
     from rich.table import Table
@@ -254,31 +254,31 @@ def _display_status(repl):
     table.add_row("Findings", f"[bold yellow]{len(repl.key_findings)} confirmed findings[/bold yellow]")
     table.add_row("LTM Context", f"{s['total']} shared experiences")
     table.add_row("Tools", f"{len(repl._available_tools)} discovered in PATH")
-    console.print(Panel(table, border_style="dim"))
+    repl.log(Panel(table, border_style="dim"))
 
 def _display_knowledge(repl):
     k = repl.knowledge
     if k.is_empty():
-        console.print("[dim]No knowledge accumulated yet. Start scanning.[/dim]")
+        repl.log("[dim]No knowledge accumulated yet. Start scanning.[/dim]")
         return
     if k.open_ports:
-        console.print(f"🔌 [bold]Open ports:[/bold] {', '.join(map(str, sorted(k.open_ports)))}")
+        repl.log(f"🔌 [bold]Open ports:[/bold] {', '.join(map(str, sorted(k.open_ports)))}")
     if k.technologies:
-        console.print(f"⚙  [bold]Technologies:[/bold] {', '.join(sorted(k.technologies))}")
+        repl.log(f"⚙  [bold]Technologies:[/bold] {', '.join(sorted(k.technologies))}")
     if k.endpoints:
-        console.print(f"🗺  [bold]Endpoints ({len(k.endpoints)}):[/bold] {', '.join(k.endpoints[:10])}{'...' if len(k.endpoints) > 10 else ''}")
+        repl.log(f"🗺  [bold]Endpoints ({len(k.endpoints)}):[/bold] {', '.join(k.endpoints[:10])}{'...' if len(k.endpoints) > 10 else ''}")
     if k.credentials:
-        console.print(f"🔑 [bold]Credentials:[/bold] {len(k.credentials)} found")
+        repl.log(f"🔑 [bold]Credentials:[/bold] {len(k.credentials)} found")
     for note in k.notes[-5:]:
-        console.print(f"  • {note}")
+        repl.log(f"  • {note}")
 
 def _display_findings(repl):
     if not repl.key_findings:
-        console.print("[dim]No confirmed findings yet.[/dim]")
+        repl.log("[dim]No confirmed findings yet.[/dim]")
     else:
         BADGES = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵", "info": "⚪"}
         for i, f in enumerate(repl.key_findings, 1):
-            console.print(f"  {i}. {BADGES.get(f.severity.lower(), '?')} [{f.severity.upper()}] {f.title}")
+            repl.log(f"  {i}. {BADGES.get(f.severity.lower(), '?')} [{f.severity.upper()}] {f.title}")
 
 def _handle_tokens_command(repl, arg: str):
     """Handle /tokens sub-commands."""
@@ -294,14 +294,14 @@ def _handle_tokens_command(repl, arg: str):
         table.add_row("Context Window (Sliding)", f"{cfg.MAX_TURN_MEMORY} turns")
         table.add_row("Output Truncation", f"{cfg.TRUNCATE_LIMIT} chars")
         table.add_row("Est. Active Context", f"~{total_chars // 4} tokens")
-        console.print(Panel(table, border_style="cyan"))
-        console.print("[dim]Use: /tokens limit <n> or /tokens turns <n>[/dim]")
+        repl.log(Panel(table, border_style="cyan"))
+        repl.log("[dim]Use: /tokens limit <n> or /tokens turns <n>[/dim]")
 
     elif arg.startswith("limit "):
         try:
             val = int(arg[6:].strip())
             cfg.TRUNCATE_LIMIT = val
-            console.print(f"[green]✓ Output truncation limit set to [bold]{val}[/bold] characters.[/green]")
+            repl.log(f"[green]✓ Output truncation limit set to [bold]{val}[/bold] characters.[/green]")
         except ValueError:
             console.print("[red]Error: Limit must be an integer.[/red]")
 
@@ -309,8 +309,8 @@ def _handle_tokens_command(repl, arg: str):
         try:
             val = int(arg[6:].strip())
             cfg.MAX_TURN_MEMORY = val
-            console.print(f"[green]✓ Sliding window set to [bold]{val}[/bold] turns.[/green]")
+            repl.log(f"[green]✓ Sliding window set to [bold]{val}[/bold] turns.[/green]")
         except ValueError:
-            console.print("[red]Error: Turns must be an integer.[/red]")
+            repl.log("[red]Error: Turns must be an integer.[/red]")
     else:
-        console.print("[dim]Usage: /tokens [status | limit <n> | turns <n>][/dim]")
+        repl.log("[dim]Usage: /tokens [status | limit <n> | turns <n>][/dim]")

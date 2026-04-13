@@ -1,7 +1,7 @@
 """
 vibehack/agent/prompts/tactical.py — Tactical (Short-Lived) Prompts.
 
-Influenced by Gemini CLI's 'Tactical Inline' pattern.
+Influenced by Modern CLI's 'Tactical Inline' pattern.
 These messages are injected during execution for loop recovery, 
 continuation, and system feedback.
 """

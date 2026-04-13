@@ -1,7 +1,7 @@
 """
 vibehack/agent/prompts/builder.py — Composable prompt orchestrator.
 
-Like Gemini CLI's getCoreSystemPrompt():
+# Like Modern CLI's getCoreSystemPrompt():
   1. Receives PromptOptions (structured config)
   2. Calls individual render functions
   3. Filters empty sections

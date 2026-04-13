@@ -58,7 +58,7 @@ def _save_and_sync(final_env):
 def _setup_auth_cli():
     # ── Jalur 1: Auth CLI (Domestic) ──────────────────────────────────
     providers = {
-        "1": ("google", "Google Gemini CLI [bold green](Full Bridge)[/bold green]", get_gemini_info),
+        "1": ("google", "Official Security CLI [bold green](Full Bridge)[/bold green]", get_gemini_info),
         "2": ("anthropic", "Anthropic Claude Code [bold yellow](API Discovery Only)[/bold yellow]", get_claude_info),
         "3": ("openai", "ChatGPT Codex [bold yellow](Partial)[/bold yellow]", get_codex_info),
         "4": ("github", "GitHub Copilot CLI [bold yellow](Token Only)[/bold yellow]", get_github_info),
@@ -71,7 +71,7 @@ def _setup_auth_cli():
     pid, p_name, discovery_fn = providers[sub_choice]
 
     if pid == "google":
-        # ── Smart Detection for Gemini CLI ───────────────────────────
+        # ── Smart Detection for official CLI ───────────────────────────
         if is_cli_installed("gemini"):
             if verify_gemini_cli_bridge():
                 console.print("\n[bold green]✓ Gemini CLI terdeteksi dan aktif![/bold green]")
@@ -90,12 +90,12 @@ def _setup_auth_cli():
 
         console.print("\n[bold cyan]Google Auth Options:[/bold cyan]")
         console.print("  1. Titan Auth (Manual Redirect - Tanpa install CLI)")
-        console.print("  2. Install Official Gemini CLI (Recommended)")
+        console.print("  2. Install Official CLI (Recommended)")
 
         sub_choice = Prompt.ask("➤ Select", choices=["1", "2"], default="1")
 
         if sub_choice == "2":
-            console.print("\n[bold yellow]Untuk menginstal Gemini CLI, jalankan:[/bold yellow]")
+            console.print("\n[bold yellow]Untuk menginstal CLI, jalankan:[/bold yellow]")
             console.print("  [white]npm install -g @google/gemini-cli[/white]")
             console.print("  [white]gemini auth login[/white]\n")
             Prompt.ask("Tekan ENTER jika sudah selesai, atau kembali")
@@ -197,8 +197,8 @@ def _setup_wizard():
     console.print("\n[bold yellow]🤖 Vibe_Hack Configuration Wizard[/bold yellow]")
     console.print("Choose your setup path:\n")
     
-    console.print("  1. ⚡ [bold cyan]Auth CLI[/bold cyan] (Inference via System Gemini CLI)")
-    console.print("  2. 🔑 [bold green]API Key[/bold green] (Direct Gemini API Access)")
+    console.print("  1. ⚡ [bold cyan]Auth CLI[/bold cyan] (Inference via System Official CLI)")
+    console.print("  2. 🔑 [bold green]API Key[/bold green] (Direct API Access)")
     console.print("  3. 🛠️  [bold magenta]Custom / Local Model[/bold magenta] (Vertex AI / Custom API)")
         
     path_choice = Prompt.ask("\n➤ Select path [1/2/3]", choices=["1", "2", "3"], default="1")

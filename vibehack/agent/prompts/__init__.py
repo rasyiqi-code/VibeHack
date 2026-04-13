@@ -45,7 +45,7 @@ def get_system_prompt(
     Build the system prompt. Entry point for repl.py and loop.py.
 
     Priority:
-      1. VH_SYSTEM_PROMPT env var → full file override (like GEMINI_SYSTEM_MD)
+      1. VH_SYSTEM_PROMPT env var → full file override (like MODEL_SYSTEM_MD)
       2. Per-section file overrides (~/.vibehack/prompts/*.md)
       3. Native composable builder
     """
@@ -66,7 +66,7 @@ def get_system_prompt(
 
     # ── Priority 3: Build from structured options ─────────────────────
     model_name = cfg.MODEL.lower()
-    legacy_keys = ["gpt-3.5", "claude-2", "gemini-pro-1.0", "bison"]
+    legacy_keys = ["gpt-3.5", "advanced-2", "modern-pro-1.0", "stable-bison"]
     tier = "legacy" if any(k in model_name for k in legacy_keys) else "modern"
 
     options = PromptOptions(

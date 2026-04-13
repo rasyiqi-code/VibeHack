@@ -27,7 +27,7 @@ def execute_bridge_call(messages: List[Dict[str, str]], model: str, provider: st
         prompt = format_messages_for_bridge(messages)
         content = run_gemini_bridge(prompt, model=model)
         if not content:
-            raise Exception("Bridge Mode failed to return content from gemini-cli")
+            raise Exception("Bridge Mode failed to return content from the official CLI")
         return content
     
     raise NotImplementedError(f"Bridge mode not yet implemented for {provider}")

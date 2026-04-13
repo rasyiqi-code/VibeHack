@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 def get_gemini_info() -> Dict[str, Any]:
-    """Search for Gemini API key, model, and OAuth session."""
+    """Search for official provider API key, model, and OAuth session."""
     info = {
         "key": os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
         "model": os.getenv("GEMINI_MODEL"),
@@ -56,7 +56,7 @@ def get_gemini_info() -> Dict[str, Any]:
     return info
 
 def get_claude_info() -> Dict[str, Any]:
-    """Search for Claude Code credentials and model."""
+    """Search for advanced provider credentials and model."""
     info = {
         "key": os.getenv("ANTHROPIC_API_KEY"),
         "model": os.getenv("ANTHROPIC_MODEL"),
@@ -76,7 +76,7 @@ def get_claude_info() -> Dict[str, Any]:
     return info
 
 def get_codex_info() -> Dict[str, Any]:
-    """Search for ChatGPT Codex auth and model."""
+    """Search for standard provider auth and model."""
     info = {
         "key": os.getenv("OPENAI_API_KEY"),
         "model": os.getenv("OPENAI_MODEL"),
@@ -107,7 +107,7 @@ def get_codex_info() -> Dict[str, Any]:
     return info
 
 def get_github_info() -> Dict[str, Any]:
-    """Search for GitHub token and model."""
+    """Search for platform-specific token and model."""
     info = {
         "key": os.getenv("COPILOT_GITHUB_TOKEN") or os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN"),
         "model": os.getenv("COPILOT_MODEL"),
@@ -131,7 +131,7 @@ def get_github_info() -> Dict[str, Any]:
     return info
 
 def get_opencode_info() -> Dict[str, Any]:
-    """Search for OpenCode auth and model."""
+    """Search for external tool auth and model."""
     info = {"key": None, "model": None, "auth_file": None, "mode": "key"}
     path = Path.home() / ".local" / "share" / "opencode" / "auth.json"
     if path.exists():
