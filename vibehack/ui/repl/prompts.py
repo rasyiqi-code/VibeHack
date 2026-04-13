@@ -33,22 +33,22 @@ def get_repl_style():
     """Default styling for prompt-toolkit with modern Gold accents."""
     return Style.from_dict({
         # Layout components
-        'bottom-toolbar': '#ffd700 bg:#132e35',
-        'top-toolbar':    '#ffd700', # No background for header
-        'prompt':         '#00ffff bg:#132e35 bold', 
-        'placeholder':    '#666666 bg:#132e35',
+        'bottom-toolbar': '#ffd700 bg:#001b21',
+        'top-toolbar':    '#ffd700 bold', 
+        'prompt':         '#00ffff bg:#001b21 bold', 
+        'placeholder':    '#ffd700 bg:#001b21 italic', # Gold placeholder
 
         # Completion Menu (Modern multi-column look)
-        'completion-menu':                    'bg:#132e35 #ffffff',
+        'completion-menu':                    'bg:#001b21 #ffffff',
         'completion-menu.selected':           'bg:#a9bf4d #000000 bold',
-        'completion-menu.meta':               '#888888 bg:#132e35',
+        'completion-menu.meta':               '#ffd700 bg:#001b21', # Gold descriptions
         'completion-menu.selected.meta':      '#000000 bg:#a9bf4d',
-        'completion-menu.multi-column-meta':  'bg:#132e35 #888888',
+        'completion-menu.multi-column-meta':  'bg:#001b21 #ffd700',
 
         # Branding & Accents
         'logo':           '#00ffff bold',
-        'version':        '#bbbbbb',
-        'auth':           '#ffd700',
+        'version':        '#ffd700', # Gold version
+        'auth':           '#ffd700 bold',
         'path':           '#00ffff',
         'sandbox-safe':   'bg:#00ff00 #000000 bold',
         'sandbox-warn':   'bg:#ff0000 #ffffff bold',
