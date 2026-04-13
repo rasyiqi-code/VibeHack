@@ -229,11 +229,27 @@ async def download_tool(tool_name: str) -> bool:
     """
     if tool_name not in DOWNLOADABLE_TOOLS:
         if tool_name in APT_TOOLS:
-            console.print(f"[yellow]'{tool_name}' is an apt/system package.[/yellow]")
-            console.print(f"[dim]Install with: sudo {APT_TOOLS[tool_name]}[/dim]")
+            from vibehack.core.shell import execute_shell
+            from vibehack.config import cfg
+            
+            install_cmd = APT_TOOLS[tool_name]
+            if cfg.SANDBOX_ENABLED:
+                console.print(f"[cyan]📦 Sandbox detected. Auto-installing system package: {tool_name}...[/cyan]")
+                # Inside sandbox we are root, no sudo needed
+                res = await execute_shell(install_cmd)
+                if res.exit_code == 0:
+                    console.print(f"[bold green]✅ {tool_name} installed via apt.[/bold green]")
+                    return True
+                else:
+                    console.print(f"[red]Failed to install {tool_name} via apt.[/red]")
+                    return False
+            else:
+                console.print(f"[yellow]'{tool_name}' is an apt/system package.[/yellow]")
+                console.print(f"[dim]Install with: sudo {install_cmd}[/dim]")
+                return False
         else:
             console.print(f"[red]No download definition for '{tool_name}'.[/red]")
-        return False
+            return False
 
     tool = DOWNLOADABLE_TOOLS[tool_name]
 
