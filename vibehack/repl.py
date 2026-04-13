@@ -12,7 +12,7 @@ from prompt_toolkit import Application, PromptSession
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.filters import Condition
-from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane, FloatContainer, Float, Dimension
+from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane, FloatContainer, Float, Dimension, WindowAlign
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.processors import BeforeInput
@@ -100,6 +100,23 @@ class VibehackREPL:
             # Start processing in background
             asyncio.create_task(self._handle_input(text))
 
+        @self.kb.add('enter', filter=Condition(lambda: self.input_buffer.complete_state is not None))
+        def _(event):
+            """Accept suggestion and execute immediately."""
+            buffer = event.current_buffer
+            state = buffer.complete_state
+            if state:
+                # Ambil completion yang sedang di-highlight, atau yang pertama jika belum ada yang dipilih
+                completion = state.current_completion or (state.completions[0] if state.completions else None)
+                if completion:
+                    buffer.apply_completion(completion)
+                
+                text = buffer.text.strip()
+                if text:
+                    buffer.reset()
+                    self.log(HTML(f"<ansicyan><b>you:</b></ansicyan> {text}"))
+                    asyncio.create_task(self._handle_input(text))
+
         @self.kb.add('escape', 'enter')
         def _(event):
             """Alt+Enter untuk baris baru."""
@@ -119,7 +136,7 @@ class VibehackREPL:
             FloatContainer(
                 content=HSplit([
                     # Sticky Top Bar
-                    Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar'),
+                    Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar', align=WindowAlign.CENTER),
                     # Scrollable History Window (ANSI Supported)
                     self.history_pane,
                     # Input Area
@@ -135,8 +152,8 @@ class VibehackREPL:
                         height=Dimension(min=1, max=8),  # Batasi agar tidak merusak layout
                         style='class:prompt'
                     ),
-                    # Bottom Spacer (Reserved for floating footer)
-                    Window(height=1),
+                    # Bottom Spacer (Reserved for floating footer & breathing room)
+                    Window(height=3),
                 ]),
                 floats=[
                     # Sticky Bottom Bar (Static Float at absolute bottom)
@@ -148,7 +165,7 @@ class VibehackREPL:
                     Float(
                         xcursor=True,
                         ycursor=True,
-                        bottom=0,  # Selalu tepat di atas kursor (mendukung wrapping)
+                        bottom=0,  # Posisi tepat di atas kursor
                         content=CompletionsMenu(max_height=16, scroll_offset=1)
                     )
                 ]

@@ -56,7 +56,7 @@ def get_top_toolbar(repl):
     return HTML(
         f'<b>{logo}</b> <b>VibeHack</b> <version>v{__version__}</version> '
         f'| <auth>Signed in via {provider}</auth> '
-        f'| <model-hint>Mission: Autonomous Weapon /audit</model-hint>'
+        f'| <model-hint>Mission: Autonomous Weapon /audit <ansigray>....</ansigray></model-hint>'
     )
 
 def get_bottom_toolbar(repl):
