@@ -16,6 +16,7 @@ from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane, FloatC
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.processors import BeforeInput
+from prompt_toolkit.shortcuts import set_title
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import HTML, ANSI
@@ -176,8 +177,7 @@ class VibehackREPL:
             full_screen=True,
             key_bindings=self.kb,
             mouse_support=True,
-            on_invalidate=lambda _: self._scroll_to_bottom(),
-            set_title="vibehack"
+            on_invalidate=lambda _: self._scroll_to_bottom()
         )
         
         # Explicitly focus the input buffer initially
@@ -278,6 +278,7 @@ class VibehackREPL:
 
     async def run(self):
         # ── Setup ──
+        set_title("vibehack")
         self._check_sudo()
         self._discover_tools()
         if self.no_memory is False: init_memory()
