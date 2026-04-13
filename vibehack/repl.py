@@ -212,6 +212,10 @@ class VibehackREPL:
         return None
 
     async def run(self):
+        """Main REPL loop."""
+        import nest_asyncio
+        nest_asyncio.apply()
+        
         # ── Professional TUI Initialization ───────────────────────────────
         # Set terminal window title
         sys.stdout.write("\x1b]2;VibeHack [SEC-AGENT]\x07")
