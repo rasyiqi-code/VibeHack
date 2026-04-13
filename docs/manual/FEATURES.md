@@ -1,7 +1,7 @@
-# ✨ VibeHack Core Features (v4.0)
+# ✨ VibeHack Core Features (v4.1)
 
-## 🐚 Stateful Persistence (Heart of v4.0)
-VibeHack v4.0 transcends "one-shot" execution with a persistent heart.
+## 🐚 Stateful Persistence (Heart of v4.1)
+VibeHack v4.1 transcends "one-shot" execution with a persistent heart.
 - **Persistent Shell Sessions**: All shell commands now run in a long-lived `bash` process inside the sandbox. This allows the AI to maintain state (e.g., `cd`, environment variables) across turns.
 - **Hot-Resumption (Session Manager)**: Switching between audit sessions is now instant via `/sessions`. Users can "hot-swap" their entire knowledge, target, and history state without restarting the tool.
 - **Contextual Awareness**: The AI "remembers" where it is in the filesystem, allowing for professional multi-step exploitation chains.

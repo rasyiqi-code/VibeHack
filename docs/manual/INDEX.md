@@ -4,7 +4,7 @@ Welcome to the official technical documentation for VibeHack — the autonomous 
 
 ## 🚀 Getting Started
 - **[Installation Guide](./INSTALL.md)**: How to set up VibeHack and its Docker sandbox.
-- **[Core Features](./FEATURES.md)**: Deep dive into the v4.0 stateful engine.
+- **[Core Features](./FEATURES.md)**: Deep dive into the v4.1 stateful engine.
 - **[Command Reference](./COMMANDS.md)**: Full list of REPL commands and slash-actions.
 
 ## 🧬 Arsitektur & Safety

@@ -1,8 +1,8 @@
-# 🏗️ Lifecycle & Installation (v4.0)
+# 🏗️ Lifecycle & Installation (v4.1)
 
 ## 1. Prerequisites
-VibeHack v4.0 requires **Docker** for the best and safest experience.
-- **Docker Engine**: Required for **Persistent Session Mode**. Download at [docs.docker.com](https://docs.docker.com/get-docker/).
+VibeHack v4.1 (Autonomous Update) requires **Docker** for the best and safest experience.
+- **Docker Engine**: Mandatory for **Persistent Session Mode**. Download at [docs.docker.com](https://docs.docker.com/get-docker/).
 - **Linux/Darwin**: Optimized for POSIX systems.
 
 ## 2. Installation
@@ -21,7 +21,7 @@ VibeHack can be installed in two ways:
   ```
 
 ## 3. Persistent Session Configuration
-By default, VibeHack v4.0 uses a stateful sandbox. Ensure Docker is running before starting a mission:
+By default, VibeHack v4.1 uses a stateful sandbox. Ensure Docker is running before starting a mission:
 ```bash
 # Verify docker is accessible
 docker ps

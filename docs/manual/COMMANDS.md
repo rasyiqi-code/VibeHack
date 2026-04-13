@@ -1,4 +1,4 @@
-# 📟 Command Reference (v4.0)
+# 📟 Command Reference (v4.1)
 
 ## CLI Commands
 | Command | Usage | Description |
@@ -19,12 +19,12 @@
 - `--op-mode`: Set operation mode (`agent` | `ask`).
 - `--persona, -p`: Set persona (`dev-safe` | `pro`).
 - `--unchained`: Bypass regex guardrails (requires waiver).
-- **`--sandbox`**: **[Required for v4.0]** Run LLM shell commands in a persistent Docker session.
+- **`--sandbox`**: **[Required for v4.1]** Run LLM shell commands in a persistent Docker session.
 - `--model`: Specific LLM model override.
 
 ---
 
-## REPL Slash Commands (v4.0)
+## REPL Slash Commands (v4.1)
 | Command | Description |
 | :--- | :--- |
 | `/help` | Show REPL command help. |
