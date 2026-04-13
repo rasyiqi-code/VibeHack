@@ -31,3 +31,11 @@ VibeHack never forgets a successful tactic.
 - **Deep Docker Isolation**: Binaries are mounted Read-Only, while the workspace is Read-Write, preventing persistence attacks.
 - **Structural Guardrails**: Advanced `shlex` parsing prevents shell-metacharacter injection.
 - **Output Sanitization**: Automated masking of API keys and PII in tool results.
+
+---
+
+## 🧪 Call for Testers
+VibeHack v4 is a significant architectural leap. We invite the community to help us refine the engine:
+- **Bug Reporting**: Found an edge case in the `PersistentSession`? Open an Issue on GitHub.
+- **Strategic Feedback**: If the AI enters a loop or misses a blatant vulnerability, share your session log (~/.vibehack/sessions/).
+- **Tool Contributions**: Help us expand the `Provisioner` with more automated tool installers.
