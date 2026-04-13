@@ -1,5 +1,5 @@
-import subprocess
 import os
+import subprocess
 from typing import NamedTuple, Optional
 
 
@@ -10,13 +10,22 @@ class ShellResult(NamedTuple):
     truncated: bool
 
 
-def _build_sandbox_command(command: str) -> str:
+def _build_sandbox_command(command: str) -> list[str]:
     """Builds the docker exec command to run securely in the sandbox."""
-    import shlex
     from vibehack.core.sandbox import CONTAINER_NAME
 
     sandbox_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.vibehack/bin"
-    return f"docker exec -e PATH={sandbox_path} -i {CONTAINER_NAME} bash -c {shlex.quote(command)}"
+    return [
+        "docker",
+        "exec",
+        "-e",
+        f"PATH={sandbox_path}",
+        "-i",
+        CONTAINER_NAME,
+        "bash",
+        "-c",
+        command,
+    ]
 
 
 def execute_shell(
@@ -42,15 +51,25 @@ def execute_shell(
             # Ensure PATH includes /root/.vibehack/bin inside the container
             target_command = _build_sandbox_command(command)
 
-        process = subprocess.run(
-            target_command,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            env=env,  # Injects ~/.vibehack/bin into PATH (effective only on host)
-            executable="/bin/bash" if os.path.exists("/bin/bash") else None,
-        )
+        if isinstance(target_command, list):
+            process = subprocess.run(
+                target_command,
+                shell=False,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env,
+            )
+        else:
+            process = subprocess.run(
+                target_command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=env,  # Injects ~/.vibehack/bin into PATH (effective only on host)
+                executable="/bin/bash" if os.path.exists("/bin/bash") else None,
+            )
 
         stdout = process.stdout or ""
         stderr = process.stderr or ""
@@ -97,6 +116,7 @@ async def execute_shell_async(
     output_callback=None,
 ) -> ShellResult:
     import asyncio
+
     from vibehack.config import cfg
 
     target_command = command
@@ -104,13 +124,21 @@ async def execute_shell_async(
         target_command = _build_sandbox_command(command)
 
     try:
-        process = await asyncio.create_subprocess_shell(
-            target_command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=env,
-            executable="/bin/bash" if os.path.exists("/bin/bash") else None,
-        )
+        if isinstance(target_command, list):
+            process = await asyncio.create_subprocess_exec(
+                *target_command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+            )
+        else:
+            process = await asyncio.create_subprocess_shell(
+                target_command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+                executable="/bin/bash" if os.path.exists("/bin/bash") else None,
+            )
     except Exception as e:
         return ShellResult("", f"[VibeHack Error] Execution failed: {str(e)}", 1, False)
 
