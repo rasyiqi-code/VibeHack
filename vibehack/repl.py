@@ -9,17 +9,14 @@ from datetime import datetime
 from typing import List, Dict, Optional
 
 from prompt_toolkit import Application, PromptSession
-from prompt_toolkit.document import Document
-from prompt_toolkit.history import FileHistory
 from prompt_toolkit.filters import Condition
-from prompt_toolkit.layout import Layout, HSplit, VSplit, Window, ScrollablePane, FloatContainer, Float, Dimension, WindowAlign, ConditionalContainer
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.layout import Layout, HSplit, Window, ConditionalContainer
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
-from prompt_toolkit.layout.menus import CompletionsMenu
-from prompt_toolkit.layout.processors import BeforeInput
-from prompt_toolkit.shortcuts import set_title
+from prompt_toolkit.layout.containers import FloatContainer, Float, WindowAlign
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.formatted_text import HTML, ANSI
+from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.widgets import Frame
 from rich.console import Console
 
@@ -60,23 +57,13 @@ class VibehackREPL:
         self._system_built = False
         self._available_tools: List[str] = []
 
-        # Output Capture Setup
-        from io import StringIO
-        self.log_io = StringIO()
-        self.target_console = Console(file=self.log_io, force_terminal=True, width=120, color_system="truecolor")
-
         # ── TUI Setup ─────────────────────────────────────────────────────
         self.completer = SlashCommandCompleter()
         self.style = get_repl_style()
         
         # Buffers for history and input
         self.history_buffer = Buffer(read_only=True)
-        self.input_buffer = Buffer(
-            history=FileHistory(os.path.expanduser("~/.vibehack_history")),
-            completer=SlashCommandCompleter(),
-            complete_while_typing=True,
-            multiline=True
-        )
+        self.input_buffer = Buffer(completer=self.completer, history=FileHistory(os.path.join(cfg.HOME, ".history")))
         
         self.kb = KeyBindings()
         
@@ -90,93 +77,25 @@ class VibehackREPL:
 
         @self.kb.add('enter', filter=is_not_completing)
         def _(event):
-            text = self.input_buffer.text.strip()
-            if not text:
-                return
-            
+            # Process input and clear buffer
+            text = self.input_buffer.text
             self.input_buffer.reset()
-            # Append human message to history UI
-            self.log(HTML(f"<ansicyan><b>you:</b></ansicyan> {text}"))
-            
-            # Start processing in background
-            asyncio.create_task(self._handle_input(text))
-
-        @self.kb.add('enter', filter=Condition(lambda: self.input_buffer.complete_state is not None))
-        def _(event):
-            """Accept suggestion and execute immediately."""
-            buffer = event.current_buffer
-            state = buffer.complete_state
-            if state:
-                # Ambil completion yang sedang di-highlight, atau yang pertama jika belum ada yang dipilih
-                completion = state.current_completion or (state.completions[0] if state.completions else None)
-                if completion:
-                    buffer.apply_completion(completion)
-                
-                text = buffer.text.strip()
-                if text:
-                    buffer.reset()
-                    self.log(HTML(f"<ansicyan><b>you:</b></ansicyan> {text}"))
-                    asyncio.create_task(self._handle_input(text))
-
-        @self.kb.add('escape', 'enter')
-        def _(event):
-            """Alt+Enter untuk baris baru."""
-            event.current_buffer.newline()
+            # This will be handled in the main loop logic via a flag or queue
+            # but for simplicity in Application.run_async, we can trigger a task
+            pass
 
         # Full-Screen Layout
-        self.history_pane = ScrollablePane(
-            content=Window(
-                content=FormattedTextControl(lambda: ANSI(self.history_buffer.text)),
-                wrap_lines=True,
-                dont_extend_height=False, # Biarkan ia mengambil sisa ruang
-            ),
-            show_scrollbar=True
-        )
-
         self.layout = Layout(
-            FloatContainer(
-                content=HSplit([
-                    # Sticky Top Bar
-                    Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar', align=WindowAlign.CENTER),
-                    # Scrollable History Window (ANSI Supported)
-                    self.history_pane,
-                    # completions UI (In-layout, full width, ALWAYS above input)
-                    CompletionsMenu(max_height=10, scroll_offset=1),
-
-                    # Input Area with breathing room above
-                    Window(height=1),
-                    # Thick Input Bar with Padding
-                    HSplit([
-                        Window(height=1, style='class:prompt'),
-                        VSplit([
-                            Window(width=2, style='class:prompt'), # Left Margin
-                            Window(
-                                content=BufferControl(
-                                    buffer=self.input_buffer,
-                                    input_processors=[
-                                        BeforeInput([('class:prompt', '> ')]),
-                                    ]
-                                ),
-                                wrap_lines=True,
-                                dont_extend_height=True,
-                                height=Dimension(min=1, max=8),
-                                style='class:prompt'
-                            ),
-                            Window(width=2, style='class:prompt'), # Right Margin
-                        ]),
-                        Window(height=1, style='class:prompt'),
-                    ]),
-                    # Bottom Spacer (Reserved for floating footer & breathing room)
-                    Window(height=2),
-                ]),
-                floats=[
-                    # Sticky Bottom Bar (Static Float at absolute bottom)
-                    Float(
-                        bottom=0,
-                        content=Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar')
-                    ),
-                ]
-            )
+            HSplit([
+                # Sticky Top Bar
+                Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar'),
+                # Scrollable History Window
+                Window(content=BufferControl(buffer=self.history_buffer), wrap_lines=True),
+                # Sticky Bottom Bar
+                Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar'),
+                # Input Area
+                Window(content=BufferControl(buffer=self.input_buffer), height=1, style='class:prompt'),
+            ])
         )
         
         # Initialize Application for full-screen management
@@ -185,54 +104,20 @@ class VibehackREPL:
             style=self.style,
             full_screen=True,
             key_bindings=self.kb,
-            mouse_support=True,
-            on_invalidate=lambda _: self._scroll_to_bottom()
+            mouse_support=True
         )
         
-        # Explicitly focus the input buffer initially
-        self.app.layout.focus(self.input_buffer)
-
-    async def _handle_input(self, text: str):
-        if text.startswith("/"):
-            result = handle_slash_command(self, text)
-            if result is False:
-                self.app.exit()
-            elif isinstance(result, tuple) and result[0] == "__install__":
-                from vibehack.toolkit.provisioner import download_tool
-                if await download_tool(result[1]):
-                    clear_discovery_cache()
-                    self._discover_tools()
-                    self._rebuild_system_prompt()
-            return
-
-        try:
-            await process_llm_turn(self, text)
-        except Exception as e:
-            self.log(f"[bold red]Error:[/bold red] {e}")
-
-    def _scroll_to_bottom(self):
-        """Ensures the history window is always scrolled to the latest logs."""
-        if hasattr(self, 'history_pane'):
-            # Set scroll offset to the very bottom
-            self.history_pane.vertical_scroll = 999999 
-        
-    def log(self, renderable):
-        """Capture Rich renderables as ANSI and append to history buffer."""
-        self.target_console.print(renderable)
-        ansi_text = self.log_io.getvalue()
-        self.log_io.truncate(0)
-        self.log_io.seek(0)
-        
-        # Append text bypassing read-only state atomicity
-        new_text = self.history_buffer.text + ansi_text
-        self.history_buffer.set_document(
-            Document(new_text, cursor_position=len(new_text)),
-            bypass_readonly=True
+        self.session = PromptSession(
+            history=FileHistory(os.path.join(cfg.HOME, ".history")),
+            completer=self.completer,
+            complete_while_typing=True,
+            style=self.style,
+            bottom_toolbar=lambda: get_bottom_toolbar(self)
         )
 
     def _check_sudo(self):
         if os.geteuid() == 0:
-            self.log("[bold red on white]  ⚠  ROOT — AI hallucinations can destroy your OS  ⚠  [/bold red on white]")
+            console.print("[bold red on white]  ⚠  ROOT — AI hallucinations can destroy your OS  ⚠  [/bold red on white]")
 
     def _discover_tools(self):
         self._available_tools = discover_tools()
@@ -280,24 +165,55 @@ class VibehackREPL:
             return m
         return None
 
-    def _log_output(self, text: str):
-        """Append text to the history buffer for the TUI."""
-        new_text = self.history_buffer.text + text + "\n"
-        self.history_buffer.text = new_text
-
     async def run(self):
-        # ── Setup ──
-        set_title("vibehack")
+        # ── Sticky TUI Initialization ─────────────────────────────────────
+        display_banner()
         self._check_sudo()
         self._discover_tools()
         if self.no_memory is False: init_memory()
         self._rebuild_system_prompt()
 
-        # Start Application
-        try:
-            await self.app.run_async()
-        finally:
-            self._persist()
-            if not self.no_memory and len(self.history) > 2:
-                ingest_session(self.target or "unknown", self.history, self.key_findings)
-            print(f"\nSession {self.session_id} saved.\n")
+        # Display start-up notice (Gemini aesthetic)
+        display_notice(
+            "VibeHack is an autonomous security agent. All activities are logged to "
+            "~/.vibehack/sessions for audit and cross-session learning.",
+            title="SECURITY ADVISORY"
+        )
+
+        # ── Prompt Setup with Sticky Components ───────────────────────────
+        # Note: We use the bottom_toolbar and a custom prompt style to 
+        # achieve the modern Gemini CLI look.
+        
+        while True:
+            try:
+                user_input = await self.session.prompt_async(
+                    HTML('<ansicyan><b>you: </b></ansicyan>'),
+                    placeholder=HTML('<ansigray>Type your message or /command...</ansigray>'),
+                    bottom_toolbar=lambda: get_bottom_toolbar(self),
+                    style=self.style
+                )
+                if not user_input.strip(): continue
+
+                if user_input.startswith("/"):
+                    result = handle_slash_command(self, user_input)
+                    if result is False: break
+                    if isinstance(result, tuple) and result[0] == "__install__":
+                        from vibehack.toolkit.provisioner import download_tool
+                        if await download_tool(result[1]):
+                            clear_discovery_cache()
+                            self._discover_tools()
+                            self._rebuild_system_prompt()
+                    continue
+
+                await process_llm_turn(self, user_input)
+
+            except (EOFError, KeyboardInterrupt):
+                break
+            except Exception as e:
+                console.print(f"[red]Error:[/red] {e}")
+                await asyncio.sleep(1)
+
+        self._persist()
+        if not self.no_memory and len(self.history) > 2:
+            ingest_session(self.target or "unknown", self.history, self.key_findings)
+        console.print(f"\n[bold green]Session {self.session_id} saved.[/bold green]\n")

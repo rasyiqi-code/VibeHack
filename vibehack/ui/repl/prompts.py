@@ -7,6 +7,7 @@ from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.styles import Style
 from prompt_toolkit.formatted_text import HTML
 from vibehack.config import cfg
+from vibehack.core.repl.commands import SLASH_COMMANDS
 
 class SlashCommandCompleter(Completer):
     """Autocomplete for slash commands and tool names."""
@@ -23,36 +24,24 @@ class SlashCommandCompleter(Completer):
         
         # Slash command autocomplete
         elif text.startswith("/"):
-            from vibehack.core.repl.commands import SLASH_COMMANDS
             word = text.lower()
-            for cmd, desc in SLASH_COMMANDS.items():
+            for cmd in SLASH_COMMANDS:
                 if cmd.startswith(word):
-                    yield Completion(cmd, start_position=-len(text), display_meta=desc)
+                    yield Completion(cmd, start_position=-len(text))
 
 def get_repl_style():
-    """Default styling for prompt-toolkit with modern Gold accents."""
+    """Default styling for prompt-toolkit with Gemini CLI aesthetic."""
     return Style.from_dict({
-        # Layout components
-        'bottom-toolbar': '#ffd700 bg:#001b21',
-        'top-toolbar':    '#ffd700 bold', 
-        'prompt':         '#00ffff bg:#001b21 bold', 
-        'placeholder':    '#ffd700 bg:#001b21 italic', # Gold placeholder
-
-        # Completion Menu (Modern multi-column look)
-        'completion-menu':                    'bg:#001b21 #ffffff',
-        'completion-menu.selected':           'bg:#a9bf4d #000000 bold',
-        'completion-menu.meta':               '#ffd700 bg:#001b21', # Gold descriptions
-        'completion-menu.selected.meta':      '#000000 bg:#a9bf4d',
-        'completion-menu.multi-column-meta':  'bg:#001b21 #ffd700',
-
-        # Branding & Accents
+        'bottom-toolbar': '#aaaaaa bg:#1e1e1e',
+        'top-toolbar':    '#aaaaaa bg:#1e1e1e',
+        'prompt':         '#00ffff bold',
         'logo':           '#00ffff bold',
-        'version':        '#ffd700', # Gold version
-        'auth':           '#ffd700 bold',
+        'version':        '#666666',
+        'auth':           '#dddddd',
         'path':           '#00ffff',
-        'sandbox-safe':   'bg:#00ff00 #000000 bold',
-        'sandbox-warn':   'bg:#ff0000 #ffffff bold',
-        'model-hint':     '#ffd700',
+        'sandbox-safe':   '#00ff00',
+        'sandbox-warn':   '#ff0000 bold',
+        'model-hint':     '#666666',
     })
 
 def get_top_toolbar(repl):
@@ -60,13 +49,13 @@ def get_top_toolbar(repl):
     from vibehack import __version__
     provider = repl.handler.provider.upper() if hasattr(repl, 'handler') else "UNKNOWN"
     
-    # Simple plain-text arrows to avoid raw HTML leak on some terminals
-    logo = "❱❱❱"
+    # Gemini-style multi-colored arrow logo
+    logo = HTML('<ansiblue><b>❱</b></ansiblue><ansicyan><b>❱</b></ansicyan><ansigreen><b>❱</b></ansigreen>')
     
     return HTML(
-        f'<b>{logo}</b> <b>VibeHack</b> <version>v{__version__}</version> '
+        f'{logo} <b>VibeHack</b> <version>v{__version__}</version> '
         f'| <auth>Signed in via {provider}</auth> '
-        f'| <model-hint>Mission: Autonomous Weapon /audit <ansigray>....</ansigray></model-hint>'
+        f'| <model-hint>Mission: Autonomous Weapon /audit</model-hint>'
     )
 
 def get_bottom_toolbar(repl):

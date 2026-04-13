@@ -26,4 +26,4 @@ Persistent cross-session learning using `~/.vibehack/memory.db`. VibeHack rememb
 ## 🔧 Troubleshooting
 - **LLM JSON Repair**: Automatic fixing of malformed AI responses.
 - **Timeouts**: Configurable via `VH_CMD_TIMEOUT` for intensive scans.
-- **Bridge Auth**: Redirection logic for using the system-installed official CLI.
+- **Bridge Auth**: Redirection logic for using system-installed Gemini CLI.

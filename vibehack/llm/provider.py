@@ -100,7 +100,7 @@ class UniversalHandler:
                     "headers": self.custom_headers,
                 }
                 if self.provider == "google" and "vertex_ai/" in self.model:
-                   kwargs["vertex_project"] = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "generic-security-project"
+                   kwargs["vertex_project"] = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli"
 
                 response = await litellm.acompletion(**kwargs)
                 content = response.choices[0].message.content
@@ -139,7 +139,7 @@ class UniversalHandler:
             kwargs.pop("api_key", None) # Use ADC
         
         if self.provider == "google" and "vertex_ai/" in self.model:
-            kwargs["vertex_project"] = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "generic-security-project"
+            kwargs["vertex_project"] = os.getenv("VERTEX_PROJECT") or os.getenv("GOOGLE_CLOUD_PROJECT") or "gemini-cli"
 
         response = await litellm.acompletion(**kwargs)
         return response.choices[0].message.content

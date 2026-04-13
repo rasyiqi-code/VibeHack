@@ -39,7 +39,7 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
         detected = repl._extract_target_from_text(user_message)
         if detected and not check_target(detected):
             repl.target = detected
-            repl.log(f"[dim]✓ Target auto-detected: {detected}[/dim]")
+            console.print(f"[dim]✓ Target auto-detected: {detected}[/dim]")
             repl._rebuild_system_prompt()
 
     if not repl._system_built:
@@ -59,11 +59,10 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
             if duplicate_cmd:
                 repl.history.append({"role": "user", "content": get_loop_recovery(f"Command '{duplicate_cmd}' repeated 3x")})
 
-            # In full-screen TUI, status spinner is replaced by a log or bottom toolbar hint
-            repl.log("[bold green]🤖 AI is thinking...[/bold green]")
-            response: AgentResponse = await repl.handler.complete(repl.history)
+            with console.status("[bold green]🤖 AI is thinking...[/bold green]", spinner="dots"):
+                response: AgentResponse = await repl.handler.complete(repl.history)
         except Exception as e:
-            repl.log(f"[bold red]LLM error:[/bold red] {e}")
+            console.print(f"[red]LLM error:[/red] {e}")
             if repl.history and repl.history[-1]["role"] == "user":
                 repl.history.pop()  # Rollback if last turn failed
             return
@@ -78,18 +77,18 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
                 repl.knowledge.technologies.add(tech)
                 repl._rebuild_system_prompt()
 
-        display_thought(response.thought, target_console=repl.target_console)
+        display_thought(response.thought)
 
         if response.education and repl.persona == "dev-safe":
-            display_education(response.education, target_console=repl.target_console)
+            display_education(response.education)
 
         if response.mission_goals:
             if set(repl.knowledge.mission_goals) != set(response.mission_goals):
                 repl.knowledge.mission_goals = response.mission_goals
-                display_mission(repl.knowledge.mission_goals, target_console=repl.target_console)
+                display_mission(repl.knowledge.mission_goals)
 
         if response.finding:
-            display_finding(response.finding.severity, response.finding.title, response.finding.description, target_console=repl.target_console)
+            display_finding(response.finding.severity, response.finding.title, response.finding.description)
             repl.key_findings.append(response.finding)
             repl.knowledge.tested_surfaces.add(response.finding.title)
             repl.history.append({"role": "user", "content": get_finding_note(response.finding.title)})
@@ -110,7 +109,7 @@ async def _handle_ask_mode(repl):
     from vibehack.agent.prompts import load_template
     ask_sys = {"role": "system", "content": load_template("ask_mode")}
     from vibehack.ui.tui import display_ask_response
-    with repl.target_console.status("[bold magenta]🤖 AI is formulating answer...[/bold magenta]", spinner="dots"):
+    with console.status("[bold magenta]🤖 AI is formulating answer...[/bold magenta]", spinner="dots"):
         raw_resp = await repl.handler.complete_raw([ask_sys] + repl.history)
     
     display_ask_response(raw_resp)
@@ -122,7 +121,7 @@ async def _execute_proposed_command(repl, response: AgentResponse):
     cmd = response.raw_command.strip()
     block = check_command(cmd, repl.unchained)
     if block:
-        repl.log(f"\n[bold red]🛡 BLOCKED:[/bold red] {block}\n")
+        console.print(f"\n[bold red]🛡 BLOCKED:[/bold red] {block}\n")
         repl.history.append({"role": "user", "content": get_block_note(block)})
         return
 
@@ -130,24 +129,24 @@ async def _execute_proposed_command(repl, response: AgentResponse):
         _handle_memory_tool(repl, cmd)
         return
 
-    display_command(cmd, target_console=repl.target_console)
+    display_command(cmd)
 
     if response.is_destructive:
-        repl.log("[bold red]⚠  DESTRUCTIVE — manual approval required[/bold red]")
+        console.print("[bold red]⚠  DESTRUCTIVE — manual approval required[/bold red]")
         approval = await ask_approval()
     elif repl.auto_allow:
-        approval, _ = "y", repl.log("[dim]⚡ Auto-Allow[/dim]")
+        approval, _ = "y", console.print("[dim]⚡ Auto-Allow[/dim]")
     else:
         approval = await ask_approval()
 
     if approval == "n":
-        # Note: Prompt.ask might not work in full-screen easily. Fallback to a simple rejection note.
-        repl.history.append({"role": "user", "content": f"System: USER REJECTED COMMAND."})
+        note = Prompt.ask("[dim]Hint for AI (optional)[/dim]", default="")
+        repl.history.append({"role": "user", "content": f"System: USER REJECTED COMMAND. {note}"})
         return
 
     if approval == "a":
         repl.auto_allow = True
-        repl.log("[yellow]⚡ Auto-Allow enabled[/yellow]")
+        console.print("[yellow]⚡ Auto-Allow enabled[/yellow]")
 
     # Execute and Stream
     from rich.live import Live
@@ -159,11 +158,11 @@ async def _execute_proposed_command(repl, response: AgentResponse):
         style = "red" if is_stderr else "dim white"
         _live.update(Panel(display_lines, title="📝 Streaming Output", border_style=style))
 
-    with Live(Panel("Initializing...", title="📝 Streaming Output", border_style="dim white"), refresh_per_second=4, transient=True, console=repl.target_console) as _live:
+    with Live(Panel("Initializing...", title="📝 Streaming Output", border_style="dim white"), refresh_per_second=4, transient=True) as _live:
         result = await execute_shell_async(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=repl.env, output_callback=live_callback)
 
-    display_output(result.stdout, target_console=repl.target_console)
-    if result.stderr: display_output(result.stderr, is_error=True, target_console=repl.target_console)
+    display_output(result.stdout)
+    if result.stderr: display_output(result.stderr, is_error=True)
 
     # Knowledge Extraction
     old_k = (len(repl.knowledge.open_ports), len(repl.knowledge.technologies), len(repl.knowledge.endpoints))
@@ -171,14 +170,14 @@ async def _execute_proposed_command(repl, response: AgentResponse):
     extract_knowledge(result.stderr or "", repl.knowledge)
     
     if (len(repl.knowledge.open_ports), len(repl.knowledge.technologies), len(repl.knowledge.endpoints)) != old_k:
-        display_knowledge_update(list(repl.knowledge.open_ports), list(repl.knowledge.technologies), repl.knowledge.endpoints, target_console=repl.target_console)
+        display_knowledge_update(list(repl.knowledge.open_ports), list(repl.knowledge.technologies), repl.knowledge.endpoints)
         repl._rebuild_system_prompt()
 
     feedback = f"COMMAND: {cmd}\nEXIT_CODE: {result.exit_code}\nSTDOUT:\n{result.stdout}"
     if result.stderr: feedback += f"\nSTDERR:\n{result.stderr}"
     if result.truncated:
         feedback += get_truncation_note(cfg.TRUNCATE_LIMIT)
-        repl.log(f"[dim]ℹ Output truncated to {cfg.TRUNCATE_LIMIT} chars to save tokens.[/dim]")
+        console.print(f"[dim]ℹ Output truncated to {cfg.TRUNCATE_LIMIT} chars to save tokens.[/dim]")
 
     repl.history.append({"role": "user", "content": feedback})
 

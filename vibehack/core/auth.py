@@ -34,13 +34,13 @@ def _get_client_config() -> Dict[str, Any]:
         }
     }
     
-    # Force overwrite if legacy IDs were present to prevent 401
+    # Force overwrite if old Gemini CLI IDs were present to prevent 401
     if path.exists():
         try:
             with open(path, "r") as f:
                 current = json.load(f)
                 cid = current.get("installed", {}).get("client_id", "")
-                if "681255809395" in cid: # Legacy prefix
+                if "681255809395" in cid: # Old Gemini CLI prefix
                     needs_update = True
                 else:
                     return current # Use custom user config
@@ -73,7 +73,7 @@ def manual_google_login(save_path: Path) -> Optional[Dict[str, Any]]:
     client_id = config["installed"]["client_id"]
     client_secret = config["installed"]["client_secret"]
     
-    # ── PKCE Generation (Stable Auth Match: HEX 32 bytes) ──────────────
+    # ── PKCE Generation (OpenClaw Match: HEX 32 bytes) ──────────────
     code_verifier = secrets.token_hex(32)
     # Code Challenge: SHA256 of hex verifier, then base64url encoded
     challenge_hash = hashlib.sha256(code_verifier.encode('ascii')).digest()
@@ -95,7 +95,7 @@ def manual_google_login(save_path: Path) -> Optional[Dict[str, Any]]:
     query = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{query}"
     
-    console.print("\n[bold blue]🌐 Legacy-Style Manual Login (PKCE Enabled)[/bold blue]")
+    console.print("\n[bold blue]🌐 OpenClaw-Style Manual Login (PKCE Enabled)[/bold blue]")
     console.print("1. Salalin link ini ke browser Anda (Paling aman: [bold cyan]Ctrl+Klik[/bold cyan] link di bawah):")
     
     # Clickable link for modern terminals
@@ -147,7 +147,7 @@ def exchange_code_for_token(code: str, client_id: str, client_secret: str, code_
         "grant_type": "authorization_code"
     }
 
-    # Attempt 1: With Secret (Standard mode)
+    # Attempt 1: With Secret (Official/OpenClaw style)
     try:
         data_with_secret = base_data.copy()
         data_with_secret["client_secret"] = client_secret
@@ -157,7 +157,7 @@ def exchange_code_for_token(code: str, client_id: str, client_secret: str, code_
         if response.status_code == 200:
             tokens = response.json()
         elif response.status_code in [400, 401]:
-            # Attempt 2: Without Secret (Public Client mode)
+            # Attempt 2: Without Secret (Public Client/Gemini CLI style)
             console.print("[yellow]⚠️  Google menolak Client Secret. Mencoba metode Public Client (No-Secret)...[/yellow]")
             response = requests.post(token_url, data=base_data, headers=headers)
             
@@ -203,7 +203,7 @@ def is_cli_installed(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 def verify_gemini_cli_bridge() -> bool:
-    """Verify if the official CLI is authenticated and usable."""
+    """Verify if gemini-cli is authenticated and usable."""
     if not is_cli_installed("gemini"):
         return False
     
@@ -220,7 +220,7 @@ def verify_gemini_cli_bridge() -> bool:
         return False
 
 def run_gemini_bridge(prompt: str, model: Optional[str] = None) -> Optional[str]:
-    """Run prompt via official CLI subprocess."""
+    """Run prompt via official gemini CLI subprocess."""
     from rich.console import Console
     console = Console()
     

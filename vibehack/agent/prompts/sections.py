@@ -1,7 +1,7 @@
 """
 vibehack/agent/prompts/sections.py — Individual render functions.
 
-Like CLI's renderPreamble(), renderCoreMandates(), etc.
+Like Gemini CLI's renderPreamble(), renderCoreMandates(), etc.
 Each function:
   - Takes PromptOptions as input
   - Returns empty string if its toggle is OFF

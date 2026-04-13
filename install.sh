@@ -4,13 +4,8 @@
 
 set -e
 
-# Fetch version dynamically from pyproject.toml
-if [ -f "pyproject.toml" ]; then
-    VERSION=$(grep -m 1 version pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-else
-    # Fallback for curl | bash execution
-    VERSION=$(curl -s https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/pyproject.toml | grep -m 1 version | sed 's/version = "\(.*\)"/\1/' || echo "2.7.0")
-fi
+# Fetch version dynamically from GitHub
+VERSION=$(curl -s https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/pyproject.toml | grep -m 1 version | sed 's/version = "\(.*\)"/\1/' || echo "2.3.0")
 
 echo -e "\033[1;31m"
 echo "╔══════════════════════════════════════════╗"

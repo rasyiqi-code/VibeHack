@@ -1,8 +1,8 @@
 """
-vibehack/cli.py — CLI entry point for VibeHack
+vibehack/cli.py — CLI entry point for Vibe_Hack v1.7
 
 Primary UX: run `vibehack` with no arguments → opens interactive REPL
-            (like official security CLIs, but for offensive security)
+            (like Claude Code / Gemini CLI, but for offensive security)
 
 Secondary UX: `vibehack start <target>` for quick one-shot sessions
 """
@@ -12,7 +12,6 @@ from typing import Optional
 
 import typer
 from vibehack import __version__
-from vibehack.utils.version import get_remote_version
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
@@ -47,13 +46,8 @@ def safe_run(coro):
 
 load_dotenv()
 
-def version_callback(value: bool):
-    if value:
-        console.print(f"🔥 VibeHack v{__version__}")
-        raise typer.Exit()
-
 app = typer.Typer(
-    help=f"🔥 VibeHack v{__version__} — The Autonomous Weapon",
+    help="🔥 Vibe_Hack v2.6.11 — The Autonomous Weapon (Universal Reconfig Release)",
     no_args_is_help=False,  # Allow bare `vibehack` to open REPL
     invoke_without_command=True,
 )
@@ -77,12 +71,11 @@ def default(
     unchained: bool = typer.Option(False, "--unchained", help="Bypass regex guardrails (requires waiver)"),
     no_memory: bool = typer.Option(False, "--no-memory", help="Disable Long-Term Memory"),
     sandbox: bool = typer.Option(False, "--sandbox", help="Run LLM shell commands inside a Docker container"),
-    model: Optional[str] = typer.Option(None, "--model", help="Override LLM model (e.g. model-provider/model-name)"),
+    model: Optional[str] = typer.Option(None, "--model", help="Override LLM model (e.g. openai/gpt-4o)"),
     target: Optional[str] = typer.Option(None, "--target", "-t", help="Pre-load target URL/IP"),
-    version: Optional[bool] = typer.Option(None, "--version", callback=version_callback, is_eager=True, help="Show version and exit"),
 ):
     """
-    🔥 Interactive hacking REPL — an advanced co-pilot for offensive security.
+    🔥 Interactive hacking REPL — like Claude Code, but for offensive security.
 
     Run with no arguments to open the AI hacking assistant.
     Type naturally: 'scan localhost:3000', 'fuzz the API', 'check for SQLi'.
@@ -98,9 +91,6 @@ def default(
     if ctx.invoked_subcommand is not None:
         return  # Let the subcommand handle it
 
-    # Force hard clear immediately for clean transition
-    os.system('clear' if os.name == 'posix' else 'cls')
-
     if model:
         os.environ["VH_MODEL"] = model
         cfg.MODEL = model
@@ -111,7 +101,6 @@ def default(
         start_sandbox()
 
     api_key = _get_api_key()
-    console.clear()
 
     if not no_memory:
         init_memory()
@@ -147,7 +136,6 @@ def start(
         start_sandbox()
 
     api_key = _get_api_key()
-    console.clear()
     if not no_memory:
         init_memory()
 
@@ -171,7 +159,6 @@ def resume(
     from vibehack.llm.provider import Finding
 
     api_key = _get_api_key()
-    console.clear()
     state = load_session(session_id)
     if not state:
         console.print(f"[bold red]Session '{session_id}' not found.[/bold red]")
@@ -287,35 +274,6 @@ def install_tool(
     safe_run(download_tool(tool))
 
 
-@app.command(name="check-update")
-def check_update():
-    """Check if a newer version of VibeHack is available on GitHub."""
-    console.print("\n[bold yellow]📡 Checking for updates...[/bold yellow]")
-    remote_v = get_remote_version()
-    
-    if not remote_v:
-        console.print("[bold red]Error:[/bold red] Could not reach GitHub to check version.")
-        return
-
-    from rich.panel import Panel
-    if remote_v == __version__:
-        console.print(Panel(
-            f"You are running the latest version: [bold green]v{__version__}[/bold green]",
-            border_style="green"
-        ))
-    else:
-        # Simple string comparison or version parsing
-        console.print(Panel(
-            f"Update Available! 🚀\n\n"
-            f"Local version:  [bold yellow]v{__version__}[/bold yellow]\n"
-            f"Latest version: [bold green]v{remote_v}[/bold green]\n\n"
-            f"Run [bold cyan]vibehack update[/bold cyan] to upgrade.",
-            title="Update Manager",
-            border_style="cyan"
-        ))
-
-# _get_remote_version removed, using get_remote_version from utils
-
 @app.command()
 def sessions():
     """List all saved sessions with target, findings count, and timestamp."""
@@ -347,28 +305,22 @@ def sessions():
 
 @app.command()
 def update():
-    """Self-update VibeHack to the latest version from GitHub."""
+    """Self-update Vibe_Hack to the latest version from GitHub."""
     console.print("\n[bold yellow]📡 Checking for updates...[/bold yellow]")
-    remote_v = get_remote_version()
-    
-    if remote_v == __version__:
-        console.print(f"[green]✓ You are already on the latest version (v{__version__}).[/green]\n")
-        return
-
     import sys
     import subprocess
     
     repo_url = "git+https://github.com/rasyiqi-code/VibeHack.git"
     
     try:
-        with console.status(f"[bold cyan]Upgrading VibeHack to v{remote_v}...[/bold cyan]"):
+        with console.status("[bold cyan]Updating Vibe_Hack core...[/bold cyan]"):
             # We use sys.executable to ensure we update the current venv
             subprocess.run(
                 [sys.executable, "-m", "pip", "install", "--upgrade", repo_url],
                 check=True,
                 capture_output=True
             )
-        console.print(f"[bold green]✅ VibeHack successfully updated to v{remote_v}![/bold green]")
+        console.print("[bold green]✅ Vibe_Hack successfully updated to the latest version![/bold green]")
         console.print("[dim]Restart vibehack to apply changes.[/dim]\n")
     except subprocess.CalledProcessError as e:
         console.print(f"[bold red]Update failed![/bold red]")
