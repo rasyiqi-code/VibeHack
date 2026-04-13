@@ -40,6 +40,7 @@ SLASH_COMMANDS = {
     "/tokens":    "Manage token economy and context window (/tokens status | limit <n> | turns <n>)",
     "/tools":     "Show tools discovered in your PATH",
     "/check-update": "Check for the latest version on GitHub",
+    "/history":   "Show a clean summary of the session ReAct chain",
     "/exit":      "Save session and exit",
 }
 
@@ -207,6 +208,9 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
     elif verb in ("/exit", "/quit", "/q"):
         return False
 
+    elif verb == "/history":
+        _display_history(repl)
+
     else:
         console.print(f"[red]Unknown:[/red] {verb}. Type /help")
 
@@ -353,3 +357,43 @@ def _check_update_logic(repl):
                 
     except Exception as e:
         console.print(f"[red]Update check failed:[/red] {e}")
+
+def _display_history(repl):
+    """Prints a clean summary of the session turns."""
+    from rich.table import Table
+    import json
+    
+    if not repl.history:
+        console.print("[dim]No history found for this session.[/dim]")
+        return
+
+    table = Table(title=f"📜 Session History ({repl.session_id})", box=None)
+    table.add_column("Role", style="cyan")
+    table.add_column("Content", style="white")
+
+    for turn in repl.history:
+        role = turn["role"]
+        content = turn["content"]
+        
+        if role == "system":
+            table.add_row("SYSTEM", "[dim]System Prompt Hidden[/dim]")
+        elif role == "user":
+            if content.startswith("COMMAND:"):
+                cmd_line = content.split("\n")[0]
+                table.add_row("OBSERVE", f"[yellow]{cmd_line}[/yellow]")
+            else:
+                table.add_row("USER", content[:80] + ("..." if len(content) > 80 else ""))
+        elif role == "assistant":
+            try:
+                data = json.loads(content)
+                thought = data.get("thought", "...")
+                cmd = data.get("raw_command", "N/A")
+                table.add_row("THOUGHT", f"[italic dim]{thought[:120]}...[/italic dim]")
+                if cmd:
+                    table.add_row("ACTION", f"[bold green]{cmd}[/bold green]")
+            except:
+                table.add_row("AI", content[:80] + ("..." if len(content) > 80 else ""))
+        
+        table.add_section()
+        
+    console.print(table)

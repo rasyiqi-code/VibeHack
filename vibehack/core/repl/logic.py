@@ -62,9 +62,17 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
             with console.status("[bold green]🤖 AI is thinking...[/bold green]", spinner="dots"):
                 response: AgentResponse = await repl.handler.complete(repl.history)
         except Exception as e:
-            console.print(f"[red]LLM error:[/red] {e}")
+            err_msg = str(e)
+            if "QUOTA_EXHAUSTED" in err_msg or "429" in err_msg:
+                console.print(f"\n[bold red]🛑 API Quota Exhausted:[/bold red] {err_msg}")
+                console.print(f"[yellow]Session {repl.session_id} has been saved.[/yellow]")
+                console.print(f"[cyan]You can resume this audit later with:[/cyan] [bold]vibehack resume {repl.session_id}[/bold]")
+            else:
+                console.print(f"[red]LLM error:[/red] {e}")
+            
+            repl._persist()
             if repl.history and repl.history[-1]["role"] == "user":
-                repl.history.pop()  # Rollback if last turn failed
+                repl.history.pop()  # Rollback
             return
 
         repl.history.append({"role": "assistant", "content": response.model_dump_json()})
