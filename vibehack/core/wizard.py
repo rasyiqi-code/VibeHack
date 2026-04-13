@@ -58,11 +58,11 @@ def _save_and_sync(final_env):
 def _setup_auth_cli():
     # ── Jalur 1: Auth CLI (Domestic) ──────────────────────────────────
     providers = {
-        "1": ("google", "Google Gemini CLI [bold green](Full Bridge)[/bold green]", get_gemini_info),
-        "2": ("anthropic", "Anthropic Claude Code [bold yellow](API Discovery Only)[/bold yellow]", get_claude_info),
-        "3": ("openai", "ChatGPT Codex [bold yellow](Partial)[/bold yellow]", get_codex_info),
-        "4": ("github", "GitHub Copilot CLI [bold yellow](Token Only)[/bold yellow]", get_github_info),
-        "5": ("opencode", "OpenCode [dim](Experimental)[/dim]", get_opencode_info),
+        "1": ("google", "Google CLI Bridge [bold green](Stable)[/bold green]", get_gemini_info),
+        "2": ("anthropic", "Anthropic Claude Code [bold yellow](Coming Soon)[/bold yellow]", get_claude_info),
+        "3": ("openai", "ChatGPT Codex [bold yellow](In Development)[/bold yellow]", get_codex_info),
+        "4": ("github", "GitHub Copilot CLI [bold yellow](Experimental)[/bold yellow]", get_github_info),
+        "5": ("opencode", "OpenCode [dim](Draft)[/dim]", get_opencode_info),
     }
     console.print("\n[bold cyan]Select CLI Provider:[/bold cyan]")
     for k, v in providers.items():
@@ -195,7 +195,7 @@ def _setup_wizard():
     console.print("\n[bold yellow]🤖 Vibe_Hack Configuration Wizard[/bold yellow]")
     console.print("Choose your setup path:\n")
     
-    console.print("  1. ⚡ [bold cyan]Bridge Mode[/bold cyan] (Inference via System CLI - Gemini/Claude)")
+    console.print("  1. ⚡ [bold cyan]Bridge Mode[/bold cyan] (via System CLI - [green]Google Stable[/green] / [dim]Others Coming Soon[/dim])")
     console.print("  2. 🔑 [bold green]API Key[/bold green] (Direct Provider Access - OpenAI/Anthropic/Google)")
     console.print("  3. 🛠️  [bold magenta]Custom / Local Model[/bold magenta] (Ollama / Custom API)")
         
