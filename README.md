@@ -1,4 +1,4 @@
-# 🔥 VibeHack v2.6.44 — The Autonomous Weapon Update
+# 🔥 VibeHack v2.7.0 — The Autonomous Weapon Update
 
 > **The Agentic Security Co-Pilot. Built for Offensive Security and Developer Safety.**
 

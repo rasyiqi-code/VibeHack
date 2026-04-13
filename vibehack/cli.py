@@ -1,5 +1,5 @@
 """
-vibehack/cli.py — CLI entry point for Vibe_Hack v1.7
+vibehack/cli.py — CLI entry point for VibeHack
 
 Primary UX: run `vibehack` with no arguments → opens interactive REPL
             (like official security CLIs, but for offensive security)
@@ -46,8 +46,13 @@ def safe_run(coro):
 
 load_dotenv()
 
+def version_callback(value: bool):
+    if value:
+        console.print(f"🔥 VibeHack v{__version__}")
+        raise typer.Exit()
+
 app = typer.Typer(
-    help="🔥 Vibe_Hack v2.6.11 — The Autonomous Weapon (Universal Reconfig Release)",
+    help=f"🔥 VibeHack v{__version__} — The Autonomous Weapon",
     no_args_is_help=False,  # Allow bare `vibehack` to open REPL
     invoke_without_command=True,
 )
@@ -73,6 +78,7 @@ def default(
     sandbox: bool = typer.Option(False, "--sandbox", help="Run LLM shell commands inside a Docker container"),
     model: Optional[str] = typer.Option(None, "--model", help="Override LLM model (e.g. model-provider/model-name)"),
     target: Optional[str] = typer.Option(None, "--target", "-t", help="Pre-load target URL/IP"),
+    version: Optional[bool] = typer.Option(None, "--version", callback=version_callback, is_eager=True, help="Show version and exit"),
 ):
     """
     🔥 Interactive hacking REPL — an advanced co-pilot for offensive security.

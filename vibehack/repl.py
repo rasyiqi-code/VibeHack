@@ -13,7 +13,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
-from prompt_toolkit.layout.processors import BeforeInput, Placeholder
+from prompt_toolkit.layout.processors import BeforeInput
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import HTML, ANSI
@@ -126,7 +126,6 @@ class VibehackREPL:
                         buffer=self.input_buffer,
                         input_processors=[
                             BeforeInput([('class:prompt', '> ')]),
-                            Placeholder([('class:placeholder', 'Type your message or @path/to/file')])
                         ]
                     ),
                     height=1,
