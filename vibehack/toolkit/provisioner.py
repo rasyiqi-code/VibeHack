@@ -183,6 +183,9 @@ def _safe_extract(archive_path: Path, dest: Path):
     if str(archive_path).endswith(".tar.gz") or str(archive_path).endswith(".tgz"):
         with tarfile.open(archive_path, "r:gz") as tar:
             for member in tar.getmembers():
+                # Skip symlinks and hardlinks
+                if member.issym() or member.islnk():
+                    continue
                 # Strip all path components — only extract the file, not directories
                 member.name = Path(member.name).name
                 if not member.name or member.name.startswith(".."):
@@ -191,8 +194,18 @@ def _safe_extract(archive_path: Path, dest: Path):
     elif str(archive_path).endswith(".zip"):
         with zipfile.ZipFile(archive_path, "r") as zf:
             for zip_info in zf.infolist():
+                # Skip directories
+                if zip_info.is_dir():
+                    continue
+                # Skip symlinks
+                is_symlink = False
+                if zip_info.create_system == 3:  # UNIX
+                    is_symlink = stat.S_ISLNK(zip_info.external_attr >> 16)
+                if is_symlink:
+                    continue
+
                 zip_info.filename = Path(zip_info.filename).name
-                if not zip_info.filename:
+                if not zip_info.filename or zip_info.filename.startswith(".."):
                     continue
                 zf.extract(zip_info, path=dest)
 
