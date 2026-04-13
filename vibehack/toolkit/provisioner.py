@@ -130,10 +130,22 @@ DOWNLOADABLE_TOOLS: dict[str, dict] = {
         "category": "web_exploit",
     },
     "semgrep": {
-        "repo": None,  # pip install semgrep
+        "repo": None,
         "install_hint": "pip install semgrep",
         "binary_name": "semgrep",
         "category": "sast",
+    },
+    "sqlmap": {
+        "repo": None,
+        "install_hint": "pip install sqlmap",
+        "binary_name": "sqlmap",
+        "category": "web_exploit",
+    },
+    "impacket": {
+        "repo": None,
+        "install_hint": "pip install impacket",
+        "binary_name": "secretsdump", # representative binary
+        "category": "internal",
     },
 }
 
@@ -225,10 +237,22 @@ async def download_tool(tool_name: str) -> bool:
 
     tool = DOWNLOADABLE_TOOLS[tool_name]
 
-    # Handle non-GitHub tools
-    if tool.get("repo") is None:
+    # Handle Python/pip tools
+    if tool.get("repo") is None or "pip" in tool.get("install_hint", ""):
         hint = tool.get("install_hint", "")
-        console.print(f"[yellow]'{tool_name}' requires Python:[/yellow] {hint}")
+        if "pip install" in hint:
+            console.print(f"[cyan]🐍 Python Tool detected. Installing via pip: {hint}...[/cyan]")
+            # We execute the install command directly
+            from vibehack.core.shell import execute_shell
+            res = await execute_shell(hint)
+            if res.exit_code == 0:
+                console.print(f"[bold green]✅ {tool_name} installed via pip.[/bold green]")
+                return True
+            else:
+                console.print(f"[red]Failed to install {tool_name} via pip.[/red]")
+                return False
+        
+        console.print(f"[yellow]'{tool_name}' requires manual setup:[/yellow] {hint}")
         return False
 
     ensure_bin_dir()
