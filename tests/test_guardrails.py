@@ -3,6 +3,8 @@ Tests for the Regex Kill-Switch guardrail engine.
 """
 import pytest
 from vibehack.guardrails.regex_engine import check_command, check_target
+from unittest.mock import patch
+from vibehack.guardrails.waiver import verify_unchained_access
 
 
 # ── check_command ──────────────────────────────────────────────────────────────
@@ -89,3 +91,30 @@ class TestTargetSanityCheck:
     def test_private_targets_are_allowed(self, target: str):
         result = check_target(target)
         assert result is None, f"Expected None for private target: {target}"
+
+# ── verify_unchained_access ───────────────────────────────────────────────────
+
+
+class TestVerifyUnchainedAccess:
+    """Verify that verify_unchained_access behaves correctly."""
+
+    def test_chained_access_allowed(self):
+        """When unchained is False, it should return True immediately."""
+        with patch('vibehack.guardrails.waiver.ask_waiver') as mock_ask:
+            result = verify_unchained_access(False)
+            assert result is True
+            mock_ask.assert_not_called()
+
+    def test_unchained_access_waiver_accepted(self):
+        """When unchained is True and waiver is accepted, it should return True."""
+        with patch('vibehack.guardrails.waiver.ask_waiver', return_value=True) as mock_ask:
+            result = verify_unchained_access(True)
+            assert result is True
+            mock_ask.assert_called_once()
+
+    def test_unchained_access_waiver_rejected(self):
+        """When unchained is True and waiver is rejected, it should return False."""
+        with patch('vibehack.guardrails.waiver.ask_waiver', return_value=False) as mock_ask:
+            result = verify_unchained_access(True)
+            assert result is False
+            mock_ask.assert_called_once()
