@@ -67,7 +67,21 @@ class PersistentSession:
                 
                 # Read until delimiter
                 while True:
-                    line = await self.process.stdout.readline()
+                    try:
+                        line = await asyncio.wait_for(self.process.stdout.readline(), timeout=timeout)
+                    except asyncio.TimeoutError:
+                        stdout = "\n".join(stdout_lines)
+                        stdout += "\n... [Execution Timed Out] ..."
+                        # Send Ctrl+C to the bash session just in case it's still running
+                        self.process.stdin.write(b"\x03")
+                        await self.process.stdin.drain()
+                        return ShellResult(
+                            stdout=_sanitize_output(stdout),
+                            stderr="",
+                            exit_code=124, # Standard timeout exit code
+                            truncated=True
+                        )
+
                     if not line: break
                     line_str = line.decode(errors="replace").strip()
                     if interrupter and interrupter() if callable(interrupter) else interrupter:
@@ -114,10 +128,11 @@ async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 
     
     # Handle truncation
     stdout = res.stdout
-    truncated = False
+    truncated = res.truncated
     if len(stdout) > truncate_limit:
         half = truncate_limit // 2
-        stdout = stdout[:half] + f"\n... [Truncated {len(stdout)-truncate_limit} bytes] ...\n" + stdout[-half:]
+        removed_bytes = len(stdout) - truncate_limit
+        stdout = stdout[:half] + f"\n... [Truncated Middle: {removed_bytes} bytes removed by VibeHack] ...\n" + stdout[-half:]
         truncated = True
     
     return ShellResult(stdout, res.stderr, res.exit_code, truncated)
@@ -125,8 +140,8 @@ async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 
 async def _execute_stateless(command: str, timeout: int, env=None) -> ShellResult:
     """Fallback stateless execution for host OS (use with caution)."""
     try:
-        process = await asyncio.create_subprocess_shell(
-            command,
+        process = await asyncio.create_subprocess_exec(
+            "bash", "-c", command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env
