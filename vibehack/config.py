@@ -75,5 +75,6 @@ class Config:
                 pass
         
         self.DEFAULT_MODELS = self.DEFAULTS.get("default_models", {})
+        self.PRIMARY_DEFAULT = self.DEFAULTS.get("primary_default", "openrouter/anthropic/claude-3.5-sonnet")
 
 cfg = Config()

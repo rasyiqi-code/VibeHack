@@ -27,7 +27,7 @@ class UniversalHandler:
         
         # Initialization defaults
         if not self.model or self.model == "auto":
-            self.model = cfg.DEFAULT_MODELS.get(self.provider, "openrouter/anthropic/claude-3.5-sonnet")
+            self.model = cfg.DEFAULT_MODELS.get(self.provider, cfg.PRIMARY_DEFAULT)
 
         # LiteLLM routing prefixing
         if self.provider == "google" and not ("/" in self.model):

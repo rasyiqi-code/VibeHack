@@ -1,4 +1,5 @@
 {
+  "primary_default": "openrouter/anthropic/claude-3.5-sonnet",
   "default_models": {
     "openrouter": "openrouter/anthropic/claude-3.5-sonnet",
     "google": "gemini/gemini-3-flash-preview",
