@@ -30,18 +30,18 @@ class SlashCommandCompleter(Completer):
                     yield Completion(cmd, start_position=-len(text))
 
 def get_repl_style():
-    """Default styling for prompt-toolkit with Gemini CLI aesthetic."""
+    """Default styling for prompt-toolkit with modern Gold accents."""
     return Style.from_dict({
-        'bottom-toolbar': '#aaaaaa bg:#1e1e1e',
-        'top-toolbar':    '#aaaaaa bg:#1e1e1e',
+        'bottom-toolbar': '#ffd700 bg:#1e1e1e',
+        'top-toolbar':    '#ffd700 bg:#1e1e1e',
         'prompt':         '#00ffff bold',
         'logo':           '#00ffff bold',
-        'version':        '#666666',
-        'auth':           '#dddddd',
+        'version':        '#bbbbbb',
+        'auth':           '#ffd700',
         'path':           '#00ffff',
-        'sandbox-safe':   '#00ff00',
-        'sandbox-warn':   '#ff0000 bold',
-        'model-hint':     '#666666',
+        'sandbox-safe':   'bg:#00ff00 #000000 bold',
+        'sandbox-warn':   'bg:#ff0000 #ffffff bold',
+        'model-hint':     '#ffd700',
     })
 
 def get_top_toolbar(repl):
