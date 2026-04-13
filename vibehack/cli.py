@@ -11,6 +11,8 @@ import os
 from typing import Optional
 
 import typer
+import urllib.request
+import re
 from vibehack import __version__
 from dotenv import load_dotenv
 from rich.console import Console
@@ -286,6 +288,45 @@ def install_tool(
     safe_run(download_tool(tool))
 
 
+@app.command(name="check-update")
+def check_update():
+    """Check if a newer version of VibeHack is available on GitHub."""
+    console.print("\n[bold yellow]📡 Checking for updates...[/bold yellow]")
+    remote_v = _get_remote_version()
+    
+    if not remote_v:
+        console.print("[bold red]Error:[/bold red] Could not reach GitHub to check version.")
+        return
+
+    from rich.panel import Panel
+    if remote_v == __version__:
+        console.print(Panel(
+            f"You are running the latest version: [bold green]v{__version__}[/bold green]",
+            border_style="green"
+        ))
+    else:
+        # Simple string comparison or version parsing
+        console.print(Panel(
+            f"Update Available! 🚀\n\n"
+            f"Local version:  [bold yellow]v{__version__}[/bold yellow]\n"
+            f"Latest version: [bold green]v{remote_v}[/bold green]\n\n"
+            f"Run [bold cyan]vibehack update[/bold cyan] to upgrade.",
+            title="Update Manager",
+            border_style="cyan"
+        ))
+
+def _get_remote_version() -> Optional[str]:
+    """Fetch the latest version string from GitHub's pyproject.toml."""
+    url = "https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/pyproject.toml"
+    try:
+        with urllib.request.urlopen(url, timeout=5) as response:
+            content = response.read().decode('utf-8')
+            match = re.search(r'version = "(.*)"', content)
+            if match:
+                return match.group(1)
+    except Exception:
+        return None
+
 @app.command()
 def sessions():
     """List all saved sessions with target, findings count, and timestamp."""
@@ -317,22 +358,28 @@ def sessions():
 
 @app.command()
 def update():
-    """Self-update Vibe_Hack to the latest version from GitHub."""
+    """Self-update VibeHack to the latest version from GitHub."""
     console.print("\n[bold yellow]📡 Checking for updates...[/bold yellow]")
+    remote_v = _get_remote_version()
+    
+    if remote_v == __version__:
+        console.print(f"[green]✓ You are already on the latest version (v{__version__}).[/green]\n")
+        return
+
     import sys
     import subprocess
     
     repo_url = "git+https://github.com/rasyiqi-code/VibeHack.git"
     
     try:
-        with console.status("[bold cyan]Updating Vibe_Hack core...[/bold cyan]"):
+        with console.status(f"[bold cyan]Upgrading VibeHack to v{remote_v}...[/bold cyan]"):
             # We use sys.executable to ensure we update the current venv
             subprocess.run(
                 [sys.executable, "-m", "pip", "install", "--upgrade", repo_url],
                 check=True,
                 capture_output=True
             )
-        console.print("[bold green]✅ Vibe_Hack successfully updated to the latest version![/bold green]")
+        console.print(f"[bold green]✅ VibeHack successfully updated to v{remote_v}![/bold green]")
         console.print("[dim]Restart vibehack to apply changes.[/dim]\n")
     except subprocess.CalledProcessError as e:
         console.print(f"[bold red]Update failed![/bold red]")
