@@ -146,6 +146,21 @@ async def _execute_proposed_command(repl, response: AgentResponse):
         _handle_memory_tool(repl, cmd)
         return
 
+    # AI can trigger Slash Commands (like /install)
+    if cmd.startswith("/"):
+        from vibehack.core.repl.commands import handle_slash_command
+        result = handle_slash_command(repl, cmd)
+        if isinstance(result, tuple) and result[0] == "__install__":
+            from vibehack.toolkit.provisioner import download_tool
+            console.print(f"[cyan]AI requested tool installation: {result[1]}[/cyan]")
+            if await download_tool(result[1]):
+                repl._discover_tools()
+                repl._rebuild_system_prompt()
+                repl.history.append({"role": "user", "content": f"System: Tool {result[1]} installed successfully."})
+            else:
+                repl.history.append({"role": "user", "content": f"System: Failed to install {result[1]}."})
+        return
+
     display_command(cmd)
 
     if response.is_destructive:

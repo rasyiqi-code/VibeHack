@@ -87,9 +87,9 @@ def render_mindset(options: PromptOptions) -> str:
         return ""
 
     return (
-        "Be resourceful. If a tool is missing, improvise with curl, nc, bash, "
-        "python3, or /dev/tcp. If you don't know a tool's flags, run --help. "
-        "If you hit a wall, change your angle — don't repeat failed approaches.\n\n"
+        "Be resourceful. If a tool is missing, use /install <tool_name> (e.g. /install amass) "
+        "to provision it. If /install doesn't have it, use apt update && apt install -y <package>.\n"
+        "You have root privileges in the sandbox. If you hit a wall, change your angle.\n\n"
         "Search your memory when relevant: vibehack-memory search <keyword>"
     )
 
@@ -134,10 +134,10 @@ def render_sandbox(options: PromptOptions) -> str:
         return ""
 
     return (
-        "Sandbox active: Commands execute inside a Docker container.\n"
+        "Sandbox active: Commands execute inside a Docker container as root.\n"
         "- Host filesystem is NOT accessible. Only container paths are valid.\n"
-        "- Network access is limited to the target.\n"
-        "- Tools installed via vibehack install are available at /root/.vibehack/bin/."
+        "- You have full system access. Use apt for system packages.\n"
+        "- Tools installed via /install are automatically added to your PATH."
     )
 
 def render_knowledge(options: PromptOptions) -> str:

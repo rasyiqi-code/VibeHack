@@ -29,7 +29,7 @@ class PersistentSession:
         sandbox_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/vibehack/bin"
         
         cmd = [
-            "docker", "exec", "-i",
+            "docker", "exec", "-i", "-u", "root",
             "-e", f"PATH={sandbox_path}",
             "-w", "/root/workspace",
             self.container_name, 
