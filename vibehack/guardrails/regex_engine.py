@@ -32,6 +32,8 @@ DANGEROUS_PATTERNS = [
     r"(cat|dd)\s+/dev/[a-z]+.+\|\s*nc\s+",
 ]
 
+_COMPILED_PATTERNS = [re.compile(pattern, re.IGNORECASE) for pattern in DANGEROUS_PATTERNS]
+
 def check_command(command: str, unchained: bool = False) -> Optional[str]:
     """
     Scans a command against the dangerous patterns list.
@@ -40,9 +42,9 @@ def check_command(command: str, unchained: bool = False) -> Optional[str]:
     if unchained:
         return None
     
-    for pattern in DANGEROUS_PATTERNS:
-        if re.search(pattern, command, re.IGNORECASE):
-            return f"Blocked by guardrails (Pattern matched: {pattern})"
+    for compiled_pattern in _COMPILED_PATTERNS:
+        if compiled_pattern.search(command):
+            return f"Blocked by guardrails (Pattern matched: {compiled_pattern.pattern})"
     
     return None
 
