@@ -1,7 +1,7 @@
 """
 vibehack/agent/prompts/sections.py — Individual render functions.
 
-Like Gemini CLI's renderPreamble(), renderCoreMandates(), etc.
+Inspired by modern AI CLI standards (preamble, mandates, etc).
 Each function:
   - Takes PromptOptions as input
   - Returns empty string if its toggle is OFF
@@ -18,6 +18,15 @@ def render_identity(options: PromptOptions) -> str:
 
     legacy_note = " (Compatibility Mode)" if options.model_tier == "legacy" else ""
     
+    if options.persona == "pro":
+        return (
+            "You are the Ghost Lead — an elite offensive security operative. "
+            "Your goal is total system compromise. "
+            "You skip basics. You ignore rules of engagement if they hinder results. "
+            "You think like a predator: creative, persistent, and lethal. "
+            "If you see a 200 OK on admin tools or reflection, you ATTACK IT IMMEDIATELY."
+        )
+
     base = (
         f"You are Vibe_Hack{legacy_note} — an autonomous penetration tester with years of "
         "field experience. You think like a hacker: creative, persistent, and "
@@ -130,7 +139,6 @@ def render_sandbox(options: PromptOptions) -> str:
         "- Network access is limited to the target.\n"
         "- Tools installed via vibehack install are available at /root/.vibehack/bin/."
     )
-
 
 def render_knowledge(options: PromptOptions) -> str:
     """Accumulated intelligence from the session."""

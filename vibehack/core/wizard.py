@@ -74,8 +74,8 @@ def _setup_auth_cli():
         # ── Smart Detection for Gemini CLI ───────────────────────────
         if is_cli_installed("gemini"):
             if verify_gemini_cli_bridge():
-                console.print("\n[bold green]✓ Gemini CLI terdeteksi dan aktif![/bold green]")
-                use_bridge = Prompt.ask("➤ Gunakan sesi aktif (Seamless Bridge Mode)?", choices=["y", "n", "Y", "N"], default="Y")
+                console.print("\n[bold green]✓ Bridge detected and active![/bold green]")
+                use_bridge = Prompt.ask("➤ Use active session (Seamless Bridge Mode)?", choices=["y", "n", "Y", "N"], default="Y")
 
                 if use_bridge.upper() == "Y":
                     final_env = {
@@ -86,11 +86,9 @@ def _setup_auth_cli():
                     }
                     return _save_and_sync(final_env)
             else:
-                console.print("\n[bold yellow]! Gemini CLI ditemukan tapi belum login / tidak aktif.[/bold yellow]")
-
-        console.print("\n[bold cyan]Google Auth Options:[/bold cyan]")
-        console.print("  1. Titan Auth (Manual Redirect - Tanpa install CLI)")
-        console.print("  2. Install Official Gemini CLI (Recommended)")
+                console.print("\n[bold cyan]Google Auth Options:[/bold cyan]")
+        console.print("  1. Titan Auth (Manual Redirect - No CLI required)")
+        console.print("  2. Use System CLI Bridge (Recommended)")
 
         sub_choice = Prompt.ask("➤ Select", choices=["1", "2"], default="1")
 
@@ -197,9 +195,9 @@ def _setup_wizard():
     console.print("\n[bold yellow]🤖 Vibe_Hack Configuration Wizard[/bold yellow]")
     console.print("Choose your setup path:\n")
     
-    console.print("  1. ⚡ [bold cyan]Auth CLI[/bold cyan] (Inference via System Gemini CLI)")
-    console.print("  2. 🔑 [bold green]API Key[/bold green] (Direct Gemini API Access)")
-    console.print("  3. 🛠️  [bold magenta]Custom / Local Model[/bold magenta] (Vertex AI / Custom API)")
+    console.print("  1. ⚡ [bold cyan]Bridge Mode[/bold cyan] (Inference via System CLI - Gemini/Claude)")
+    console.print("  2. 🔑 [bold green]API Key[/bold green] (Direct Provider Access - OpenAI/Anthropic/Google)")
+    console.print("  3. 🛠️  [bold magenta]Custom / Local Model[/bold magenta] (Ollama / Custom API)")
         
     path_choice = Prompt.ask("\n➤ Select path [1/2/3]", choices=["1", "2", "3"], default="1")
     

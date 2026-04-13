@@ -223,11 +223,11 @@ class VibehackREPL:
 
         # ── Prompt Setup with Sticky Components ───────────────────────────
         # Note: We use the bottom_toolbar and a custom prompt style to 
-        # achieve the modern Gemini CLI look.
+        # achieve the modern AI CLI look.
         
         while True:
             try:
-                # ── Print Input Hint (Gemini UI) ──────────────────────────
+                # ── Print Input Hint (Modern UI) ──────────────────────────
                 # We use a separator bar without text as requested
                 console.print(get_input_hint(self))
                 
