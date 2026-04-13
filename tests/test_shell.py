@@ -30,7 +30,10 @@ class TestShellExecution:
         # Generate a large output (>2500 chars)
         result = execute_shell("python3 -c \"print('A' * 5000)\"", truncate_limit=2500)
         assert result.truncated is True
-        assert len(result.stdout) <= 2500 + len("\n... [Output Truncated by VibeHack]") + 5
+        # Original output is 5001 chars (5000 'A' + newline). Truncated stdout uses original len.
+        removed_bytes = 5001 - 2500
+        truncation_msg = f"\n... [Truncated Middle: {removed_bytes} bytes removed by VibeHack] ...\n"
+        assert len(result.stdout) <= 2500 + len(truncation_msg) + 5
 
     def test_timeout_handling(self):
         """A hanging command must be killed after timeout."""
