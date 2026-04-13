@@ -4,6 +4,7 @@ import sys
 import subprocess
 import tempfile
 import asyncio
+import importlib.util
 from rich.console import Console
 from vibehack.config import cfg
 
@@ -11,11 +12,10 @@ console = Console()
 
 
 def ensure_playwright():
-    try:
-        import playwright
-
+    if importlib.util.find_spec("playwright") is not None:
         return
-    except ImportError:
+
+    else:
         console.print(
             "[dim yellow]Playwright missing. Auto-installing dependencies...[/dim yellow]",
             err=True,
