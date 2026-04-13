@@ -40,6 +40,7 @@ SLASH_COMMANDS = {
     "/tokens":    "Manage token economy and context window (/tokens status | limit <n> | turns <n>)",
     "/tools":     "Show tools discovered in your PATH",
     "/check-update": "Check for the latest version on GitHub",
+    "/sessions":  "List and resume previous sessions interactively",
     "/history":   "Show a clean summary of the session ReAct chain",
     "/exit":      "Save session and exit",
 }
@@ -101,6 +102,9 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
 
     elif verb == "/status":
         _display_status(repl)
+
+    elif verb == "/sessions":
+        return _handle_sessions_interactively(repl)
 
     elif verb == "/unchained":
         if not repl.unchained:
@@ -357,6 +361,70 @@ def _check_update_logic(repl):
                 
     except Exception as e:
         console.print(f"[red]Update check failed:[/red] {e}")
+
+def _handle_sessions_interactively(repl):
+    """Shows a dialog to pick and resume a session."""
+    from prompt_toolkit.shortcuts import radiolist_dialog
+    from vibehack.session.persistence import list_sessions, load_session
+    from vibehack.llm.provider import Finding
+    from vibehack.agent.knowledge import KnowledgeState
+
+    sessions = list_sessions()
+    if not sessions:
+        console.print("[dim]No saved sessions found.[/dim]")
+        return True
+
+    # Build choices with metadata
+    choices = []
+    # Sort sessions by date (newest first)
+    sessions.sort(reverse=True)
+    
+    for sid in sessions[:15]: # Limit to top 15 for UI
+        data = load_session(sid)
+        if data:
+            target = data.get("target", "No Target")
+            date = sid.split("_")[0] # Rough date from ID
+            choices.append((sid, f"{sid} | {target}"))
+
+    result = radiolist_dialog(
+        title="📂 Resume Session",
+        text="Pick a session to hot-swap into the current environment:",
+        values=choices
+    )
+    
+    selected_sid = result.run() if hasattr(result, "run") else result
+
+    if selected_sid:
+        state = load_session(selected_sid)
+        if state:
+            # HOT SWAP!
+            repl.session_id = state["session_id"]
+            repl.target = state.get("target")
+            repl.op_mode = state.get("op_mode", "agent")
+            repl.persona = state.get("persona", "dev-safe")
+            repl.unchained = state.get("unchained", False)
+            repl.auto_allow = state.get("auto_allow", False)
+            
+            # Reconstruct History
+            repl.history = state.get("history", [])
+            
+            # Reconstruct Findings
+            repl.key_findings = [Finding(**f) for f in state.get("findings", [])]
+            
+            # Reconstruct Knowledge
+            k_data = state.get("knowledge", {})
+            repl.knowledge = KnowledgeState()
+            repl.knowledge.open_ports = set(k_data.get("open_ports", []))
+            repl.knowledge.technologies = set(k_data.get("technologies", []))
+            repl.knowledge.endpoints = k_data.get("endpoints", [])
+            repl.knowledge.credentials = k_data.get("credentials", [])
+            repl.knowledge.notes = k_data.get("notes", [])
+            
+            repl._rebuild_system_prompt()
+            console.print(f"[bold green]✓ Hot-swapped to session: [cyan]{selected_sid}[/cyan][/bold green]")
+            console.print(f"[dim]Target: {repl.target} | History: {len(repl.history)} turns loaded.[/dim]")
+            
+    return True
 
 def _display_history(repl):
     """Prints a clean summary of the session turns."""
