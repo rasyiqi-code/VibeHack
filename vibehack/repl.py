@@ -94,31 +94,21 @@ class VibehackREPL:
             # Start processing in background
             asyncio.create_task(self._handle_input(text))
 
-    async def _handle_input(self, text: str):
-        if text.startswith("/"):
-            result = handle_slash_command(self, text)
-            if result is False:
-                self.app.exit()
-            elif isinstance(result, tuple) and result[0] == "__install__":
-                from vibehack.toolkit.provisioner import download_tool
-                if await download_tool(result[1]):
-                    clear_discovery_cache()
-                    self._discover_tools()
-                    self._rebuild_system_prompt()
-            return
-
-        try:
-            await process_llm_turn(self, text)
-        except Exception as e:
-            self.log(f"[bold red]Error:[/bold red] {e}")
-
         # Full-Screen Layout
+        self.history_pane = ScrollablePane(
+            content=Window(
+                content=FormattedTextControl(lambda: ANSI(self.history_buffer.text)),
+                wrap_lines=True
+            ),
+            show_scrollbar=True
+        )
+
         self.layout = Layout(
             HSplit([
                 # Sticky Top Bar
                 Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar'),
-                # Scrollable History Window
-                Window(content=BufferControl(buffer=self.history_buffer), wrap_lines=True),
+                # Scrollable History Window (ANSI Supported)
+                self.history_pane,
                 # Sticky Bottom Bar
                 Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar'),
                 # Input Area
@@ -142,13 +132,32 @@ class VibehackREPL:
             full_screen=True,
             key_bindings=self.kb,
             mouse_support=True,
-            completion_menu_height=20,
             on_invalidate=lambda _: self._scroll_to_bottom()
         )
-        
+
+    async def _handle_input(self, text: str):
+        if text.startswith("/"):
+            result = handle_slash_command(self, text)
+            if result is False:
+                self.app.exit()
+            elif isinstance(result, tuple) and result[0] == "__install__":
+                from vibehack.toolkit.provisioner import download_tool
+                if await download_tool(result[1]):
+                    clear_discovery_cache()
+                    self._discover_tools()
+                    self._rebuild_system_prompt()
+            return
+
+        try:
+            await process_llm_turn(self, text)
+        except Exception as e:
+            self.log(f"[bold red]Error:[/bold red] {e}")
+
     def _scroll_to_bottom(self):
         """Ensures the history window is always scrolled to the latest logs."""
-        pass # Will be handled by layout configuration or manual buffer positioning
+        if hasattr(self, 'history_pane'):
+            # Set scroll offset to the very bottom
+            self.history_pane.vertical_scroll = 999999 
         
     def log(self, renderable):
         """Capture Rich renderables as ANSI and append to history buffer."""
