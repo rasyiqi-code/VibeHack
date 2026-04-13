@@ -1,7 +1,6 @@
 import json
 import uuid
 from datetime import datetime
-from pathlib import Path
 from vibehack.toolkit.manager import VIBEHACK_HOME
 
 SESSIONS_DIR = VIBEHACK_HOME / "sessions"
