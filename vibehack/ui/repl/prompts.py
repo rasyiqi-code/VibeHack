@@ -33,17 +33,17 @@ def get_repl_style():
     """Default styling for prompt-toolkit with modern Gold accents."""
     return Style.from_dict({
         # Layout components
-        'bottom-toolbar': '#ffd700 bg:#1e1e1e',
-        'top-toolbar':    '#ffd700 bg:#1e1e1e',
-        'prompt':         '#00ffff bg:#0c2125 bold', 
-        'placeholder':    '#666666 bg:#0c2125',
+        'bottom-toolbar': '#ffd700 bg:#132e35',
+        'top-toolbar':    '#ffd700', # No background for header
+        'prompt':         '#00ffff bg:#132e35 bold', 
+        'placeholder':    '#666666 bg:#132e35',
 
         # Completion Menu (Modern multi-column look)
-        'completion-menu':                    'bg:#0c2125 #ffffff',
+        'completion-menu':                    'bg:#132e35 #ffffff',
         'completion-menu.selected':           'bg:#a9bf4d #000000 bold',
-        'completion-menu.meta':               '#888888 bg:#0c2125',
+        'completion-menu.meta':               '#888888 bg:#132e35',
         'completion-menu.selected.meta':      '#000000 bg:#a9bf4d',
-        'completion-menu.multi-column-meta':  'bg:#0c2125 #888888',
+        'completion-menu.multi-column-meta':  'bg:#132e35 #888888',
 
         # Branding & Accents
         'logo':           '#00ffff bold',

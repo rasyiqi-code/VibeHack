@@ -12,7 +12,7 @@ from prompt_toolkit import Application, PromptSession
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.filters import Condition
-from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane, FloatContainer, Float, Dimension, WindowAlign, ConditionalContainer
+from prompt_toolkit.layout import Layout, HSplit, VSplit, Window, ScrollablePane, FloatContainer, Float, Dimension, WindowAlign, ConditionalContainer
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.processors import BeforeInput
@@ -145,18 +145,27 @@ class VibehackREPL:
 
                     # Input Area with breathing room above
                     Window(height=1),
-                    Window(
-                        content=BufferControl(
-                            buffer=self.input_buffer,
-                            input_processors=[
-                                BeforeInput([('class:prompt', '> ')]),
-                            ]
-                        ),
-                        wrap_lines=True,
-                        dont_extend_height=True,
-                        height=Dimension(min=1, max=8),
-                        style='class:prompt'
-                    ),
+                    # Thick Input Bar with Padding
+                    HSplit([
+                        Window(height=1, style='class:prompt'),
+                        VSplit([
+                            Window(width=2, style='class:prompt'), # Left Margin
+                            Window(
+                                content=BufferControl(
+                                    buffer=self.input_buffer,
+                                    input_processors=[
+                                        BeforeInput([('class:prompt', '> ')]),
+                                    ]
+                                ),
+                                wrap_lines=True,
+                                dont_extend_height=True,
+                                height=Dimension(min=1, max=8),
+                                style='class:prompt'
+                            ),
+                            Window(width=2, style='class:prompt'), # Right Margin
+                        ]),
+                        Window(height=1, style='class:prompt'),
+                    ]),
                     # Bottom Spacer (Reserved for floating footer & breathing room)
                     Window(height=2),
                 ]),
