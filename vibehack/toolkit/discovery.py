@@ -12,9 +12,9 @@ Strategy:
   3. Supplement with ~/.vibehack/bin/ (provisioned tools)
   4. Return de-duplicated sorted list
 """
+
 import os
 import re
-import stat
 from pathlib import Path
 from functools import lru_cache
 
