@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import List, Dict, Optional
 
 from prompt_toolkit import Application, PromptSession
+from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane
@@ -141,6 +142,7 @@ class VibehackREPL:
             full_screen=True,
             key_bindings=self.kb,
             mouse_support=True,
+            completion_menu_height=20,
             on_invalidate=lambda _: self._scroll_to_bottom()
         )
         
@@ -155,9 +157,12 @@ class VibehackREPL:
         self.log_io.truncate(0)
         self.log_io.seek(0)
         
-        self.history_buffer.insert_text(ansi_text)
-        # Force scroll to bottom by moving cursor in history buffer
-        self.history_buffer.cursor_position = len(self.history_buffer.text)
+        # Append text bypassing read-only state atomicity
+        new_text = self.history_buffer.text + ansi_text
+        self.history_buffer.set_document(
+            Document(new_text, cursor_position=len(new_text)),
+            bypass_readonly=True
+        )
 
     def _check_sudo(self):
         if os.geteuid() == 0:
