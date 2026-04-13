@@ -176,7 +176,8 @@ class VibehackREPL:
             full_screen=True,
             key_bindings=self.kb,
             mouse_support=True,
-            on_invalidate=lambda _: self._scroll_to_bottom()
+            on_invalidate=lambda _: self._scroll_to_bottom(),
+            set_title="vibehack"
         )
         
         # Explicitly focus the input buffer initially
