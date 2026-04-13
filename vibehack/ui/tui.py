@@ -51,20 +51,42 @@ def get_masked_input(prompt_text: str) -> str:
     return buf
 
 def display_banner():
-    """Minimalist modern header. Redundant if sticky header is active, but kept for non-REPL runs."""
+    """Redesigned banner mirroring the Gemini CLI professional layout."""
     from vibehack import __version__
-    console.print(f"[logo]λ[/logo] [bold white]VibeHack[/bold white] [version]v{__version__}[/version] [dim]— The Autonomous Weapon[/dim]")
-    console.print("[dim]Type [cyan]/help[/cyan] to see Slash Commands[/dim]\n")
+    from vibehack.config import cfg
+    import os
+    
+    # Construct a large "V" logo to match VibeHack branding
+    logo_text = Text.from_markup(
+        "[blue]█[/blue]       [blue]█[/blue]\n"
+        " [blue]█[/blue]     [blue]█[/blue]\n"
+        "  [cyan]█[/cyan]   [cyan]█[/cyan]\n"
+        "   [cyan]█[/cyan] [cyan]█[/cyan]\n"
+        "    [green]█[/green]"
+    )
 
-def display_notice(message: str, title: str = "NOTICE"):
-    """Gemini-style yellow boxed notice."""
-    console.print(Panel(
-        message,
-        title=f"[bold yellow]{title}[/bold yellow]",
-        border_style="yellow",
-        expand=True,
-        padding=(0, 1)
-    ))
+    info_text = Text()
+    info_text.append(f"VibeHack ", style="bold white")
+    info_text.append(f"v{__version__}\n\n", style="bold #ffd700")
+    
+    provider = os.getenv("VH_PROVIDER", "Google")
+    info_text.append(f"Signed in via {provider} ", style="#ffd700")
+    info_text.append("/auth\n", style="bold #ffd700")
+    
+    model = cfg.MODEL
+    info_text.append(f"Mission: Autonomous Weapon /audit ", style="white")
+    info_text.append(f"({model})", style="bold #ffd700")
+
+    # Display using columns for side-by-side layout
+    console.print(Columns([logo_text, info_text], padding=(0, 4)))
+    console.print("")
+
+def display_notice(message: str, title: str = "SECURITY ADVISORY"):
+    """Gemini-style yellow boxed notice. Mirrors the screenshot layout."""
+    from rich.rule import Rule
+    console.print(Rule(title, style="yellow"))
+    console.print(Panel(message, border_style="yellow", expand=True, padding=(0, 1)))
+    console.print("")
 
 def display_thought(thought: str):
     summary = thought.split('\n')[0][:120]
@@ -151,40 +173,54 @@ def display_session_info(target: str, mode: str, unchained: bool, session_id: st
     console.print(Panel(content, title="[bold]🎯 Session Initialised[/bold]", border_style="cyan"))
 
 def display_map(target: str, knowledge_state: dict):
-    """Visualises the attack surface as a Tree."""
-    tree = Tree(f"🎯 [bold cyan]Target: {target}[/bold cyan]")
+    """
+    God-Level Visualization: Attack Surface Map v3.0
+    Visualises the entire mission hierarchy as a vibrant tree.
+    """
+    tree = Tree(f"🎯 [bold white on cyan] TARGET: {target} [/bold white on cyan]")
     
-    # ── Services Branch ──
+    # ── Services & Connectivity ──
     if knowledge_state.get("open_ports"):
-        svc = tree.add("🔌 [bold white]Services (Open Ports)[/bold white]")
-        for port in knowledge_state["open_ports"]:
-            svc.add(f"[cyan]Port {port}[/cyan]")
+        svc = tree.add("🔌 [bold cyan]Services & Ports[/bold cyan]")
+        for port in sorted(knowledge_state["open_ports"]):
+            svc.add(f"[cyan]Port {port}[/cyan] [dim]→ Listening[/dim]")
             
-    # ── Stack Branch ──
+    # ── Application Stack ──
     if knowledge_state.get("technologies"):
         stack = tree.add("⚙️ [bold magenta]Technology Stack[/bold magenta]")
-        for tech in knowledge_state["technologies"]:
-            stack.add(f"[magenta]{tech}[/magenta]")
+        for tech in sorted(knowledge_state["technologies"]):
+            stack.add(f"[magenta]{tech.upper()}[/magenta]")
             
-    # ── Surface Branch ──
+    # ── Discovery (Endpoints/URLs) ──
     if knowledge_state.get("endpoints"):
-        surface = tree.add("🗺️ [bold green]Mapped Endpoints[/bold green]")
-        for ep in knowledge_state["endpoints"][:15]:
+        surface = tree.add("🗺️ [bold green]Mapped Attack Surface[/bold green]")
+        for ep in knowledge_state["endpoints"][:10]:
             surface.add(f"[green]{ep}[/green]")
-        if len(knowledge_state["endpoints"]) > 15:
-            surface.add("[dim]... and more[/dim]")
+        if len(knowledge_state["endpoints"]) > 10:
+            surface.add(f"[dim]... {len(knowledge_state['endpoints']) - 10} more endpoints[/dim]")
             
-    # ── Intel Branch ──
-    if knowledge_state.get("notes") or knowledge_state.get("credentials") or knowledge_state.get("tested_surfaces"):
-        intel = tree.add("🔑 [bold yellow]Intel & Findings[/bold yellow]")
-        if knowledge_state.get("credentials"):
-            intel.add(f"[yellow]{len(knowledge_state['credentials'])} credentials found[/yellow]")
-        if knowledge_state.get("tested_surfaces"):
-            intel.add(f"[dim]Tested: {', '.join(knowledge_state['tested_surfaces'])}[/dim]")
-        for note in knowledge_state.get("notes", [])[-5:]:
-            intel.add(f"[dim]{note}[/dim]")
+    # ── Critical Findings & Intel ──
+    intel_data = knowledge_state.get("notes") or []
+    credentials = knowledge_state.get("credentials") or []
+    
+    if intel_data or credentials:
+        intel = tree.add("🔥 [bold red]Compromise & Intel[/bold red]")
+        
+        if credentials:
+            cred_node = intel.add(f"🔑 [bold yellow]{len(credentials)} Credentials Found[/bold yellow]")
+            for c in credentials[:3]:
+                cred_node.add(f"[yellow]{c}[/yellow]")
 
-    console.print(Panel(tree, border_style="dim", expand=False))
+        for note in intel_data[-8:]:
+            # Style based on keywords
+            style = "dim"
+            if "Nuclei found" in note: style = "bold red"
+            elif "Finding recorded" in note: style = "bold yellow"
+            intel.add(f"[{style}]{note}[/{style}]")
+
+    console.print("")
+    console.print(Panel(tree, border_style="cyan", title="[bold white]📡 REAL-TIME ATTACK MAP[/bold white]", expand=False))
+    console.print("")
 
 def display_mission(goals: list):
     """Displays the active mission objectives."""

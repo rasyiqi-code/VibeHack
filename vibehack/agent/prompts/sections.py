@@ -178,6 +178,13 @@ def render_context_hints(options: PromptOptions) -> str:
     )
 
 
+def render_exploits(options: PromptOptions) -> str:
+    """Renders identified exploits from the local database."""
+    if not options.exploits:
+        return ""
+    return options.exploits
+
+
 def render_schema(options: PromptOptions) -> str:
     """JSON output contract. The anchor at the end of the prompt."""
     if not options.schema:
@@ -186,6 +193,7 @@ def render_schema(options: PromptOptions) -> str:
     return (
         "Respond with a single JSON object:\n"
         '{"thought":"...","raw_command":"... or null","is_destructive":false,'
+        '"confidence_score": 0.0 to 1.0, "risk_assessment": "low/med/high",'
         '"education":"... or null","finding":null,'
         '"mission_goals":["[IN_PROGRESS] or [DONE] goal descriptions"]}\n\n'
         "When you confirm a vulnerability, set finding to:\n"

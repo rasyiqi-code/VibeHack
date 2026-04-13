@@ -10,7 +10,7 @@ from vibehack.config import cfg
 from vibehack.core.repl.commands import SLASH_COMMANDS
 
 class SlashCommandCompleter(Completer):
-    """Autocomplete for slash commands and tool names."""
+    """Autocomplete for slash commands with descriptions (Gemini style)."""
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
         
@@ -22,54 +22,89 @@ class SlashCommandCompleter(Completer):
                 if tool.startswith(prefix):
                     yield Completion(tool, start_position=-len(prefix))
         
-        # Slash command autocomplete
+        # Slash command autocomplete with descriptions
         elif text.startswith("/"):
             word = text.lower()
-            for cmd in SLASH_COMMANDS:
+            for cmd, desc in SLASH_COMMANDS.items():
                 if cmd.startswith(word):
-                    yield Completion(cmd, start_position=-len(text))
+                    # Gemini style: Command on left, Description on right
+                    # Padding meta to force full-width display in the floating menu
+                    try:
+                        import os
+                        width = os.get_terminal_size().columns
+                    except OSError:
+                        width = 80
+                        
+                    # Calculate padding needed for full-width feeling
+                    # cmd is roughly 15 chars, desc is rest.
+                    meta_padding = " " * (width - len(cmd) - len(desc) - 5)
+                    full_meta = desc + meta_padding
+                    
+                    yield Completion(cmd, start_position=-len(text), display_meta=full_meta)
+
+def get_input_hint(repl):
+    """A tactical separator for the hacker style."""
+    from rich.text import Text
+    import os
+    
+    try:
+        width = os.get_terminal_size().columns
+    except OSError:
+        width = 100
+
+    # Professional minimalist separator
+    label = " INPUT "
+    remaining = width - len(label) - 4
+    left = "─" * (remaining // 2)
+    right = "─" * (remaining - (remaining // 2))
+    
+    hint = Text(f"{left}[{label}]{right}", style="#444444")
+    return hint
 
 def get_repl_style():
-    """Default styling for prompt-toolkit with Gemini CLI aesthetic."""
+    """Gemini CLI inspired styling with dark input area."""
     return Style.from_dict({
-        'bottom-toolbar': '#aaaaaa bg:#1e1e1e',
-        'top-toolbar':    '#aaaaaa bg:#1e1e1e',
+        'bottom-toolbar': '#00ff00 bg:#000000',
+        'top-toolbar':    '#00ffff bg:#000000',
         'prompt':         '#00ffff bold',
-        'logo':           '#00ffff bold',
-        'version':        '#666666',
-        'auth':           '#dddddd',
-        'path':           '#00ffff',
+        'prompt-area':    'bg:#000000',
+        'completion-menu': 'bg:#111111 #00ff00',
+        'completion-menu.completion': 'bg:#111111 #00ff00',
+        'completion-menu.completion.current': 'bg:#00ffff #000000',
+        'completion-menu.meta.completion': 'bg:#111111 #00aaaa',
+        'completion-menu.meta.completion.current': 'bg:#00ffff #000000',
+        'logo':           '#00ff00 bold',
+        'version':        '#ffd700',
+        'auth':           '#ffd700',
         'sandbox-safe':   '#00ff00',
-        'sandbox-warn':   '#ff0000 bold',
-        'model-hint':     '#666666',
+        'sandbox-warn':   '#ff0000 bold blink',
     })
 
 def get_top_toolbar(repl):
-    """Sticky header for the top of the terminal."""
+    """Tactical header for hacker style."""
     from vibehack import __version__
-    provider = repl.handler.provider.upper() if hasattr(repl, 'handler') else "UNKNOWN"
-    
-    # Gemini-style multi-colored arrow logo
-    logo = HTML('<ansiblue><b>❱</b></ansiblue><ansicyan><b>❱</b></ansicyan><ansigreen><b>❱</b></ansigreen>')
-    
+    logo = HTML('<logo><b>[ VIBEHACK CORE ]</b></logo>')
     return HTML(
-        f'{logo} <b>VibeHack</b> <version>v{__version__}</version> '
-        f'| <auth>Signed in via {provider}</auth> '
-        f'| <model-hint>Mission: Autonomous Weapon /audit</model-hint>'
+        f'{logo} <version>v{__version__}</version> '
+        f'| <auth>LINK_ESTABLISHED</auth> '
+        f'| CPU: [OK] | MEM: [OK] | SEC_OPS: [ACTIVE]'
     )
 
 def get_bottom_toolbar(repl):
-    """Informative metadata bar shown at the bottom of the terminal."""
+    """Status bar with hacker icons."""
     import os
-    cwd = os.getcwd().replace(os.path.expanduser("~"), "~")
-    
-    target = (repl.target[:30] + '...') if repl.target and len(repl.target) > 30 else (repl.target or "no target")
+    target = (repl.target[:30] + '...') if repl.target and len(repl.target) > 30 else (repl.target or "NO_TARGET")
     findings = len(repl.key_findings)
-    unchained = "UNCHAINED 🔓" if repl.unchained else "GUARDED 🔒"
-    sandbox_status = '<sandbox-safe>ACTIVE 📦</sandbox-safe>' if getattr(cfg, 'SANDBOX_ENABLED', False) else '<sandbox-warn>no sandbox</sandbox-warn>'
+    status_icon = "🔓" if repl.unchained else "🔒"
     
-    return HTML(
-        f' <b>VibeHack</b> | Target: <ansicyan>{target}</ansicyan> | '
-        f'Findings: <b>{findings}f</b> | {unchained} | '
-        f'Sandbox: {sandbox_status} | Mode: {repl.persona}'
-    )
+    # Calculate right-side metadata for a balanced look
+    try:
+        width = os.get_terminal_size().columns
+    except OSError:
+        width = 80
+        
+    left_part = f" TARGET: {target} | FINDINGS: {findings} | STATUS: {status_icon} "
+    right_part = f" SESSION: {getattr(repl, 'session_id', '???')} "
+    padding = " " * (width - len(left_part) - len(right_part) - 1)
+    
+    return HTML(f"<b><ansiyellow>{left_part}{padding}{right_part}</ansiyellow></b>")

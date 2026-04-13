@@ -108,3 +108,26 @@ def get_tools_context_string(tools: list[str] = None) -> str:
     if not tools:
         return "No security tools found. Using POSIX built-ins only."
     return ", ".join(f"`{t}`" for t in tools)
+def get_tool_status(tool_name: str) -> str:
+    """
+    Returns the status of a tool:
+    - 'installed': Found in PATH or vibehack bin
+    - 'provisionable': Not found, but listed in DOWNLOADABLE_TOOLS
+    - 'missing': Not found and no automated install available
+    """
+    from vibehack.toolkit.provisioner import DOWNLOADABLE_TOOLS, APT_TOOLS
+    
+    if check_tool_exists(tool_name):
+        return "installed"
+    
+    if tool_name in DOWNLOADABLE_TOOLS or tool_name in APT_TOOLS:
+        return "provisionable"
+        
+    return "missing"
+
+def check_tool_exists(command_name: str) -> bool:
+    """Checks if a specific binary exists in the PATH."""
+    import shutil
+    # Get the base command (e.g., 'nmap' from 'nmap -sV target')
+    base_cmd = command_name.split()[0] if command_name else ""
+    return shutil.which(base_cmd) is not None

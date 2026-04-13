@@ -1,7 +1,8 @@
 import os
+import re
+import asyncio
 import subprocess
-from typing import NamedTuple, Optional
-
+from typing import NamedTuple, Optional, List
 
 class ShellResult(NamedTuple):
     stdout: str
@@ -9,190 +10,138 @@ class ShellResult(NamedTuple):
     exit_code: int
     truncated: bool
 
-
-def _build_sandbox_command(command: str) -> list[str]:
-    """Builds the docker exec command to run securely in the sandbox."""
-    from vibehack.core.sandbox import CONTAINER_NAME
-
-    sandbox_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/root/.vibehack/bin"
-    return [
-        "docker",
-        "exec",
-        "-e",
-        f"PATH={sandbox_path}",
-        "-i",
-        CONTAINER_NAME,
-        "bash",
-        "-c",
-        command,
-    ]
-
-
-def execute_shell(
-    command: str,
-    timeout: int = 120,
-    truncate_limit: int = 2500,
-    env: Optional[dict] = None,
-) -> ShellResult:
-    from vibehack.config import cfg
-
+class PersistentSession:
     """
-    Executes a raw shell command and returns the results.
-    Ensures output is truncated for LLM token efficiency.
+    The Heart of v4.0: maintains a continuous bash process inside the sandbox.
+    Allows for stateful commands like 'cd', 'export', and interactive behavior.
     """
-    try:
-        # We use shell=True to support piping and shell builtins as per PRD v1.7
-        # The HitL and Regex engines are responsible for safety before this is called.
+    def __init__(self):
+        self.process: Optional[asyncio.subprocess.Process] = None
+        self.container_name: Optional[str] = None
+        self.lock = asyncio.Lock()
 
-        target_command = command
-        if cfg.SANDBOX_ENABLED:
-            # Route to docker. Provide env vars explicitly if needed, but for simplicity
-            # we rely on the container's environment + mounted ~/.vibehack/bin
-            # Ensure PATH includes /root/.vibehack/bin inside the container
-            target_command = _build_sandbox_command(command)
-
-        if isinstance(target_command, list):
-            process = subprocess.run(
-                target_command,
-                shell=False,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                env=env,
-            )
-        else:
-            process = subprocess.run(
-                target_command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                env=env,  # Injects ~/.vibehack/bin into PATH (effective only on host)
-                executable="/bin/bash" if os.path.exists("/bin/bash") else None,
-            )
-
-        stdout = process.stdout or ""
-        stderr = process.stderr or ""
-        exit_code = process.returncode
-
-    except subprocess.TimeoutExpired as e:
-        stdout = e.stdout.decode() if e.stdout else ""
-        stderr = (
-            e.stderr.decode() if e.stderr else ""
-        ) + "\n[VibeHack Error] Command timed out."
-        exit_code = 124  # Common timeout exit code
-    except Exception as e:
-        stdout = ""
-        stderr = f"[VibeHack Error] Execution failed: {str(e)}"
-        exit_code = 1
-
-    truncated = False
-    if len(stdout) > truncate_limit:
-        half = truncate_limit // 2
-        stdout = (
-            stdout[:half]
-            + f"\n... [Truncated Middle: {len(stdout)-truncate_limit} bytes removed by VibeHack] ...\n"
-            + stdout[-half:]
-        )
-        truncated = True
-
-    if len(stderr) > truncate_limit:
-        half = truncate_limit // 2
-        stderr = (
-            stderr[:half]
-            + f"\n... [Error Truncated Middle: {len(stderr)-truncate_limit} bytes removed by VibeHack] ...\n"
-            + stderr[-half:]
-        )
-        truncated = True
-
-    return ShellResult(stdout, stderr, exit_code, truncated)
-
-
-async def execute_shell_async(
-    command: str,
-    timeout: int = 120,
-    truncate_limit: int = 2500,
-    env: Optional[dict] = None,
-    output_callback=None,
-) -> ShellResult:
-    import asyncio
-
-    from vibehack.config import cfg
-
-    target_command = command
-    if cfg.SANDBOX_ENABLED:
-        target_command = _build_sandbox_command(command)
-
-    try:
-        if isinstance(target_command, list):
-            process = await asyncio.create_subprocess_exec(
-                *target_command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=env,
-            )
-        else:
-            process = await asyncio.create_subprocess_shell(
-                target_command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                env=env,
-                executable="/bin/bash" if os.path.exists("/bin/bash") else None,
-            )
-    except Exception as e:
-        return ShellResult("", f"[VibeHack Error] Execution failed: {str(e)}", 1, False)
-
-    stdout_buf = []
-    stderr_buf = []
-
-    async def read_stream(stream, buffer, is_stderr):
-        while True:
-            line = await stream.readline()
-            if not line:
-                break
-            text = line.decode(errors="replace")
-            buffer.append(text)
-            if output_callback:
-                output_callback(text, is_stderr)
-
-    try:
-        await asyncio.wait_for(
-            asyncio.gather(
-                read_stream(process.stdout, stdout_buf, False),
-                read_stream(process.stderr, stderr_buf, True),
-            ),
-            timeout=timeout,
-        )
-        await process.wait()
-        exit_code = process.returncode
-    except asyncio.TimeoutError:
+    async def start(self):
+        from vibehack.core.sandbox import CONTAINER_NAME
+        from vibehack.config import cfg
+        self.container_name = CONTAINER_NAME
+        
+        # We start a direct bash session inside the docker container
+        sandbox_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/vibehack/bin"
+        
+        cmd = [
+            "docker", "exec", "-i",
+            "-e", f"PATH={sandbox_path}",
+            "-w", "/root/workspace",
+            self.container_name, 
+            "bash", "--noprofile", "--norc"
+        ]
+        
         try:
-            process.kill()
-        except OSError:
+            self.process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+        except Exception as e:
+            # Fallback for local testing if docker fails
             pass
-        stderr_buf.append("\n[VibeHack Error] Command timed out.")
-        exit_code = 124
 
-    stdout = "".join(stdout_buf)
-    stderr = "".join(stderr_buf)
+    async def execute(self, command: str, timeout: int = 120, callback=None) -> ShellResult:
+        """Executes a command in the persistent shell and captures output."""
+        if not self.process:
+            await self.start()
 
+        async with self.lock:
+            # We use a unique delimiter to know when the command finishes
+            delimiter = f"VIBEHACK_DONE_{os.urandom(4).hex()}"
+            # We wrap the command to capture exit code and delimiter
+            full_cmd = f"{command}\necho $? && echo {delimiter}\n"
+            
+            try:
+                self.process.stdin.write(full_cmd.encode())
+                await self.process.stdin.drain()
+
+                stdout_lines = []
+                exit_code = 0
+                
+                # Read until delimiter
+                while True:
+                    line = await self.process.stdout.readline()
+                    if not line: break
+                    line_str = line.decode(errors="replace").strip()
+                    
+                    if line_str == delimiter:
+                        if stdout_lines:
+                            exit_code_str = stdout_lines.pop()
+                            try:
+                                exit_code = int(exit_code_str)
+                            except:
+                                exit_code = 1
+                        break
+                    
+                    if callback:
+                        # Feed the raw line (with newline) to callback
+                        callback(line.decode(errors="replace"), False)
+                    
+                    stdout_lines.append(line_str)
+                
+                stdout = "\n".join(stdout_lines)
+                return ShellResult(
+                    stdout=_sanitize_output(stdout),
+                    stderr="",
+                    exit_code=exit_code,
+                    truncated=False
+                )
+            except Exception as e:
+                return ShellResult("", f"Internal Pipe Error: {str(e)}", 1, False)
+
+# Global session instance
+_SESSION = PersistentSession()
+
+async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 2500, env=None, output_callback=None) -> ShellResult:
+    """Facade for the persistent session or stateless fallback."""
+    from vibehack.config import cfg
+    if not cfg.SANDBOX_ENABLED:
+        return await _execute_stateless(command, timeout, env)
+    
+    res = await _SESSION.execute(command, timeout, callback=output_callback)
+    
+    # Handle truncation
+    stdout = res.stdout
     truncated = False
     if len(stdout) > truncate_limit:
         half = truncate_limit // 2
-        stdout = (
-            stdout[:half]
-            + f"\n... [Truncated Middle: {len(stdout)-truncate_limit} bytes removed by VibeHack] ...\n"
-            + stdout[-half:]
-        )
+        stdout = stdout[:half] + f"\n... [Truncated {len(stdout)-truncate_limit} bytes] ...\n" + stdout[-half:]
         truncated = True
+    
+    return ShellResult(stdout, res.stderr, res.exit_code, truncated)
 
-    if len(stderr) > truncate_limit:
-        half = truncate_limit // 2
-        stderr = (
-            stderr[:half]
-            + f"\n... [Error Truncated Middle: {len(stderr)-truncate_limit} bytes removed by VibeHack] ...\n"
-            + stderr[-half:]
+async def _execute_stateless(command: str, timeout: int, env=None) -> ShellResult:
+    """Fallback stateless execution for host OS (use with caution)."""
+    try:
+        process = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env
         )
-        truncated = True
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+        return ShellResult(
+            _sanitize_output(stdout.decode(errors="replace")),
+            _sanitize_output(stderr.decode(errors="replace")),
+            process.returncode or 0,
+            False
+        )
+    except Exception as e:
+        return ShellResult("", f"Execution Error: {str(e)}", 1, False)
 
-    return ShellResult(stdout, stderr, exit_code, truncated)
+def _sanitize_output(text: str) -> str:
+    """Redacts secrets and cleans triggers."""
+    if not text: return ""
+    text = re.sub(r"(sk-[a-zA-Z0-9]{30,})", "sk-***", text)
+    text = re.sub(r"(AIza[a-zA-Z0-9_-]{30,})", "AIza***", text)
+    # Basic trigger scrubbing
+    for trigger in ["System:", "User:", "Assistant:"]:
+        text = text.replace(trigger, f"[Sanitized {trigger}]")
+    return text

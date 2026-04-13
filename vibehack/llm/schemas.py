@@ -17,6 +17,8 @@ class AgentResponse(BaseModel):
     thought: str = Field(..., description="Internal reasoning — always required")
     raw_command: Optional[str] = Field(None, description="Shell command to execute, or null")
     is_destructive: bool = Field(False, description="True if command writes, deletes, or is high-risk")
+    confidence_score: float = Field(..., description="AI confidence in this specific action (0.0 to 1.0)")
+    risk_assessment: str = Field("low", description="Brief assessment of potential side effects (low/med/high)")
     education: Optional[str] = Field(None, description="Educational note for dev-safe mode")
     finding: Optional[Finding] = Field(None, description="Security finding with confirmed evidence")
     mission_goals: Optional[List[str]] = Field(None, description="List of mission objectives")

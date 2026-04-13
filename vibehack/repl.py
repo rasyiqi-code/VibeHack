@@ -5,6 +5,7 @@ Modularized in v2.6.45 to separate UI, Logic, and Commands.
 import asyncio
 import os
 import re
+import sys
 from datetime import datetime
 from typing import List, Dict, Optional
 
@@ -34,7 +35,13 @@ from vibehack.ui.tui import display_banner, display_notice
 # Modular Imports
 from vibehack.core.repl.commands import handle_slash_command
 from vibehack.core.repl.logic import process_llm_turn
-from vibehack.ui.repl.prompts import SlashCommandCompleter, get_repl_style, get_bottom_toolbar, get_top_toolbar
+from vibehack.ui.repl.prompts import (
+    SlashCommandCompleter, get_repl_style, get_bottom_toolbar, 
+    get_top_toolbar, get_input_hint
+)
+from prompt_toolkit.layout.processors import BeforeInput
+from prompt_toolkit.layout.containers import FloatContainer, Float
+from prompt_toolkit.layout.menus import CompletionsMenu
 
 console = Console()
 URL_PATTERN = re.compile(r"(https?://[^\s]+|(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?|localhost(?::\d+)?)", re.IGNORECASE)
@@ -84,17 +91,43 @@ class VibehackREPL:
             # but for simplicity in Application.run_async, we can trigger a task
             pass
 
-        # Full-Screen Layout
+        # Full-Screen Layout with Sticky Components
         self.layout = Layout(
             HSplit([
                 # Sticky Top Bar
                 Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar'),
                 # Scrollable History Window
                 Window(content=BufferControl(buffer=self.history_buffer), wrap_lines=True),
+                # Input Area (Full width)
+                FloatContainer(
+                    content=HSplit([
+                        # Dark separator hint line
+                        Window(content=FormattedTextControl(lambda: get_input_hint(self)), height=1),
+                        # Prompt line
+                        Window(
+                            content=BufferControl(
+                                buffer=self.input_buffer,
+                                input_processors=[BeforeInput(HTML('<prompt><b> > </b></prompt>'))]
+                            ),
+                            height=1,
+                            style='class:prompt'
+                        ),
+                    ]),
+                    floats=[
+                        Float(
+                            content=Window(
+                                content=CompletionsMenu(max_height=12),
+                                style='completion-menu',
+                                dont_extend_width=False, # Force full width
+                            ),
+                            left=0,
+                            right=0,
+                            bottom=1
+                        )
+                    ]
+                ),
                 # Sticky Bottom Bar
                 Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar'),
-                # Input Area
-                Window(content=BufferControl(buffer=self.input_buffer), height=1, style='class:prompt'),
             ])
         )
         
@@ -166,14 +199,22 @@ class VibehackREPL:
         return None
 
     async def run(self):
-        # ── Sticky TUI Initialization ─────────────────────────────────────
+        # ── Professional TUI Initialization ───────────────────────────────
+        # Set terminal window title
+        sys.stdout.write("\x1b]2;VibeHack [SEC-AGENT]\x07")
+        sys.stdout.flush()
+        
+        # Ensure we start with a small top margin for better readability
+        os.system('clear' if os.name == 'posix' else 'cls')
+        print("") # Top margin
+        
         display_banner()
         self._check_sudo()
         self._discover_tools()
         if self.no_memory is False: init_memory()
         self._rebuild_system_prompt()
 
-        # Display start-up notice (Gemini aesthetic)
+        # Display start-up notice (Professional style)
         display_notice(
             "VibeHack is an autonomous security agent. All activities are logged to "
             "~/.vibehack/sessions for audit and cross-session learning.",
@@ -186,9 +227,20 @@ class VibehackREPL:
         
         while True:
             try:
+                # ── Print Input Hint (Gemini UI) ──────────────────────────
+                # We use a separator bar without text as requested
+                console.print(get_input_hint(self))
+                
+                # Calculate terminal width
+                try:
+                    width = os.get_terminal_size().columns
+                except OSError:
+                    width = 80
+
+                # Hacker Style Prompt: Sharp and glowing neons with Gold placeholder
                 user_input = await self.session.prompt_async(
-                    HTML('<ansicyan><b>you: </b></ansicyan>'),
-                    placeholder=HTML('<ansigray>Type your message or /command...</ansigray>'),
+                    HTML('<b><ansiyellow>vibe</ansiyellow><ansigray>@</ansigray><ansicyan>hack</ansicyan><ansigray>:</ansigray><ansiblue>~</ansiblue><ansigray>$</ansigray> </b>'),
+                    placeholder=HTML('<ansiyellow>awaiting_instruction...</ansiyellow>'),
                     bottom_toolbar=lambda: get_bottom_toolbar(self),
                     style=self.style
                 )
@@ -200,7 +252,6 @@ class VibehackREPL:
                     if isinstance(result, tuple) and result[0] == "__install__":
                         from vibehack.toolkit.provisioner import download_tool
                         if await download_tool(result[1]):
-                            clear_discovery_cache()
                             self._discover_tools()
                             self._rebuild_system_prompt()
                     continue
@@ -210,8 +261,8 @@ class VibehackREPL:
             except (EOFError, KeyboardInterrupt):
                 break
             except Exception as e:
-                console.print(f"[red]Error:[/red] {e}")
-                await asyncio.sleep(1)
+                console.print(f"[bold red]Unexpected error:[/bold red] {e}")
+                break
 
         self._persist()
         if not self.no_memory and len(self.history) > 2:

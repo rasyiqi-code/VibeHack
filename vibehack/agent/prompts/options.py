@@ -37,3 +37,4 @@ class PromptOptions:
     knowledge: Optional[dict] = None
     findings: Optional[list] = None
     mission_goals: Optional[List[str]] = None
+    exploits: Optional[str] = None

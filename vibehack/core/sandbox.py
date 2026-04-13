@@ -114,13 +114,21 @@ def start_sandbox():
         subprocess.run(["docker", "rm", "-f", CONTAINER_NAME], capture_output=True)
 
     with console.status("[dim]Starting Ephemeral Sandbox...[/dim]"):
-        # Mount ~/.vibehack to /root/.vibehack so tools can be shared
-        host_mnt = str(cfg.HOME.absolute())
+        # 1. Create a dedicated workspace if it doesn't exist
+        workspace_dir = cfg.HOME / "workspace"
+        workspace_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 2. Mount Logic:
+        # - Binaries (~/.vibehack/bin) -> Read-Only (ro)
+        # - Workspace (~/.vibehack/workspace) -> Read-Write (rw)
+        # We NO LONGER mount the root .vibehack to protect memory.db and sessions.
         
         cmd = [
             "docker", "run", "-d",
             "--name", CONTAINER_NAME,
-            "-v", f"{host_mnt}:/root/.vibehack",
+            "-v", f"{cfg.BIN_DIR.absolute()}:/usr/local/vibehack/bin:ro",
+            "-v", f"{workspace_dir.absolute()}:/root/workspace:rw",
+            "-w", "/root/workspace",
             IMAGE_NAME,
             "tail", "-f", "/dev/null"
         ]
@@ -129,6 +137,7 @@ def start_sandbox():
             subprocess.run(cmd, check=True, capture_output=True)
             
             # Additional setup: ensure apt paths and base tools
+            # We also add /usr/local/vibehack/bin to the system PATH inside container
             init_cmd = [
                 "docker", "exec", CONTAINER_NAME,
                 "bash", "-c",
@@ -136,7 +145,8 @@ def start_sandbox():
             ]
             subprocess.run(init_cmd, capture_output=True)
             
-            console.print("[bold green]✓ Sandbox Ready[/bold green]")
+            console.print("[bold green]✓ Hardened Sandbox Ready[/bold green]")
+            console.print("[dim]  Path: /root/workspace (RW), /usr/local/vibehack/bin (RO)[/dim]")
         except subprocess.CalledProcessError as e:
             console.print(f"[bold red]Failed to start sandbox: {e.stderr.decode()}[/bold red]")
             raise

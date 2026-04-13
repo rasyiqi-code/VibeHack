@@ -14,7 +14,7 @@ from vibehack.agent.prompts.tactical import (
 from vibehack.llm.provider import AgentResponse
 from vibehack.guardrails.regex_engine import check_command, check_target
 from vibehack.toolkit.discovery import clear_discovery_cache
-from vibehack.core.shell import execute_shell_async
+from vibehack.core.shell import execute_shell
 from vibehack.config import cfg
 from vibehack.agent.knowledge import extract_knowledge
 from vibehack.ui.tui import (
@@ -159,7 +159,7 @@ async def _execute_proposed_command(repl, response: AgentResponse):
         _live.update(Panel(display_lines, title="📝 Streaming Output", border_style=style))
 
     with Live(Panel("Initializing...", title="📝 Streaming Output", border_style="dim white"), refresh_per_second=4, transient=True) as _live:
-        result = await execute_shell_async(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=repl.env, output_callback=live_callback)
+        result = await execute_shell(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=repl.env, output_callback=live_callback)
 
     display_output(result.stdout)
     if result.stderr: display_output(result.stderr, is_error=True)

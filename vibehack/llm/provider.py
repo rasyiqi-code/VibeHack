@@ -143,3 +143,29 @@ class UniversalHandler:
 
         response = await litellm.acompletion(**kwargs)
         return response.choices[0].message.content
+    async def critique(self, history: List[Dict[str, str]], proposed_command: str) -> Optional[str]:
+        """
+        [Sidecar Reasoning] — A second LLM pass to criticize the agent's decision.
+        Returns a string critique if the critic disagrees, else None.
+        """
+        critique_prompt = (
+            "You are the Shadow Critic. Your job is to peer-review a penetration tester's next move. "
+            "Look for: \n"
+            "- Redundant steps (looping)\n"
+            "- High-risk actions without enough recon\n"
+            "- Missing obvious exploit paths based on the tech stack\n\n"
+            f"The Lead Agent wants to run: `{proposed_command}`\n\n"
+            "If the move is solid, respond with ONLY 'APPROVED'. "
+            "If not, provide a brutal 1-sentence critique starting with 'CRITIQUE:'."
+        )
+        
+        # Clone history and append the shadow prompt
+        temp_history = history + [{"role": "user", "content": critique_prompt}]
+        
+        try:
+            response = await self.complete_raw(temp_history)
+            if "APPROVED" in response.upper() and len(response) < 20:
+                return None
+            return response.strip()
+        except:
+            return None

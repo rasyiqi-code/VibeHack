@@ -69,6 +69,10 @@ def get_system_prompt(
     legacy_keys = ["gpt-3.5", "claude-2", "gemini-pro-1.0", "bison"]
     tier = "legacy" if any(k in model_name for k in legacy_keys) else "modern"
 
+    from vibehack.toolkit.exploits import get_exploit_context
+    tech_list = list(knowledge_state.get("technologies", [])) if knowledge_state else []
+    exploit_intel = get_exploit_context(tech_list)
+
     options = PromptOptions(
         interactive=True,
         target=target,
@@ -78,6 +82,7 @@ def get_system_prompt(
         tech_hint=tech_hint,
         knowledge=knowledge_state,
         findings=existing_findings,
+        exploits=exploit_intel,
         sandbox=sandbox or cfg.SANDBOX_ENABLED,
         education=(persona == "dev-safe"),
         model_tier=tier,

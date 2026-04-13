@@ -37,6 +37,7 @@ from vibehack.agent.prompts.sections import (
     render_sandbox,
     render_knowledge,
     render_findings,
+    render_exploits,
     render_context_hints,
     render_schema,
 )
@@ -54,6 +55,7 @@ RENDER_PIPELINE = [
     render_sandbox,
     render_knowledge,
     render_findings,
+    render_exploits,
     render_context_hints,
     render_schema,        # Always last = strongest anchor for the AI
 ]

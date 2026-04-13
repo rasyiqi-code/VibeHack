@@ -11,7 +11,7 @@ Orchestrates:
 import asyncio
 import os
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Optional
 from rich.console import Console
 from rich.prompt import Prompt
 
@@ -33,13 +33,19 @@ from vibehack.toolkit.manager import get_toolkit_env
 from vibehack.ui.tui import (
     display_banner, display_output, display_session_info, 
     display_thought, display_education, display_finding, 
-    display_command, ask_approval
+    display_command, ask_approval, display_map
 )
 
 
 
 
 console = Console()
+
+from vibehack.agent.pipeline import AgentPipeline, PipelineContext
+from vibehack.agent.middlewares import (
+    ToolValidationMiddleware, ShadowCriticMiddleware, 
+    ExperienceMiddleware, ChameleonMiddleware
+)
 
 class AgentLoop:
     def __init__(
@@ -61,7 +67,19 @@ class AgentLoop:
         self.key_findings: List[Finding] = []
         self.session_id = session_id or generate_session_id()
         self.env = get_toolkit_env()
-        self._tech_hint = "web"  # Refined dynamically from AI thoughts
+        self._tech_hint = "web"
+        
+        # Level Dewa: Pipeline Infrastructure
+        self.pipeline = AgentPipeline()
+        self.pipeline.use(ExperienceMiddleware())
+        self.pipeline.use(ToolValidationMiddleware())
+        self.pipeline.use(ChameleonMiddleware())
+        self.pipeline.use(ShadowCriticMiddleware(self.handler))
+
+        from vibehack.reporting.manager import EvidenceManager
+        self.evidence_mgr = EvidenceManager(self.session_id)
+        self.last_command: Optional[str] = None
+        self.last_output: Optional[str] = None
 
     # ── Internal helpers ──────────────────────────────────────────────────
 
@@ -181,8 +199,59 @@ class AgentLoop:
                 # 2. Display AI state
                 display_thought(response.thought)
 
+                # [Level Dewa] Multi-Agent Pipeline (Discovery, Memory, Critique, Obfuscation)
+                ctx = PipelineContext(
+                    target=self.target,
+                    history=self.history[:-1],
+                    thought=response.thought,
+                    command=response.raw_command,
+                    confidence=response.confidence_score,
+                    risk=response.risk_assessment,
+                    metadata={"technologies": list(self.env["knowledge"].technologies)}
+                )
+                
+                # Recursive Pipeline Correction (Max 3 attempts)
+                correction_count = 0
+                while correction_count < 3:
+                    ctx = await self.pipeline.run(ctx)
+                    if not ctx.stop_execution:
+                        break
+                    
+                    correction_count += 1
+                    reason = ctx.warning or "General strategy failure"
+                    console.print(f"\n[bold yellow]🛡 PIPELINE INTERRUPT ({correction_count}/3):[/bold yellow] [dim]{reason}[/dim]")
+                    
+                    # Feed back to AI
+                    self.history.append({"role": "user", "content": f"PIPELINE FEEDBACK: {reason}. Please adjust ваzh strategy."})
+                    with console.status("[bold green]🤖 AI is re-thinking...[/bold green]"):
+                        response = await self.handler.complete(self.history)
+                    self.history.append({"role": "assistant", "content": response.model_dump_json()})
+                    
+                    # Update context for next pass
+                    ctx.thought = response.thought
+                    ctx.command = response.raw_command
+                    ctx.stop_execution = False
+                    ctx.warning = None
+
+                # Update command from pipeline (might have been obfuscated/changed)
+                if ctx.command != response.raw_command:
+                    console.print(f"[dim]🧬 Chameleon: Payload adapted ({ctx.metadata.get('obfuscation', 'Unknown')})[/dim]")
+                
+                response.raw_command = ctx.command
+
+                # Inject experience context if found by RAG middleware
+                exp_context = ctx.metadata.get("experience_context")
+                if exp_context:
+                    console.print(f"[dim]🧠 Context: Past experience localized for the current tech stack.[/dim]")
+                    self.history.append({"role": "user", "content": f"HISTORICAL CONTEXT: {exp_context}"})
+
                 if response.education and self.persona == "dev-safe":
                     display_education(response.education)
+
+                # Auto-Map update from thoughts
+                from vibehack.agent.knowledge import extract_knowledge
+                extract_knowledge(response.thought, self.env["knowledge"])
+                display_map(self.target, self.env["knowledge"].to_dict())
 
                 if response.finding:
                     display_finding(
@@ -190,6 +259,16 @@ class AgentLoop:
                         response.finding.title,
                         response.finding.description,
                     )
+                    
+                    # Level Dewa: Automatic Evidence Capture
+                    if self.last_command and self.last_output:
+                        path = self.evidence_mgr.capture(
+                            response.finding.title, 
+                            self.last_command, 
+                            self.last_output
+                        )
+                        console.print(f"[bold cyan]📸 Evidence captured:[/bold cyan] [dim]{path}[/dim]")
+
                     self.key_findings.append(response.finding)
                     self.history.append({
                         "role": "user",
@@ -219,12 +298,18 @@ class AgentLoop:
 
                     # 3b. Display proposed command
                     display_command(cmd)
+                    console.print(f"[dim]🎯 Confidence: {response.confidence_score*100:.1f}% | Risk: {response.risk_assessment.upper()}[/dim]")
 
-                    # 3c. HitL — destructive commands bypass auto-allow
+                    # 3c. HitL — confidence-based or destructive commands bypass auto-allow
+                    low_confidence = response.confidence_score < 0.8
+                    high_risk = response.risk_assessment.lower() in ("med", "high")
+
                     if response.is_destructive:
-                        console.print(
-                            "[bold red]⚠  DESTRUCTIVE COMMAND — Auto-Allow suspended. Manual approval required.[/bold red]"
-                        )
+                        console.print("[bold red]⚠ DESTRUCTIVE COMMAND — Manual approval required.[/bold red]")
+                        approval = await ask_approval()
+                    elif low_confidence or high_risk:
+                        reason = "Low Confidence" if low_confidence else "High Risk"
+                        console.print(f"[bold yellow]⚠ {reason} — Auto-Allow suspended. Manual approval required.[/bold yellow]")
                         approval = await ask_approval()
                     elif self.auto_allow:
                         approval = "y"
@@ -247,7 +332,11 @@ class AgentLoop:
                         console.print("[yellow]⚡ Auto-Allow enabled for this session.[/yellow]")
 
                     # 3d. Execute
-                    result = execute_shell(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=self.env)
+                    result = await execute_shell(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=self.env)
+                    
+                    # Update tracking for evidence
+                    self.last_command = cmd
+                    self.last_output = result.stdout + (f"\nSTDERR:\n{result.stderr}" if result.stderr else "")
 
                     if result.truncated:
                         console.print(f"[dim]ℹ Output truncated to {cfg.TRUNCATE_LIMIT} chars.[/dim]")
@@ -258,6 +347,10 @@ class AgentLoop:
 
                     # Refine tech hint from tool output
                     self._refine_tech_hint(result.stdout)
+                    
+                    # [Level Dewa] Real-time Map update from tool output
+                    extract_knowledge(result.stdout, self.env["knowledge"])
+                    display_map(self.target, self.env["knowledge"].to_dict())
 
                     # 3e. Feed result back
                     feedback = (

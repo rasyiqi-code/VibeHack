@@ -1,9 +1,9 @@
 import re
-from typing import Optional
+import shlex
+from typing import Optional, List
 
 # The "Terminal Sins" — commands that could destroy the host OS or exfiltrate unintended data.
-# NOTE: This blocklist is acknowledged to be a passive defense, not a perfect guardrail.
-# Obfuscated or indirect execution may bypass these patterns — Human-in-the-Loop is the true firewall.
+# Note: These regex patterns are now the second line of defense after structural analysis.
 DANGEROUS_PATTERNS = [
     # Recursive deletion (Linux)
     r"rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+|--force\s+).*(/|\*|~)",
@@ -13,8 +13,7 @@ DANGEROUS_PATTERNS = [
     r">\s*/dev/sd[a-z]",
     r">\s*/dev/nvme",
     # Permission bombers
-    r"chmod\s+-R\s+(777|000)\s+/",
-    r"chmod\s+(777|000)\s+-R\s+/",
+    r"chmod\s+(-R\s+)?(777|000)",
     # Fork bomb
     r":\(\)\s*\{\s*:|:\s*&\s*\}\s*;:\s*",
     # System halt/reboot
@@ -26,25 +25,69 @@ DANGEROUS_PATTERNS = [
     r"format\s+[a-zA-Z]:",
     r"del\s+/[fFsS]\s+/[fFsS]",
     # Pipe-to-shell download execution (supply chain)
-    r"(curl|wget)\s+.+\|\s*(sudo\s+)?(ba)?sh",
-    r"(curl|wget)\s+.+\|\s*(sudo\s+)?python",
+    r"(curl|wget)\s+.+?\|\s*(sudo\s+)?(ba)?sh",
+    r"(curl|wget)\s+.+?\|\s*(sudo\s+)?python",
     # Direct disk exfiltration/wipe via netcat
     r"(cat|dd)\s+/dev/[a-z]+.+\|\s*nc\s+",
 ]
 
+# Sensitive system files/directories that should NEVER be targets of shell redirection
+SENSITIVE_TARGETS = [
+    "/etc/passwd", "/etc/shadow", "/etc/sudoers", "/etc/crontab",
+    "/etc/pam.d", "/boot", "/dev/sd", "/dev/nvme", "/root/.ssh"
+]
+
 _COMPILED_PATTERNS = [re.compile(pattern, re.IGNORECASE) for pattern in DANGEROUS_PATTERNS]
+
+def _check_structural_danger(command: str) -> Optional[str]:
+    """
+    Parses the command to detect shell manipulation techniques 
+    like redirection and basic obfuscation.
+    """
+    try:
+        # Use shlex to handle quotes correctly
+        parts = shlex.split(command)
+        if not parts:
+            return None
+        
+        # 1. Redirection Check (e.g., command > /etc/passwd)
+        for i, part in enumerate(parts):
+            if part in (">", ">>", "1>", "2>"):
+                if i + 1 < len(parts):
+                    target = parts[i+1].lower()
+                    for sensitive in SENSITIVE_TARGETS:
+                        if sensitive in target:
+                            return f"Attempted redirection to sensitive path: {target}"
+        
+        # 2. Obfuscated Execution Check (eval, sh -c with suspicious vars)
+        if "eval" in command.lower() or "sh -c" in command.lower():
+            if "$" in command or "`" in command:
+                return "Potential shell execution obfuscation detected."
+
+    except Exception:
+        # If parsing fails, it's likely too complex (and thus suspicious)
+        return "Command structure is too complex or malformed for safety audit."
+    
+    return None
 
 def check_command(command: str, unchained: bool = False) -> Optional[str]:
     """
-    Scans a command against the dangerous patterns list.
-    If unchained is True, it returns None (bypassed).
+    Multi-stage command verification:
+    1. Structural Analysis (shlex)
+    2. Regex Pattern Matching
     """
     if unchained:
         return None
     
+    # Stage 1: Structure
+    struct_error = _check_structural_danger(command)
+    if struct_error:
+        return f"Blocked by structural guardrails: {struct_error}"
+    
+    # Stage 2: Patterns
     for compiled_pattern in _COMPILED_PATTERNS:
         if compiled_pattern.search(command):
-            return f"Blocked by guardrails (Pattern matched: {compiled_pattern.pattern})"
+            return f"Blocked by pattern guardrails: {compiled_pattern.pattern}"
     
     return None
 
