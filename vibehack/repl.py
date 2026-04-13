@@ -109,9 +109,7 @@ class VibehackREPL:
                 Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar'),
                 # Scrollable History Window (ANSI Supported)
                 self.history_pane,
-                # Sticky Bottom Bar
-                Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar'),
-                # Input Area
+                # Input Area (Moves above Footer)
                 Window(
                     content=BufferControl(
                         buffer=self.input_buffer,
@@ -122,6 +120,8 @@ class VibehackREPL:
                     height=1,
                     style='class:prompt'
                 ),
+                # Sticky Bottom Bar (Absolute Bottom)
+                Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar'),
             ])
         )
         
@@ -235,10 +235,6 @@ class VibehackREPL:
         if self.no_memory is False: init_memory()
         self._rebuild_system_prompt()
 
-        # Render initial banner to history buffer
-        from vibehack.ui.tui import get_banner_renderable
-        self.log(get_banner_renderable())
-        
         # Start Application
         try:
             await self.app.run_async()
