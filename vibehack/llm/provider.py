@@ -13,6 +13,7 @@ litellm.suppress_debug_info = True
 from vibehack.config import cfg
 from vibehack.llm.schemas import Finding, AgentResponse
 from vibehack.llm.repair import repair_json
+_repair_json = repair_json
 from vibehack.llm.google_auth import GoogleAuthHandler
 from vibehack.llm.bridge import execute_bridge_call
 
