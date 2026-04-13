@@ -63,4 +63,17 @@ class Config:
         self.MEMORY_ENABLED = os.getenv("VH_NO_MEMORY", "false").lower() != "true"
         self.SANDBOX_ENABLED = os.getenv("VH_SANDBOX", "false").lower() == "true"
 
+        # ── Load Default Models from JSON ────────────────────────────────────
+        self.DEFAULTS = {}
+        defaults_path = Path(__file__).parent / "llm" / "defaults.json"
+        if defaults_path.exists():
+            import json
+            try:
+                with open(defaults_path, "r") as f:
+                    self.DEFAULTS = json.load(f)
+            except Exception:
+                pass
+        
+        self.DEFAULT_MODELS = self.DEFAULTS.get("default_models", {})
+
 cfg = Config()

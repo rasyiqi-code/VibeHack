@@ -135,10 +135,10 @@ def _setup_auth_cli():
 def _setup_api_key():
     # ── Jalur 2: API Key (Standard) ──────────────────────────────────
     providers = {
-        "1": ("openrouter", "OpenRouter (Recommended)", "OPENROUTER_API_KEY", "openrouter/anthropic/claude-3.5-sonnet"),
-        "2": ("google", "Google Gemini", "GEMINI_API_KEY", "gemini/gemini-3-flash-preview"),
-        "3": ("anthropic", "Anthropic Claude", "ANTHROPIC_API_KEY", "anthropic/claude-3-5-sonnet-20240620"),
-        "4": ("openai", "OpenAI / ChatGPT", "OPENAI_API_KEY", "openai/gpt-4o"),
+        "1": ("openrouter", "OpenRouter (Recommended)", "OPENROUTER_API_KEY", cfg.DEFAULT_MODELS.get("openrouter")),
+        "2": ("google", "Google Gemini", "GEMINI_API_KEY", cfg.DEFAULT_MODELS.get("google")),
+        "3": ("anthropic", "Anthropic Claude", "ANTHROPIC_API_KEY", cfg.DEFAULT_MODELS.get("anthropic")),
+        "4": ("openai", "OpenAI / ChatGPT", "OPENAI_API_KEY", cfg.DEFAULT_MODELS.get("openai")),
     }
     console.print("\n[bold cyan]Select Provider:[/bold cyan]")
     for k, v in providers.items():
@@ -164,6 +164,14 @@ def _setup_api_key():
         key = get_masked_input(f"\n[bold cyan]➤ Enter your {p_env}[/bold cyan]")
 
     if not key: return _setup_wizard()
+
+    # ── Model Selection Logic ──────────────────────────────────────────
+    console.print(f"\n[bold cyan]Model Selection:[/bold cyan]")
+    console.print(f"  Default is [green]{p_model}[/green]")
+    choice = Prompt.ask("➤ Use default model?", choices=["y", "n"], default="y")
+    
+    if choice.lower() == "n":
+        p_model = Prompt.ask("➤ Enter custom model string (e.g. openai/gpt-4-turbo)", default=p_model)
 
     final_env = {
         p_env: key,

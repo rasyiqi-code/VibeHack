@@ -27,18 +27,16 @@ class UniversalHandler:
         
         # Initialization defaults
         if not self.model or self.model == "auto":
-            defaults = {
-                "openrouter": "openrouter/anthropic/claude-3.5-sonnet",
-                "google": "gemini/gemini-3-flash-preview",
-                "anthropic": "anthropic/claude-3-5-sonnet-20240620",
-                "openai": "openai/gpt-4o",
-            }
-            self.model = defaults.get(self.provider, "openrouter/anthropic/claude-3.5-sonnet")
+            self.model = cfg.DEFAULT_MODELS.get(self.provider, "openrouter/anthropic/claude-3.5-sonnet")
 
         # LiteLLM routing prefixing
         if self.provider == "google" and not ("/" in self.model):
              prefix = "vertex_ai/" if self.auth_type == "oauth" else "gemini/"
              self.model = f"{prefix}{self.model}"
+        elif self.provider and self.provider != "custom":
+            # For providers like openrouter, anthropic, openai - ensure prefix if missing
+            if not self.model.startswith(f"{self.provider}/"):
+                self.model = f"{self.provider}/{self.model}"
 
         self.api_base = cfg.API_BASE or None
         self.custom_headers = {}
@@ -62,6 +60,9 @@ class UniversalHandler:
         if self.provider == "google" and not ("/" in self.model):
              prefix = "vertex_ai/" if self.auth_type == "oauth" else "gemini/"
              self.model = f"{prefix}{self.model}"
+        elif self.provider and self.provider != "custom":
+            if not self.model.startswith(f"{self.provider}/"):
+                self.model = f"{self.provider}/{self.model}"
         
         if self.auth_type == "oauth" and self.provider == "google":
             self.google_auth = GoogleAuthHandler(self.auth_file)
