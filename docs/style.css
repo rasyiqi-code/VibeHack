@@ -46,6 +46,7 @@ h2 { font-size: 2.5rem; font-weight: 700; }
 .text-gradient {
     background: var(--gradient);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
@@ -235,6 +236,29 @@ h2 { font-size: 2.5rem; font-weight: 700; }
 .code-content code::before { content: "$ "; color: var(--primary); }
 .code-content .c-dim::before { content: ""; }
 .code-content .c-dim { color: var(--text-dim); }
+
+.divider {
+    text-align: center;
+    margin: 3rem 0;
+    color: var(--text-dim);
+    font-weight: 800;
+    font-size: 0.9rem;
+    position: relative;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.divider::before, .divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 35%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
+}
+
+.divider::before { left: 5%; }
+.divider::after { right: 5%; }
 
 /* Features */
 .section { padding: 6rem 0; }
