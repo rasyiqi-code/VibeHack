@@ -1,8 +1,6 @@
-# 📟 Command Reference
+# 📟 Command Reference (v4.0)
 
 ## CLI Commands
-These commands are executed directly from your terminal.
-
 | Command | Usage | Description |
 | :--- | :--- | :--- |
 | `vibehack` | `vibehack [options]` | Start the interactive REPL. |
@@ -11,6 +9,7 @@ These commands are executed directly from your terminal.
 | `resume` | `vibehack resume <id>` | Resume a specific session by ID. |
 | `report` | `vibehack report <id>` | Export a session to a Markdown/PDF report. |
 | `check` | `vibehack check` | Health check: tool discovery & LTM stats. |
+| **`provision`**| `vibehack provision --all` | **[New]** Pre-install all supported Go/Rust/Apt tools. |
 | `install` | `vibehack install <tool>` | External tool provisioner (e.g. `nmap`). |
 | `update` | `vibehack update` | Self-update from GitHub. |
 | `version` | `vibehack version` | Show version and build info. |
@@ -20,32 +19,21 @@ These commands are executed directly from your terminal.
 - `--op-mode`: Set operation mode (`agent` | `ask`).
 - `--persona, -p`: Set persona (`dev-safe` | `pro`).
 - `--unchained`: Bypass regex guardrails (requires waiver).
-- `--sandbox`: Run LLM shell commands in Docker.
+- **`--sandbox`**: **[Required for v4.0]** Run LLM shell commands in a persistent Docker session.
 - `--model`: Specific LLM model override.
 
 ---
 
-## REPL Slash Commands
-These commands are used **inside** the VibeHack interaction loop.
-
+## REPL Slash Commands (v4.0)
 | Command | Description |
 | :--- | :--- |
 | `/help` | Show REPL command help. |
 | `/target <url>` | Set or change the current attack target. |
-| `/mode <name>` | **[New]** Switch operational mode: `agent` (autonomous) \| `ask` (consultant). |
-| `/status` | Show current session & system status. |
-| `/persona <name>`| **[New]** Switch persona: `dev-safe` (educational) \| `pro` (minimalist). |
-| `/ask <text>` | **[New]** Ask a theory question without executing anything. |
-| `/map` | Visualise the discovered attack surface as a Tree. |
-| `/auth` | Reconfigure AI provider / API keys (Wizard mode). |
-| `/switch <model>`| **[New]** Seamlessly swap AI model without losing message history. |
-| `/install <tool>` | Install a missing security tool to `~/.vibehack/bin`. |
-| `/findings` | List all confirmed security vulnerabilities. |
-| `/knowledge` | Show raw extracted intelligence (ports, tech, etc.). |
-| `/unchained` | Toggle restricted/unrestricted mode (Guardrail bypass). |
-| `/clear` | Clear conversation history (keeps knowledge & findings). |
-| `/report` | Generate report from the current active session. |
-| `/memory` | Browse or search Long-Term Memory (`list` \| `search <keyword>`). |
-| `/tokens` | **[New]** Manage context window (`status` \| `limit <n>` \| `turns <n>`). |
-| `/tools` | Show discovered security and LotL tools in PATH. |
-| `/exit` | Save session and quit. |
+| `/status` | Show session status, AI confidence, and **Shadow Critic** status. |
+| `/map` | Visualise the discovered attack surface as a **Real-Time Tree**. |
+| `/history` | **[New]** Show a clean summary of the current session's ReAct chain. |
+| `/sessions` | **[New]** List and interactive resume previous sessions via **Hot-Swap**. |
+| `/install <tool>` | Manually trigger the auto-provisioner. |
+| `/memory` | Search Long-Term Memory (RAG-lite indexing). |
+| `/pipeline` | **[New]** View the active middleware stack (Memory, Critique, Obfuscation). |
+| `/exit` | Terminate session, ingest memory, and save evidence. |

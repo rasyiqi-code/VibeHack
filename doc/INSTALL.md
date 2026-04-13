@@ -1,7 +1,12 @@
-# 🏗️ Lifecycle & Installation
+# 🏗️ Lifecycle & Installation (v4.0)
 
-## 1. Installation
-Depending on your use case, VibeHack can be installed in two ways:
+## 1. Prerequisites
+VibeHack v4.0 requires **Docker** for the best and safest experience.
+- **Docker Engine**: Required for **Persistent Session Mode**. Download at [docs.docker.com](https://docs.docker.com/get-docker/).
+- **Linux/Darwin**: Optimized for POSIX systems.
+
+## 2. Installation
+VibeHack can be installed in two ways:
 - **Production (Isolated)**:
   ```bash
   curl -fsSL https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/install.sh | bash
@@ -10,35 +15,35 @@ Depending on your use case, VibeHack can be installed in two ways:
   ```bash
   git clone https://github.com/rasyiqi-code/VibeHack.git
   cd VibeHack
-  uv pip install -e .
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -e .
   ```
 
-## 2. Updating VibeHack
-Keep your core engine up to date with the latest features from GitHub:
+## 3. Persistent Session Configuration
+By default, VibeHack v4.0 uses a stateful sandbox. Ensure Docker is running before starting a mission:
 ```bash
-vibehack update
+# Verify docker is accessible
+docker ps
 ```
-*Note: Restart any active sessions to apply updates.*
+If Docker is not available, VibeHack will fallback to **Stateless Mode** (host execution), which is discouraged for security reasons.
 
-## 3. Resetting Configuration
-If you want to clear your API keys or switch providers without reinstalling:
+## 4. Updates & Maintenance
+Keep your core engine up to date:
 ```bash
-rm ~/.vibehack/.env
+git pull origin main
+# Update templates and tools
+vibehack provision --all
 ```
-Running `vibehack` again will trigger the Setup Wizard.
 
-## 4. Uninstallation
-To completely remove VibeHack and all its data from your system:
+## 5. Uninstallation
+To completely remove VibeHack:
 ```bash
-# Remove the isolated environment
-rm -rf ~/.vibehack-env
-
-# Remove the binary link
-rm ~/.local/bin/vibehack
-
-# [CAUTION] Remove configuration, reports, and AI memory
+# Remove configuration, reports, and AI memory
 rm -rf ~/.vibehack
+# Remove the development folder
+rm -rf path/to/VibeHack
 ```
 
 > [!CAUTION]
-> **Data Loss Warning**: Deleting the `~/.vibehack` folder will permanently erase your **Long-Term Memory (LTM)**, saved session history, and generated audit reports.
+> **Data Loss Warning**: Deleting the `~/.vibehack` folder will permanently erase your **Long-Term Memory (LTM)**, session history, and audit reports.

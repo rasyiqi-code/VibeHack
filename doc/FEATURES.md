@@ -1,33 +1,33 @@
-# ✨ Core Features
+# ✨ VibeHack Core Features (v4.0)
 
-## 🤖 The Autonomous Agent Loop
-VibeHack v2.7.0 introduces a true non-stop agentic loop.
-- **Autonomous Reasoning**: After a tool (like `nmap` or `curl`) executes, the agent automatically ingests the output, analyzes it, and proposes the next logical step without waiting for user input.
-- **Goal Persistence**: The agent maintains an internal "Mission Plan" that updates in real-time as objectives are met.
+## 🐚 Stateful Persistence (Heart of v4.0)
+VibeHack v4.0 transcends "one-shot" execution with a persistent heart.
+- **Persistent Shell Sessions**: All shell commands now run in a long-lived `bash` process inside the sandbox. This allows the AI to maintain state (e.g., `cd`, environment variables) across turns.
+- **Hot-Resumption (Session Manager)**: Switching between audit sessions is now instant via `/sessions`. Users can "hot-swap" their entire knowledge, target, and history state without restarting the tool.
+- **Contextual Awareness**: The AI "remembers" where it is in the filesystem, allowing for professional multi-step exploitation chains.
+
+## 🧬 Intelligence Pipeline (Middleware Stack)
+The agent loop is now powered by a modular intelligence pipeline.
+- **Shadow Critic (Dual-Brain)**: A secondary LLM process peer-reviews every tactical decision to prevent loops and strategic errors.
+- **Chameleon Obfuscation**: High-risk payloads (like reverse shells) are automatically obfuscated into Base64/Hex formats to evade detection.
+- **RAG-Lite Tactical Recall**: Proactive memory retrieval that injects past successful tactics into the AI's current strategic context.
+
+## 🛠️ Autonomous Provisioning
+The agent can now manage its own toolbox.
+- **Pre-Flight Validation**: Every command is verified against the system's `$PATH` before approval.
+- **Self-Healing Environment**: If a tool is missing but provisionable (supported Go/Rust/Apt tools), the agent suggests automatic installation from GitHub or system packages.
+
+## 👾 Attack Surface Real-Time Tree
+A vibrant, hierarchical visualization of the target.
+- **Real-Time Mapping**: The attack tree updates instantly based on AI "thoughts" and raw tool outputs.
+- **Color-Coded Findings**: Critical, high, and medium vulnerabilities are visually linked to specific ports or endpoints.
 
 ## 🧠 Long-Term Memory (LTM)
-VibeHack never forgets a successful payload or a discovered technology.
-- **Experience Ingestion**: Every session is analyzed at exit. Successes (findings discovered) and failures (blocked commands) are stored in a persistent SQLite database (`~/.vibehack/memory.db`).
-- **Tactical Recall**: When targeting a similar technology in the future, the agent automatically retrieves relevant past experiences to bypass initial trial-and-error.
+VibeHack never forgets a successful tactic.
+- **Experience Indexing**: Every finding and successful command is indexed by technology stack for future recall.
+- **Tactical RAG**: Automatically provides historical context when a known technology (e.g., Spring, Apache) is detected.
 
-## 🕹️ Operation Modes & Personas
-- **Agent Mode**: Fully autonomous penetration testing.
-- **Ask Mode**: Interactive security consultant; explains concepts without executing code.
-- **Personas**: Switch between `dev-safe` (educational/verbose) and `pro` (minimalist/expert).
-
-## 🎮 The Interactive TUI
-- **Live Streaming Output**: See `stdout`/`stderr` from tools in real-time.
-- **HitL Approval**: Mandatory "ultimate firewall" for every command to ensure you remain in control.
-- **Token Economy**: Granular control over context window and sliding history via `/tokens`.
-
-## 📦 Sanitized Sandbox Execution
-Run untrusted AI-generated commands safely.
-- **Docker Isolation**: Optional `--sandbox` mode routes all shell commands into an ephemeral container.
-- **Injection Protection**: Automatic `shlex.quote` sanitization on all command arguments.
-
-## 🗺️ Attack Surface Mapping (`/map`)
-Visualize your target as a structured tree:
-- **Ports & Services**: Hierarchy of open ports.
-- **Tech Stack**: Automated technology fingerprinting.
-- **Endpoints**: Clean list of mapped URL paths.
-- **Findings**: Confirmed vulnerabilities linked to the attack surface.
+## 🛡️ Hardened Sandbox & Security
+- **Deep Docker Isolation**: Binaries are mounted Read-Only, while the workspace is Read-Write, preventing persistence attacks.
+- **Structural Guardrails**: Advanced `shlex` parsing prevents shell-metacharacter injection.
+- **Output Sanitization**: Automated masking of API keys and PII in tool results.
