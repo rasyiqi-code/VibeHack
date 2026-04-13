@@ -17,7 +17,7 @@ VibeHack can be installed in two ways:
   cd VibeHack
   python3 -m venv .venv
   source .venv/bin/activate
-  pip install -e .
+  pip install -e .  # Pro-tip: use 'uv' for faster setup
   ```
 
 ## 3. Persistent Session Configuration

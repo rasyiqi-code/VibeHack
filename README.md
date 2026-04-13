@@ -20,10 +20,10 @@ VibeHack is an advanced AI-powered security assistant that bridges the gap betwe
 ## 🚀 Installation
 
 ```bash
-# Clone and install in development mode
+# Clone and install
 git clone https://github.com/rasyiqi-code/VibeHack.git
 cd VibeHack
-uv pip install -e .
+pip install -e .  # Or use 'uv pip install -e .' for 10x speed
 ```
 
 ## 🛠️ Quick Start
