@@ -53,7 +53,7 @@ VibeHack v4 is a massive architectural leap and needs more community testing:
 ## 📚 Documentation
 
 For a deep dive into commands, configurations, and best practices:
-👉 **[Read the User Guide](./docs/INDEX.md)**
+👉 **[Read the User Guide](./docs/manual/INDEX.md)**
 
 ---
 *VibeHack is intended for legal, authorised security auditing only. Use responsibly.*
