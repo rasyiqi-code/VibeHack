@@ -11,9 +11,8 @@ import os
 from typing import Optional
 
 import typer
-import urllib.request
-import re
 from vibehack import __version__
+from vibehack.utils.version import get_remote_version
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
@@ -292,7 +291,7 @@ def install_tool(
 def check_update():
     """Check if a newer version of VibeHack is available on GitHub."""
     console.print("\n[bold yellow]📡 Checking for updates...[/bold yellow]")
-    remote_v = _get_remote_version()
+    remote_v = get_remote_version()
     
     if not remote_v:
         console.print("[bold red]Error:[/bold red] Could not reach GitHub to check version.")
@@ -315,17 +314,7 @@ def check_update():
             border_style="cyan"
         ))
 
-def _get_remote_version() -> Optional[str]:
-    """Fetch the latest version string from GitHub's pyproject.toml."""
-    url = "https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/pyproject.toml"
-    try:
-        with urllib.request.urlopen(url, timeout=5) as response:
-            content = response.read().decode('utf-8')
-            match = re.search(r'version = "(.*)"', content)
-            if match:
-                return match.group(1)
-    except Exception:
-        return None
+# _get_remote_version removed, using get_remote_version from utils
 
 @app.command()
 def sessions():
@@ -360,7 +349,7 @@ def sessions():
 def update():
     """Self-update VibeHack to the latest version from GitHub."""
     console.print("\n[bold yellow]📡 Checking for updates...[/bold yellow]")
-    remote_v = _get_remote_version()
+    remote_v = get_remote_version()
     
     if remote_v == __version__:
         console.print(f"[green]✓ You are already on the latest version (v{__version__}).[/green]\n")

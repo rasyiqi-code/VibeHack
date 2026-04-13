@@ -7,7 +7,6 @@ from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.styles import Style
 from prompt_toolkit.formatted_text import HTML
 from vibehack.config import cfg
-from vibehack.core.repl.commands import SLASH_COMMANDS
 
 class SlashCommandCompleter(Completer):
     """Autocomplete for slash commands and tool names."""
@@ -24,6 +23,7 @@ class SlashCommandCompleter(Completer):
         
         # Slash command autocomplete
         elif text.startswith("/"):
+            from vibehack.core.repl.commands import SLASH_COMMANDS
             word = text.lower()
             for cmd in SLASH_COMMANDS:
                 if cmd.startswith(word):
@@ -50,11 +50,11 @@ def get_top_toolbar(repl):
     from vibehack import __version__
     provider = repl.handler.provider.upper() if hasattr(repl, 'handler') else "UNKNOWN"
     
-    # Modern-style multi-colored arrow logo
-    logo = HTML('<ansiblue><b>❱</b></ansiblue><ansicyan><b>❱</b></ansicyan><ansigreen><b>❱</b></ansigreen>')
+    # Simple plain-text arrows to avoid raw HTML leak on some terminals
+    logo = "❱❱❱"
     
     return HTML(
-        f'{logo} <b>VibeHack</b> <version>v{__version__}</version> '
+        f'<b>{logo}</b> <b>VibeHack</b> <version>v{__version__}</version> '
         f'| <auth>Signed in via {provider}</auth> '
         f'| <model-hint>Mission: Autonomous Weapon /audit</model-hint>'
     )

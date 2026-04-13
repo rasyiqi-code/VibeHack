@@ -17,6 +17,8 @@ from vibehack.memory.db import get_memory_stats
 from vibehack.ui.tui import (
     display_map, display_finding
 )
+from vibehack import __version__
+from vibehack.utils.version import get_remote_version
 
 console = Console()
 
@@ -39,6 +41,9 @@ SLASH_COMMANDS = {
     "/memory":    "Browse or search Long-Term Memory (/memory list | /memory search <tech>)",
     "/tokens":    "Manage token economy and context window (/tokens status | limit <n> | turns <n>)",
     "/tools":     "Show tools discovered in your PATH",
+    "/check-update": "Check for newer versions on GitHub",
+    "/version":   "Show build info and check for updates",
+    "/update":    "Full sync/upgrade to latest VibeHack version",
     "/exit":      "Save session and exit",
 }
 
@@ -132,7 +137,7 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
             display_map(repl.target, repl.knowledge.to_dict(), target_console=repl.target_console)
 
     elif verb == "/findings":
-        _display_findings(repl)
+        _handle_findings(repl)
 
     elif verb == "/report":
         from vibehack.reporting.exporter import export_report
@@ -199,6 +204,22 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
         tools = repl._available_tools
         repl.log(f"[green]Discovered ({len(tools)}):[/green] {', '.join(tools) or 'none'}")
         repl.log("[dim]Scanned from $PATH + ~/.vibehack/bin/[/dim]")
+
+    elif verb == "/check-update":
+        _handle_check_update(repl)
+
+    elif verb == "/version":
+        repl.log(f"[bold red]🔥 VibeHack v{__version__}[/bold red]")
+        repl.log("[dim]Checking for updates...[/dim]")
+        remote_v = get_remote_version()
+        if remote_v and remote_v != __version__:
+            repl.log(f"[yellow]🚀 New version available: v{remote_v}[/yellow]")
+            repl.log("[dim]Run /update to upgrade now.[/dim]")
+        elif remote_v:
+            repl.log("[green]✓ You are on the newest version.[/green]")
+
+    elif verb == "/update":
+        _handle_update(repl)
 
     elif verb in ("/exit", "/quit", "/q"):
         return False
@@ -272,13 +293,51 @@ def _display_knowledge(repl):
     for note in k.notes[-5:]:
         repl.log(f"  • {note}")
 
-def _display_findings(repl):
+def _handle_check_update(repl):
+    repl.log("\n[bold yellow]📡 Checking for updates...[/bold yellow]")
+    remote_v = get_remote_version()
+    if not remote_v:
+        repl.log("[bold red]Error:[/bold red] Could not reach GitHub.")
+        return
+    if remote_v == __version__:
+        repl.log(f"[green]✓ You are running the latest version (v{__version__}).[/green]")
+    else:
+        repl.log(f"[bold cyan]Update Available! 🚀[/bold cyan]")
+        repl.log(f"Local:  [bold yellow]v{__version__}[/bold yellow]")
+        repl.log(f"Latest: [bold green]v{remote_v}[/bold green]")
+        repl.log("[dim]Run /update to upgrade.[/dim]")
+
+def _handle_findings(repl):
     if not repl.key_findings:
         repl.log("[dim]No confirmed findings yet.[/dim]")
     else:
         BADGES = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵", "info": "⚪"}
         for i, f in enumerate(repl.key_findings, 1):
             repl.log(f"  {i}. {BADGES.get(f.severity.lower(), '?')} [{f.severity.upper()}] {f.title}")
+
+def _handle_update(repl):
+    repl.log("\n[bold yellow]📡 Syncing with GitHub...[/bold yellow]")
+    remote_v = get_remote_version()
+    
+    if remote_v == __version__ and remote_v:
+        repl.log("[green]✓ Already up to date.[/green]")
+        return
+
+    import sys
+    import subprocess
+    repo_url = "git+https://github.com/rasyiqi-code/VibeHack.git"
+    
+    try:
+        repl.log(f"[bold cyan]Upgrading VibeHack to v{remote_v or 'latest'}...[/bold cyan]")
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", repo_url],
+            check=True,
+            capture_output=True
+        )
+        repl.log(f"[bold green]✅ VibeHack successfully updated![/bold green]")
+        repl.log("[bold yellow]Please restart VibeHack to apply changes.[/bold yellow]\n")
+    except Exception as e:
+        repl.log(f"[bold red]Update failed![/bold red] {e}")
 
 def _handle_tokens_command(repl, arg: str):
     """Handle /tokens sub-commands."""

@@ -12,8 +12,9 @@ from prompt_toolkit import Application, PromptSession
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.filters import Condition
-from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane
+from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane, FloatContainer, Float, Dimension
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
+from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.processors import BeforeInput
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.key_binding import KeyBindings
@@ -69,7 +70,12 @@ class VibehackREPL:
         
         # Buffers for history and input
         self.history_buffer = Buffer(read_only=True)
-        self.input_buffer = Buffer(completer=self.completer, history=FileHistory(os.path.join(cfg.HOME, ".history")))
+        self.input_buffer = Buffer(
+            history=FileHistory(os.path.expanduser("~/.vibehack_history")),
+            completer=SlashCommandCompleter(),
+            complete_while_typing=True,
+            multiline=True
+        )
         
         self.kb = KeyBindings()
         
@@ -94,35 +100,59 @@ class VibehackREPL:
             # Start processing in background
             asyncio.create_task(self._handle_input(text))
 
+        @self.kb.add('escape', 'enter')
+        def _(event):
+            """Alt+Enter untuk baris baru."""
+            event.current_buffer.newline()
+
         # Full-Screen Layout
         self.history_pane = ScrollablePane(
             content=Window(
                 content=FormattedTextControl(lambda: ANSI(self.history_buffer.text)),
-                wrap_lines=True
+                wrap_lines=True,
+                dont_extend_height=False, # Biarkan ia mengambil sisa ruang
             ),
             show_scrollbar=True
         )
 
         self.layout = Layout(
-            HSplit([
-                # Sticky Top Bar
-                Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar'),
-                # Scrollable History Window (ANSI Supported)
-                self.history_pane,
-                # Input Area (Moves above Footer)
-                Window(
-                    content=BufferControl(
-                        buffer=self.input_buffer,
-                        input_processors=[
-                            BeforeInput([('class:prompt', '> ')]),
-                        ]
+            FloatContainer(
+                content=HSplit([
+                    # Sticky Top Bar
+                    Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar'),
+                    # Scrollable History Window (ANSI Supported)
+                    self.history_pane,
+                    # Input Area
+                    Window(
+                        content=BufferControl(
+                            buffer=self.input_buffer,
+                            input_processors=[
+                                BeforeInput([('class:prompt', '> ')]),
+                            ]
+                        ),
+                        wrap_lines=True,
+                        dont_extend_height=True,  # Dinamis: tumbuh mengikuti teks
+                        height=Dimension(min=1, max=8),  # Batasi agar tidak merusak layout
+                        style='class:prompt'
                     ),
-                    height=1,
-                    style='class:prompt'
-                ),
-                # Sticky Bottom Bar (Absolute Bottom)
-                Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar'),
-            ])
+                    # Bottom Spacer (Reserved for floating footer)
+                    Window(height=1),
+                ]),
+                floats=[
+                    # Sticky Bottom Bar (Static Float at absolute bottom)
+                    Float(
+                        bottom=0,
+                        content=Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar')
+                    ),
+                    # Autocomplete Menu
+                    Float(
+                        xcursor=True,
+                        ycursor=True,
+                        bottom=0,  # Selalu tepat di atas kursor (mendukung wrapping)
+                        content=CompletionsMenu(max_height=16, scroll_offset=1)
+                    )
+                ]
+            )
         )
         
         # Initialize Application for full-screen management
@@ -134,6 +164,9 @@ class VibehackREPL:
             mouse_support=True,
             on_invalidate=lambda _: self._scroll_to_bottom()
         )
+        
+        # Explicitly focus the input buffer initially
+        self.app.layout.focus(self.input_buffer)
 
     async def _handle_input(self, text: str):
         if text.startswith("/"):
