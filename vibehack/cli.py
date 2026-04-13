@@ -47,7 +47,7 @@ def safe_run(coro):
 load_dotenv()
 
 app = typer.Typer(
-    help="🔥 Vibe_Hack v2.6.11 — The Autonomous Weapon (Universal Reconfig Release)",
+    help="🔥 Vibe_Hack v4.1.0 — The Autonomous Weapon (Universal Reconfig Release)",
     no_args_is_help=False,  # Allow bare `vibehack` to open REPL
     invoke_without_command=True,
 )
@@ -114,6 +114,17 @@ def default(
         api_key=api_key,
     )
     safe_run(repl.run())
+
+
+@app.command()
+def auth():
+    """Reconfigure AI provider and API keys interactively."""
+    from vibehack.core.wizard import _setup_wizard
+    from vibehack.config import load_config_env
+    _setup_wizard()
+    load_config_env()
+    cfg.load()
+    console.print("[bold green]✓ Authentication updated.[/bold green]")
 
 
 @app.command()
@@ -301,6 +312,12 @@ def sessions():
         table.add_row(s, tgt, str(n), ts)
 
     console.print(table)
+    
+@app.command(name="check-update")
+def check_update_cli():
+    """Network-check for the latest version on GitHub."""
+    from vibehack.core.repl.commands import _check_update_logic
+    _check_update_logic(repl=None)
 
 
 @app.command()

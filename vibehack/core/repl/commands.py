@@ -333,14 +333,24 @@ def _check_update_logic(repl):
     import re
     from vibehack import __version__
     
-    url = "https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/vibehack/__init__.py"
+    # We prefer checking pyproject.toml as it is the canonical source truth for versioning now
+    url = "https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/pyproject.toml"
     console.print("[bold yellow]📡 Checking GitHub for updates...[/bold yellow]")
     
     try:
-        with urllib.request.urlopen(url, timeout=5) as response:
+        req = urllib.request.Request(url, headers={'User-Agent': 'VibeHack-Client'})
+        with urllib.request.urlopen(req, timeout=10) as response:
             content = response.read().decode('utf-8')
-            # Extract __version__ = "..."
-            match = re.search(r'__version__\s*=\s*"([^"]+)"', content)
+            # Extract version = "..."
+            match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
+            
+            if not match:
+                # Fallback to __init__.py if pyproject parsing fails (legacy support)
+                fallback_url = "https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/vibehack/__init__.py"
+                with urllib.request.urlopen(fallback_url, timeout=5) as fb_resp:
+                    fb_content = fb_resp.read().decode('utf-8')
+                    match = re.search(r'__version__\s*=\s*"([^"]+)"', fb_content)
+
             if not match:
                 console.print("[red]Error: Could not parse remote version file.[/red]")
                 return
@@ -348,7 +358,11 @@ def _check_update_logic(repl):
             remote_version = match.group(1)
             
             from packaging import version
-            if version.parse(remote_version) > version.parse(__version__):
+            
+            local_v = version.parse(__version__)
+            remote_v = version.parse(remote_version)
+
+            if remote_v > local_v:
                 console.print(Panel(
                     f"A new version of VibeHack is available: [bold green]{remote_version}[/bold green]\n"
                     f"You are currently running: [dim]{__version__}[/dim]\n\n"
@@ -356,11 +370,14 @@ def _check_update_logic(repl):
                     title="🚀 Update Available",
                     border_style="green"
                 ))
+            elif remote_v < local_v:
+                console.print(f"[yellow]⚡ You are running a development version (v{__version__}) ahead of GitHub (v{remote_version}).[/yellow]")
             else:
                 console.print(f"[green]✓ VibeHack is up to date (v{__version__}).[/green]")
                 
     except Exception as e:
         console.print(f"[red]Update check failed:[/red] {e}")
+        console.print("[dim]Ensure you have an active internet connection.[/dim]")
 
 def _handle_sessions_interactively(repl):
     """Shows a dialog to pick and resume a session."""
