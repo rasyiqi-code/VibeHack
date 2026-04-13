@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.png" width="120" alt="VibeHack Logo">
+</p>
+
 # 🔥 VibeHack v4.1 — The Autonomous Heart Update
 
 > **The Agentic Security Co-Pilot. Built for Offensive Security and Developer Safety.**

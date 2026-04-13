@@ -71,9 +71,15 @@ h2 { font-size: 2.5rem; font-weight: 700; }
 .logo {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.8rem;
     font-size: 1.5rem;
     font-weight: 800;
+}
+
+.logo-img {
+    height: 32px;
+    width: auto;
+    filter: drop-shadow(0 0 5px var(--primary));
 }
 
 .nav-links {
