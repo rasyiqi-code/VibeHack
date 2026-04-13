@@ -90,7 +90,7 @@ def generate_markdown_report(
         counts[f.severity.lower()] = counts.get(f.severity.lower(), 0) + 1
 
     risk_line = " | ".join(f"**{k.capitalize()}**: {v}" for k, v in counts.items() if v > 0)
-    overall_risk = "CRITICAL" if counts["critical"] else ("HIGH" if counts["high"] else ("MEDIUM" if counts["medium"] else "LOW"))
+    overall_risk = next((s.upper() for s in SEVERITY_ORDER if counts.get(s, 0) > 0), "INFO")
 
     report = f"""# 🛡️ Vibe_Hack Security Audit Report
 # 
@@ -202,7 +202,7 @@ def generate_pdf_report(
     counts = {s: 0 for s in SEVERITY_ORDER}
     for f in findings:
         counts[f.severity.lower()] = counts.get(f.severity.lower(), 0) + 1
-    overall_risk = "CRITICAL" if counts["critical"] else ("HIGH" if counts["high"] else ("MEDIUM" if counts["medium"] else ("LOW" if counts["low"] else "INFO")))
+    overall_risk = next((s.upper() for s in SEVERITY_ORDER if counts.get(s, 0) > 0), "INFO")
 
     pdf.set_font("helvetica", "", 11)
     pdf.cell(30, 8, "Target:", border=True)
