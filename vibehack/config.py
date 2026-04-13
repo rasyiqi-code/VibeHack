@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 VIBEHACK_HOME = Path.home() / ".vibehack"
 GLOBAL_ENV = VIBEHACK_HOME / ".env"
 
+# Ensure home directory exists
+VIBEHACK_HOME.mkdir(parents=True, exist_ok=True)
+
 def load_config_env():
     """Load from local .env then global ~/.vibehack/.env"""
     load_dotenv() # Local .env
@@ -50,6 +53,11 @@ class Config:
         self.REPORTS_DIR = self.HOME / "reports"
         self.MEMORY_DB = self.HOME / "memory.db"
         self.GLOBAL_ENV = GLOBAL_ENV
+
+        # Ensure subdirectories exist
+        self.BIN_DIR.mkdir(parents=True, exist_ok=True)
+        self.SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+        self.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
         # ── Feature Toggles ──────────────────────────────────────────────────
         self.MEMORY_ENABLED = os.getenv("VH_NO_MEMORY", "false").lower() != "true"
