@@ -195,6 +195,47 @@ h2 { font-size: 2.5rem; font-weight: 700; }
 
 @keyframes blink { 0% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
 
+/* Code Box */
+.code-box {
+    max-width: 700px;
+    margin: 0 auto;
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(0, 242, 255, 0.1);
+}
+
+.code-header {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.code-title { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }
+.copy-btn {
+    background: transparent;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    padding: 0.2rem 0.8rem;
+    border-radius: 5px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.copy-btn:hover { background: var(--primary); color: var(--bg-dark); }
+
+.code-content {
+    padding: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+}
+
+.code-content code { display: block; margin-bottom: 0.5rem; color: var(--text-main); }
+.code-content code::before { content: "$ "; color: var(--primary); }
+.code-content .c-dim::before { content: ""; }
+.code-content .c-dim { color: var(--text-dim); }
+
 /* Features */
 .section { padding: 6rem 0; }
 .section-header { text-align: center; margin-bottom: 4rem; }
