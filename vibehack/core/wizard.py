@@ -18,6 +18,27 @@ from vibehack.core.discovery import (
 
 console = Console()
 
+def _pick_openrouter_model():
+    """Interactive searchable model selection using prompt-toolkit."""
+    from vibehack.llm.openrouter import get_openrouter_models
+    from prompt_toolkit import prompt
+    from prompt_toolkit.completion import WordCompleter
+    
+    with console.status("[bold cyan]Fetching OpenRouter models...[/bold cyan]"):
+        models = get_openrouter_models()
+        
+    if not models:
+        console.print("[red]⚠ Could not fetch models. Fallback to manual entry.[/red]")
+        return None
+        
+    completer = WordCompleter(models, ignore_case=True, match_middle=True)
+    console.print(f"[dim]Found {len(models)} models. Start typing to filter, Use TAB to cycle candidates.[/dim]")
+    try:
+        choice = prompt("➤ Model Search: ", completer=completer)
+        return choice.strip()
+    except (KeyboardInterrupt, EOFError):
+        return None
+
 def _save_and_sync(final_env):
     """Helper to save and sync environment."""
     import collections
@@ -167,11 +188,26 @@ def _setup_api_key():
 
     # ── Model Selection Logic ──────────────────────────────────────────
     console.print(f"\n[bold cyan]Model Selection:[/bold cyan]")
-    console.print(f"  Default is [green]{p_model}[/green]")
-    choice = Prompt.ask("➤ Use default model?", choices=["y", "n"], default="y")
     
-    if choice.lower() == "n":
-        p_model = Prompt.ask(f"➤ Enter custom model string (e.g. {cfg.MODEL_EXAMPLE})")
+    # Custom logic for OpenRouter (Interactive Search)
+    if pid == "openrouter":
+        console.print(f"  Current default: [green]{p_model}[/green]")
+        choice = Prompt.ask("➤ Search & Pick from OpenRouter list?", choices=["y", "n"], default="y")
+        if choice.lower() == "y":
+            fetched_model = _pick_openrouter_model()
+            if fetched_model:
+                p_model = fetched_model
+            else:
+                # Manual entry if search fails/cancelled
+                p_model = Prompt.ask(f"➤ Enter custom model string (e.g. {cfg.MODEL_EXAMPLE})")
+        else:
+             p_model = Prompt.ask(f"➤ Enter custom model string (e.g. {cfg.MODEL_EXAMPLE})")
+    else:
+        # Standard logic for others
+        console.print(f"  Default is [green]{p_model}[/green]")
+        choice = Prompt.ask("➤ Use default model?", choices=["y", "n"], default="y")
+        if choice.lower() == "n":
+            p_model = Prompt.ask(f"➤ Enter custom model string (e.g. {cfg.MODEL_EXAMPLE})")
 
     final_env = {
         p_env: key,
