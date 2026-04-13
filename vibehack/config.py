@@ -76,5 +76,6 @@ class Config:
         
         self.DEFAULT_MODELS = self.DEFAULTS.get("default_models", {})
         self.PRIMARY_DEFAULT = self.DEFAULTS.get("primary_default", "openrouter/anthropic/claude-3.5-sonnet")
+        self.MODEL_EXAMPLE = self.DEFAULTS.get("model_example", "openai/gpt-4o")
 
 cfg = Config()

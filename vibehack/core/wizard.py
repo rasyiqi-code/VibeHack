@@ -81,7 +81,7 @@ def _setup_auth_cli():
                     final_env = {
                         "VH_PROVIDER": "google",
                         "VH_API_KEY": "BRIDGE_MODE",
-                        "VH_MODEL": "gemini-3-flash-preview",
+                        "VH_MODEL": cfg.DEFAULT_MODELS.get("google"),
                         "VH_AUTH_TYPE": "bridge"
                     }
                     return _save_and_sync(final_env)
@@ -108,7 +108,7 @@ def _setup_auth_cli():
         final_env = {
             "VH_PROVIDER": "google",
             "VH_API_KEY": info["access_token"],
-            "VH_MODEL": "gemini-3-flash-preview",
+            "VH_MODEL": cfg.DEFAULT_MODELS.get("google"),
             "VH_AUTH_TYPE": "oauth",
             "VH_AUTH_FILE": str(auth_path)
         }
@@ -171,7 +171,7 @@ def _setup_api_key():
     choice = Prompt.ask("➤ Use default model?", choices=["y", "n"], default="y")
     
     if choice.lower() == "n":
-        p_model = Prompt.ask("➤ Enter custom model string (e.g. openai/gpt-4-turbo)", default=p_model)
+        p_model = Prompt.ask(f"➤ Enter custom model string (e.g. {cfg.MODEL_EXAMPLE})")
 
     final_env = {
         p_env: key,
