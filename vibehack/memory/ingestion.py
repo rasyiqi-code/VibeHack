@@ -9,12 +9,12 @@ Patterns extracted:
   - Commands that errored / yielded nothing useful → score -1 (failure)
   - Technology hints detected from output (express, nginx, spring, etc.)
 """
+
 import json
 import re
 from typing import List, Dict
-from vibehack.memory.db import record_experience
+from vibehack.memory.db import record_experiences
 from vibehack.llm.provider import Finding
-
 
 # Simple tech fingerprints. Can be extended.
 TECH_PATTERNS = {
@@ -74,6 +74,7 @@ def ingest_session(
         i += 1
 
     # Record experiences based on exit codes and finding correlation
+    experiences_to_record = []
     for agent_data, feedback in turns:
         command = agent_data.get("raw_command")
         thought = agent_data.get("thought", "")
@@ -89,7 +90,9 @@ def ingest_session(
         is_successful = False
         for finding in findings:
             # Heuristic: if command text appears in finding evidence or description
-            if command in (finding.evidence or "") or command[:30] in (finding.description or ""):
+            if command in (finding.evidence or "") or command[:30] in (
+                finding.description or ""
+            ):
                 is_successful = True
                 break
 
@@ -100,13 +103,8 @@ def ingest_session(
         score = 1 if is_successful else -1
         summary = f"{command[:80]}... → exit:{exit_code}"
 
-        record_experience(
-            target=target,
-            tech=tech,
-            payload=command[:500],
-            score=score,
-            summary=summary,
-        )
-        recorded += 1
+        experiences_to_record.append((target, tech, command[:500], score, summary))
+
+    recorded = record_experiences(experiences_to_record)
 
     return recorded
