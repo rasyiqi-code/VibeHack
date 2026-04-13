@@ -15,6 +15,7 @@ from vibehack.llm.provider import AgentResponse
 from vibehack.guardrails.regex_engine import check_command, check_target
 from vibehack.toolkit.discovery import clear_discovery_cache
 from vibehack.core.shell import execute_shell_async
+from vibehack.config import cfg
 from vibehack.agent.knowledge import extract_knowledge
 from vibehack.ui.tui import (
     display_thought, display_command, display_education, 
@@ -46,58 +47,63 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
 
     repl.history.append({"role": "user", "content": user_message})
 
-    try:
-        repl._trim_history() # Safeguard context window
-        if is_ask_mode:
-            await _handle_ask_mode(repl)
+    while True:
+        try:
+            repl._trim_history() # Safeguard context window
+            if is_ask_mode:
+                await _handle_ask_mode(repl)
+                return
+
+            # Loop Detection (Tactical)
+            duplicate_cmd = detect_logic_loop(repl.history)
+            if duplicate_cmd:
+                repl.history.append({"role": "user", "content": get_loop_recovery(f"Command '{duplicate_cmd}' repeated 3x")})
+
+            with console.status("[bold green]🤖 AI is thinking...[/bold green]", spinner="dots"):
+                response: AgentResponse = await repl.handler.complete(repl.history)
+        except Exception as e:
+            console.print(f"[red]LLM error:[/red] {e}")
+            if repl.history and repl.history[-1]["role"] == "user":
+                repl.history.pop()  # Rollback if last turn failed
             return
 
-        # Loop Detection (Tactical)
-        duplicate_cmd = detect_logic_loop(repl.history)
-        if duplicate_cmd:
-            repl.history.append({"role": "user", "content": get_loop_recovery(f"Command '{duplicate_cmd}' repeated 3x")})
+        repl.history.append({"role": "assistant", "content": response.model_dump_json()})
 
-        with console.status("[bold green]🤖 AI is thinking...[/bold green]", spinner="dots"):
-            response: AgentResponse = await repl.handler.complete(repl.history)
-    except Exception as e:
-        console.print(f"[red]LLM error:[/red] {e}")
-        repl.history.pop()
-        return
+        # Update tech hint from thought
+        from vibehack.memory.ingestion import detect_technology
+        tech = detect_technology(response.thought)
+        if tech != "unknown":
+            if tech not in repl.knowledge.technologies:
+                repl.knowledge.technologies.add(tech)
+                repl._rebuild_system_prompt()
 
-    repl.history.append({"role": "assistant", "content": response.model_dump_json()})
+        display_thought(response.thought)
 
-    # Update tech hint from thought
-    from vibehack.memory.ingestion import detect_technology
-    tech = detect_technology(response.thought)
-    if tech != "unknown":
-        if tech not in repl.knowledge.technologies:
-            repl.knowledge.technologies.add(tech)
-            repl._rebuild_system_prompt()
+        if response.education and repl.persona == "dev-safe":
+            display_education(response.education)
 
-    display_thought(response.thought)
+        if response.mission_goals:
+            if set(repl.knowledge.mission_goals) != set(response.mission_goals):
+                repl.knowledge.mission_goals = response.mission_goals
+                display_mission(repl.knowledge.mission_goals)
 
-    if response.education and repl.persona == "dev-safe":
-        display_education(response.education)
+        if response.finding:
+            display_finding(response.finding.severity, response.finding.title, response.finding.description)
+            repl.key_findings.append(response.finding)
+            repl.knowledge.tested_surfaces.add(response.finding.title)
+            repl.history.append({"role": "user", "content": get_finding_note(response.finding.title)})
+            repl._persist()
+            continue  # Finding recorded — let AI propose next step automatically
 
-    if response.mission_goals:
-        if set(repl.knowledge.mission_goals) != set(response.mission_goals):
-            repl.knowledge.mission_goals = response.mission_goals
-            display_mission(repl.knowledge.mission_goals)
+        # Process Command
+        if response.raw_command:
+            await _execute_proposed_command(repl, response)
+            repl._trim_history()
+            repl._persist()
+            continue  # Feedback received — let AI analyze result automatically
 
-    if response.finding:
-        display_finding(response.finding.severity, response.finding.title, response.finding.description)
-        repl.key_findings.append(response.finding)
-        repl.knowledge.tested_surfaces.add(response.finding.title)
-        repl.history.append({"role": "user", "content": get_finding_note(response.finding.title)})
-        repl._persist()
-        return
-
-    # Process Command
-    if response.raw_command:
-        await _execute_proposed_command(repl, response)
-
-    repl._trim_history()
-    repl._persist()
+        # If no command or finding was triggered, break and let user steer
+        break
 
 async def _handle_ask_mode(repl):
     from vibehack.agent.prompts import load_template

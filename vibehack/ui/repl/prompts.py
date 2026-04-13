@@ -6,6 +6,7 @@ from typing import List
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.styles import Style
 from prompt_toolkit.formatted_text import HTML
+from vibehack.config import cfg
 from vibehack.core.repl.commands import SLASH_COMMANDS
 
 class SlashCommandCompleter(Completer):
@@ -29,20 +30,46 @@ class SlashCommandCompleter(Completer):
                     yield Completion(cmd, start_position=-len(text))
 
 def get_repl_style():
-    """Default styling for prompt-toolkit."""
+    """Default styling for prompt-toolkit with Gemini CLI aesthetic."""
     return Style.from_dict({
-        'bottom-toolbar': '#aaaaaa bg:#222222',
-        'prompt': 'bold #00ff00',
+        'bottom-toolbar': '#aaaaaa bg:#1e1e1e',
+        'top-toolbar':    '#aaaaaa bg:#1e1e1e',
+        'prompt':         '#00ffff bold',
+        'logo':           '#00ffff bold',
+        'version':        '#666666',
+        'auth':           '#dddddd',
+        'path':           '#00ffff',
+        'sandbox-safe':   '#00ff00',
+        'sandbox-warn':   '#ff0000 bold',
+        'model-hint':     '#666666',
     })
 
+def get_top_toolbar(repl):
+    """Sticky header for the top of the terminal."""
+    from vibehack import __version__
+    provider = repl.handler.provider.upper() if hasattr(repl, 'handler') else "UNKNOWN"
+    
+    # Gemini-style multi-colored arrow logo
+    logo = HTML('<ansiblue><b>❱</b></ansiblue><ansicyan><b>❱</b></ansicyan><ansigreen><b>❱</b></ansigreen>')
+    
+    return HTML(
+        f'{logo} <b>VibeHack</b> <version>v{__version__}</version> '
+        f'| <auth>Signed in via {provider}</auth> '
+        f'| <model-hint>Mission: Autonomous Weapon /audit</model-hint>'
+    )
+
 def get_bottom_toolbar(repl):
-    """Dynamic metadata bar shown at the bottom of the terminal."""
-    target = repl.target or "no target"
-    mode = repl.persona
-    unchained = "UNCHAINED 🔓" if repl.unchained else "GUARDED 🔒"
+    """Informative metadata bar shown at the bottom of the terminal."""
+    import os
+    cwd = os.getcwd().replace(os.path.expanduser("~"), "~")
+    
+    target = (repl.target[:30] + '...') if repl.target and len(repl.target) > 30 else (repl.target or "no target")
     findings = len(repl.key_findings)
+    unchained = "UNCHAINED 🔓" if repl.unchained else "GUARDED 🔒"
+    sandbox_status = '<sandbox-safe>ACTIVE 📦</sandbox-safe>' if getattr(cfg, 'SANDBOX_ENABLED', False) else '<sandbox-warn>no sandbox</sandbox-warn>'
     
     return HTML(
         f' <b>VibeHack</b> | Target: <ansicyan>{target}</ansicyan> | '
-        f'Mode: {mode} | {unchained} | Findings: <b>{findings}f</b>'
+        f'Findings: <b>{findings}f</b> | {unchained} | '
+        f'Sandbox: {sandbox_status} | Mode: {repl.persona}'
     )

@@ -5,10 +5,18 @@ Modularized in v2.6.45 to separate UI, Logic, and Commands.
 import asyncio
 import os
 import re
+from datetime import datetime
 from typing import List, Dict, Optional
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import Application, PromptSession
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.filters import Condition
+from prompt_toolkit.layout import Layout, HSplit, Window
+from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
+from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.formatted_text import HTML, ANSI
+from prompt_toolkit.widgets import Frame
 from rich.console import Console
 
 from vibehack.config import cfg
@@ -20,12 +28,12 @@ from vibehack.memory.ingestion import ingest_session
 from vibehack.session.persistence import save_session, generate_session_id
 from vibehack.toolkit.manager import get_toolkit_env
 from vibehack.toolkit.discovery import discover_tools, clear_discovery_cache
-from vibehack.ui.tui import display_banner
+from vibehack.ui.tui import display_banner, display_notice
 
 # Modular Imports
 from vibehack.core.repl.commands import handle_slash_command
 from vibehack.core.repl.logic import process_llm_turn
-from vibehack.ui.repl.prompts import SlashCommandCompleter, get_repl_style, get_bottom_toolbar
+from vibehack.ui.repl.prompts import SlashCommandCompleter, get_repl_style, get_bottom_toolbar, get_top_toolbar
 
 console = Console()
 URL_PATTERN = re.compile(r"(https?://[^\s]+|(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?|localhost(?::\d+)?)", re.IGNORECASE)
@@ -50,12 +58,61 @@ class VibehackREPL:
 
         # ── TUI Setup ─────────────────────────────────────────────────────
         self.completer = SlashCommandCompleter()
+        self.style = get_repl_style()
+        
+        # Buffers for history and input
+        self.history_buffer = Buffer(read_only=True)
+        self.input_buffer = Buffer(completer=self.completer, history=FileHistory(os.path.join(cfg.HOME, ".history")))
+        
+        self.kb = KeyBindings()
+        
+        @self.kb.add('c-c')
+        def _(event):
+            event.app.exit()
+
+        @Condition
+        def is_not_completing():
+            return not self.input_buffer.complete_state
+
+        @self.kb.add('enter', filter=is_not_completing)
+        def _(event):
+            # Process input and clear buffer
+            text = self.input_buffer.text
+            self.input_buffer.reset()
+            # This will be handled in the main loop logic via a flag or queue
+            # but for simplicity in Application.run_async, we can trigger a task
+            pass
+
+        # Full-Screen Layout
+        self.layout = Layout(
+            HSplit([
+                # Sticky Top Bar
+                Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar'),
+                # Scrollable History Window
+                Window(content=BufferControl(buffer=self.history_buffer), wrap_lines=True),
+                # Sticky Bottom Bar
+                Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar'),
+                # Input Area
+                Window(content=BufferControl(buffer=self.input_buffer), height=1, style='class:prompt'),
+            ])
+        )
+        
+        # Initialize Application for full-screen management
+        self.app = Application(
+            layout=self.layout,
+            style=self.style,
+            full_screen=True,
+            key_bindings=self.kb,
+            mouse_support=True
+        )
+        
         self.session = PromptSession(
             history=FileHistory(os.path.join(cfg.HOME, ".history")),
             completer=self.completer,
             complete_while_typing=True,
+            style=self.style,
+            bottom_toolbar=lambda: get_bottom_toolbar(self)
         )
-        self.style = get_repl_style()
 
     def _check_sudo(self):
         if os.geteuid() == 0:
@@ -107,19 +164,31 @@ class VibehackREPL:
             return m
         return None
 
+    def _log_output(self, text: str):
+        """Append text to the history buffer for the TUI."""
+        new_text = self.history_buffer.text + text + "\n"
+        self.history_buffer.text = new_text
+
     async def run(self):
+        # ── Sticky TUI Initialization ─────────────────────────────────────
+        # For the transitional period, we print the banner and notice once
+        # before the full-screen app takes over, or integrate them into the buffer.
         display_banner()
         self._check_sudo()
         self._discover_tools()
         if self.no_memory is False: init_memory()
         self._rebuild_system_prompt()
 
-        console.print(f"[dim]🔍 Tools: {len(self._available_tools)} discovered | Session: {self.session_id}[/dim]\n")
-
+        # Capture initial banner/notice into history if moving to full TUI
+        # For now, we continue using the scrolling model but with enhanced toolbars.
+        
         while True:
             try:
+                # The bottom_toolbar in prompt_async is already 'sticky' at 
+                # the bottom of the screen while the prompt is active.
                 user_input = await self.session.prompt_async(
-                    "you: ",
+                    HTML('<ansicyan><b>you: </b></ansicyan>'),
+                    placeholder=HTML('<ansigray>Type your message or /command...</ansigray>'),
                     bottom_toolbar=lambda: get_bottom_toolbar(self),
                     style=self.style
                 )

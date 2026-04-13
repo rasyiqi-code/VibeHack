@@ -1,22 +1,33 @@
 # ✨ Core Features
 
-## ⚡ Authentication & Profile Switching
-VibeHack supports multiple providers simultaneously. You can switch models mid-session without re-entering credentials.
-- **Automatic key detection**: VibeHack scans your environment.
-- **Fast switching**: Use `/auth` to swap between Gemini, OpenAI, and Anthropic in seconds.
-- **Provider Status (Auth CLI Path)**:
-  - 🟢 **Google Gemini**: Full Bridge & Seamless OAuth Hijacking.
-  - 🟡 **Claude / GitHub / Codex**: Token discovery integration (API access).
+## 🤖 The Autonomous Agent Loop
+VibeHack v2.7.0 introduces a true non-stop agentic loop.
+- **Autonomous Reasoning**: After a tool (like `nmap` or `curl`) executes, the agent automatically ingests the output, analyzes it, and proposes the next logical step without waiting for user input.
+- **Goal Persistence**: The agent maintains an internal "Mission Plan" that updates in real-time as objectives are met.
+
+## 🧠 Long-Term Memory (LTM)
+VibeHack never forgets a successful payload or a discovered technology.
+- **Experience Ingestion**: Every session is analyzed at exit. Successes (findings discovered) and failures (blocked commands) are stored in a persistent SQLite database (`~/.vibehack/memory.db`).
+- **Tactical Recall**: When targeting a similar technology in the future, the agent automatically retrieves relevant past experiences to bypass initial trial-and-error.
+
+## 🕹️ Operation Modes & Personas
+- **Agent Mode**: Fully autonomous penetration testing.
+- **Ask Mode**: Interactive security consultant; explains concepts without executing code.
+- **Personas**: Switch between `dev-safe` (educational/verbose) and `pro` (minimalist/expert).
 
 ## 🎮 The Interactive TUI
-The VibeHack interface is designed to reduce cognitive load while maintaining maximum control.
-- **Mission Orchestration**: Real-time goal tracking. You'll see exactly what the AI is planning and what it has finished.
-- **Live Streaming Output**: See `stdout`/`stderr` from tools (like `ffuf` or `nmap`) as it happens.
-- **HitL Approval**: Secure modal dialogs for every command to prevent accidental destruction.
+- **Live Streaming Output**: See `stdout`/`stderr` from tools in real-time.
+- **HitL Approval**: Mandatory "ultimate firewall" for every command to ensure you remain in control.
+- **Token Economy**: Granular control over context window and sliding history via `/tokens`.
+
+## 📦 Sanitized Sandbox Execution
+Run untrusted AI-generated commands safely.
+- **Docker Isolation**: Optional `--sandbox` mode routes all shell commands into an ephemeral container.
+- **Injection Protection**: Automatic `shlex.quote` sanitization on all command arguments.
 
 ## 🗺️ Attack Surface Mapping (`/map`)
-Visualize your target. VibeHack parses all tool outputs into a structured tree:
+Visualize your target as a structured tree:
 - **Ports & Services**: Hierarchy of open ports.
 - **Tech Stack**: Automated technology fingerprinting.
-- **Discovered API endpoints**: Clean list of mapped URL paths.
-- **Vulnerability findings**: Confirmed vulnerabilities linked to the surface.
+- **Endpoints**: Clean list of mapped URL paths.
+- **Findings**: Confirmed vulnerabilities linked to the attack surface.

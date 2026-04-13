@@ -51,23 +51,40 @@ def get_masked_input(prompt_text: str) -> str:
     return buf
 
 def display_banner():
-    banner_text = Text.assemble(
-        ("🔥 Vibe_Hack ", "bold red"),
-        (f"v{__version__}", "bold white"),
-        ("\n", ""),
-        ("The Autonomous Weapon Update", "dim")
+    """Modern, prominent full-width header for VibeHack."""
+    from vibehack import __version__
+    
+    # Gemini-style logo sequence
+    logo = "[bold #0000ff]❱[/bold #0000ff][bold #00ffff]❱[/bold #00ffff][bold #00ff00]❱[/bold #00ff00]"
+    
+    header = Table.grid(expand=True)
+    header.add_column(style="bold white")
+    header.add_column(justify="right", style="dim")
+    
+    header.add_row(
+        f"{logo}  [bold white]VibeHack[/bold white] [cyan]v{__version__}[/cyan]",
+        "The Autonomous Weapon [green]●[/green] Ready"
     )
+    
     console.print(Panel(
-        banner_text,
-        border_style="red",
-        expand=False,
-        padding=(0, 2)
+        header, 
+        border_style="#1e1e1e", 
+        expand=True, 
+        padding=(0, 1)
     ))
-    console.print("    [dim]Type [cyan]/help[/cyan] in REPL to see Slash Commands[/dim]")
 
+def display_notice(message: str, title: str = "NOTICE"):
+    """Gemini-style yellow boxed notice."""
+    console.print(Panel(
+        message,
+        title=f"[bold yellow]{title}[/bold yellow]",
+        border_style="yellow",
+        expand=True,
+        padding=(0, 1)
+    ))
 
 def display_thought(thought: str):
-    summary = thought.split('\n')[0][:100]
+    summary = thought.split('\n')[0][:120]
     if len(thought) > len(summary):
         summary += "..."
     console.print(f"[dim]🤖 AI Thought: {summary}[/dim]")
@@ -114,7 +131,7 @@ async def ask_approval() -> str:
 def display_output(output: str, is_error: bool = False):
     style = "red" if is_error else "dim white"
     if output:
-        console.print(Panel(output, title="📝 Terminal Output", border_style=style))
+        console.print(Panel(output, title="📝 Terminal Output", border_style=style, expand=True))
 
 def ask_waiver() -> bool:
     """Liability waiver for Unchained mode."""

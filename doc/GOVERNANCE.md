@@ -7,17 +7,18 @@ VibeHack operates on a **Reason → Act → Observe** loop.
 - **Observe**: VibeHack captures, truncates, and parses output.
 
 ## 🕹️ Operation Modes
-- **Agent Mode**: The default autonomous behavior. The AI actively probes and exploits.
-- **Ask Mode**: Security consultant behavior. AI explains concepts and answers questions.
+- **Agent Mode**: The default autonomous behavior. The AI actively probes and exploits, with a true non-stop agentic loop that analyzes results and continues automatically.
+- **Ask Mode**: Security consultant behavior. AI explains concepts and answers questions without executing shell commands.
 
 ## 🎭 Personas
-- **Dev-Safe**: Focused on educational output and actionable code fixes.
-- **Pro**: Minimalist expert mode for seasoned security researchers.
+- **Dev-Safe**: Focused on educational output, verbose planning, and actionable code fixes.
+- **Pro**: Minimalist expert mode for seasoned security researchers; avoids excessive explanation.
 
 ## 🛡️ Guardrails & Safety
-- **Sandbox Mode**: Optional Docker-based execution to protect the host.
-- **Regex Guardrails**: Mandatory blacklist for destructive bash patterns.
-- **Middle-Out Truncation**: Intelligently trims tool output to prioritize headers and conclusions, maximizing the AI's efficiency.
+- **Sandbox Mode**: Optional Docker-based execution to protect the host filesystem and network.
+- **shlex.quote Sanitization**: All shell commands are automatically sanitized before execution to prevent simple command injection.
+- **Regex Guardrails**: Mandatory list-based protection for suspicious or destructive bash patterns.
+- **Middle-Out Truncation**: Intelligently trims tool output to prioritize headers, error messages, and conclusions, maximizing LLM token efficiency.
 
 ## 🧠 Long-Term Memory (LTM)
 Persistent cross-session learning using `~/.vibehack/memory.db`. VibeHack remembers what worked on a target yesterday to speed up today's audit.
