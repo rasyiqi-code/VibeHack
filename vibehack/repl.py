@@ -12,7 +12,7 @@ from prompt_toolkit import Application, PromptSession
 from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.filters import Condition
-from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane, FloatContainer, Float, Dimension, WindowAlign
+from prompt_toolkit.layout import Layout, HSplit, Window, ScrollablePane, FloatContainer, Float, Dimension, WindowAlign, ConditionalContainer
 from prompt_toolkit.layout.controls import FormattedTextControl, BufferControl
 from prompt_toolkit.layout.menus import CompletionsMenu
 from prompt_toolkit.layout.processors import BeforeInput
@@ -139,7 +139,11 @@ class VibehackREPL:
                     Window(content=FormattedTextControl(lambda: get_top_toolbar(self)), height=1, style='class:top-toolbar', align=WindowAlign.CENTER),
                     # Scrollable History Window (ANSI Supported)
                     self.history_pane,
-                    # Input Area
+                    # completions UI (In-layout, full width, ALWAYS above input)
+                    CompletionsMenu(max_height=10, scroll_offset=1),
+
+                    # Input Area with breathing room above
+                    Window(height=1),
                     Window(
                         content=BufferControl(
                             buffer=self.input_buffer,
@@ -148,12 +152,12 @@ class VibehackREPL:
                             ]
                         ),
                         wrap_lines=True,
-                        dont_extend_height=True,  # Dinamis: tumbuh mengikuti teks
-                        height=Dimension(min=1, max=8),  # Batasi agar tidak merusak layout
+                        dont_extend_height=True,
+                        height=Dimension(min=1, max=8),
                         style='class:prompt'
                     ),
                     # Bottom Spacer (Reserved for floating footer & breathing room)
-                    Window(height=3),
+                    Window(height=2),
                 ]),
                 floats=[
                     # Sticky Bottom Bar (Static Float at absolute bottom)
@@ -161,13 +165,6 @@ class VibehackREPL:
                         bottom=0,
                         content=Window(content=FormattedTextControl(lambda: get_bottom_toolbar(self)), height=1, style='class:bottom-toolbar')
                     ),
-                    # Autocomplete Menu
-                    Float(
-                        xcursor=True,
-                        ycursor=True,
-                        bottom=0,  # Posisi tepat di atas kursor
-                        content=CompletionsMenu(max_height=16, scroll_offset=1)
-                    )
                 ]
             )
         )
