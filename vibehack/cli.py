@@ -8,6 +8,7 @@ Secondary UX: `vibehack start <target>` for quick one-shot sessions
 """
 import asyncio
 import os
+import sys
 from typing import Optional
 
 import typer
@@ -63,6 +64,15 @@ def _get_api_key() -> str:
     return key
 
 
+def _check_os_safety():
+    """Warns user if not running on Linux/WSL."""
+    if sys.platform != "linux":
+        console.print("\n[bold yellow]⚠️  ENVIRONMENT WARNING[/bold yellow]")
+        console.print(f"VibeHack detected platform: [bold cyan]{sys.platform}[/bold cyan]")
+        console.print("This engine is highly optimized for [bold green]Linux / WSL2[/bold green].")
+        console.print("Running on other platforms may cause tool discovery and sandbox failures.\n")
+
+
 @app.callback(invoke_without_command=True)
 def default(
     ctx: typer.Context,
@@ -88,6 +98,7 @@ def default(
       vibehack --op-mode ask
       vibehack --unchained
     """
+    _check_os_safety()
     if ctx.invoked_subcommand is not None:
         return  # Let the subcommand handle it
 
