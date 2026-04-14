@@ -320,7 +320,33 @@ def sessions():
         table.add_row(s, tgt, str(n), ts)
 
     console.print(table)
+
+
+@app.command()
+def open():
+    """Open the VibeHack workspace folder in your OS file manager."""
+    import platform
+    import subprocess
+    from vibehack.toolkit.manager import VIBEHACK_HOME
     
+    workspace_path = os.path.join(VIBEHACK_HOME, "workspace")
+    if not os.path.exists(workspace_path):
+        os.makedirs(workspace_path, exist_ok=True)
+        
+    console.print(f"[bold cyan]📂 Opening workspace:[/bold cyan] [dim]{workspace_path}[/dim]")
+    
+    try:
+        if platform.system() == "Darwin":       # macOS
+            subprocess.run(["open", workspace_path])
+        elif platform.system() == "Windows":    # Windows
+            os.startfile(workspace_path)
+        else:                                   # Linux
+            subprocess.run(["xdg-open", workspace_path])
+    except Exception as e:
+        console.print(f"[bold red]🚨 Failed to open folder:[/bold red] {e}")
+
+
+
 @app.command(name="check-update")
 def check_update_cli():
     """Network-check for the latest version on GitHub."""
