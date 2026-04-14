@@ -56,29 +56,42 @@ def display_banner():
     from vibehack.config import cfg
     import os
     
-    # Construct a large "V" logo to match VibeHack branding
-    logo_text = Text.from_markup(
-        "[blue]█[/blue]       [blue]█[/blue]\n"
-        " [blue]█[/blue]     [blue]█[/blue]\n"
-        "  [cyan]█[/cyan]   [cyan]█[/cyan]\n"
-        "   [cyan]█[/cyan] [cyan]█[/cyan]\n"
-        "    [green]█[/green]"
-    )
-
-    info_text = Text()
-    info_text.append(f"VibeHack ", style="bold white")
-    info_text.append(f"v{__version__}\n\n", style="bold #ffd700")
+    # Construct a high-fidelity "VIBEHACK" ASCII logo
+    logo_lines = [
+        "[blue]█[/blue]     [blue]█[/blue]  [white]█[/white]  [red]█▀▀█[/red]  [yellow]█▀▀[/yellow]  [cyan]█  █[/cyan]  [magenta]█▀▀█[/magenta]  [green]█▀▀[/green]  [red]█ █[/red]",
+        " [blue]█[/blue]   [blue]█[/blue]   [white]█[/white]  [red]█▀▀▄[/red]  [yellow]█▀▀[/yellow]  [cyan]█▀▀█[/cyan]  [magenta]█▄▄█[/magenta]  [green]█[/green]    [red]█▀▄[/red]",
+        "  [blue]█[/blue] [blue]█[/blue]    [white]█[/white]  [red]█▄▄█[/red]  [yellow]█▄▄[/yellow]  [cyan]█  █[/cyan]  [magenta]█  █[/magenta]  [green]█▄▄[/green]  [red]█ █[/red]"
+    ]
     
+    logo_text = Text.from_markup("\n".join(logo_lines))
+
+    # Vertical Separator Logic
+    separator = Text.from_markup("[dim]|\n|\n|[/dim]")
+
+    # Tactical Info Block (Vertically aligned with 3-line logo)
     provider = os.getenv("VH_PROVIDER", "Google")
-    info_text.append(f"Signed in via {provider} ", style="#ffd700")
-    info_text.append("/auth\n", style="bold #ffd700")
-    
     model = cfg.MODEL
-    info_text.append(f"Mission: Autonomous Weapon /audit ", style="white")
-    info_text.append(f"({model})", style="bold #ffd700")
+    
+    # Check LLM Readiness
+    from vibehack.config import cfg
+    llm_ready = "[bold green]READY[/bold green]" if cfg.API_KEY else "[bold red]NOT READY[/bold red]"
+    
+    # We build the info block as a single markup string for precise control
+    info_markup = (
+        f" [dim]LLM:[/dim] {llm_ready}\n"
+        f" [dim]LOG:[/dim] {provider} [bold #ffd700]/auth[/bold #ffd700]\n"
+        f" [dim]MSN:[/dim] Autonomous /audit ([bold #ffd700]{model}[/bold #ffd700])"
+    )
+    info_text = Text.from_markup(info_markup)
 
-    # Display using columns for side-by-side layout
-    console.print(Columns([logo_text, info_text], padding=(0, 4)))
+    # Display side-by-side using a borderless table for guaranteed alignment
+    table = Table.grid(padding=(0, 1))
+    table.add_column("logo")
+    table.add_column("sep")
+    table.add_column("info")
+    table.add_row(logo_text, separator, info_text)
+    
+    console.print(table)
     console.print("")
 
 def display_notice(message: str, title: str = "SECURITY ADVISORY"):
