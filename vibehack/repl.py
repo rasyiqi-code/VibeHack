@@ -278,18 +278,16 @@ class VibehackREPL:
                     if await download_tool(result[1]):
                         self._discover_tools()
                         self._rebuild_system_prompt()
-                return
-
-            # Processing already started via key binding (status = THINKING)
-            try:
+            else:
+                # Processing normal AI turn
                 await process_llm_turn(self, user_input)
-            finally:
-                # Back to Listening
-                self.status = "LISTENING"
-                self.app.invalidate()
+                
         except Exception as e:
-
             log_to_pane(self, "logs", f"🚨 System Error: {e}")
+        finally:
+            # ALWAYS return to Listening mode
+            self.status = "LISTENING"
+            self.app.invalidate()
 
     async def run(self):
         """Main REPL loop entry point."""
