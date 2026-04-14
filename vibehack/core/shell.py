@@ -132,12 +132,12 @@ async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 
     else:
         res = await _SESSION.execute(command, timeout, callback=output_callback, interrupter=interrupter)
     
-    # Handle truncation (Common for both)
+    # Handle truncation (Increased to 4000 for better context depth)
     stdout = res.stdout
     truncated = res.truncated
-    if len(stdout) > truncate_limit:
-        half = truncate_limit // 2
-        removed_bytes = len(stdout) - truncate_limit
+    if len(stdout) > 4000:
+        half = 2000
+        removed_bytes = len(stdout) - 4000
         stdout = stdout[:half] + f"\n... [Truncated Middle: {removed_bytes} bytes removed by VibeHack] ...\n" + stdout[-half:]
         truncated = True
     
@@ -163,11 +163,21 @@ async def _execute_stateless(command: str, timeout: int, env=None) -> ShellResul
         return ShellResult("", f"Execution Error: {str(e)}", 1, False)
 
 def _sanitize_output(text: str) -> str:
-    """Redacts secrets and cleans triggers."""
+    """Redacts secrets, cleans triggers, and strips CLI noise like curl progress bars."""
     if not text: return ""
+    
+    # 1. Redact Secrets
     text = re.sub(r"(sk-[a-zA-Z0-9]{30,})", "sk-***", text)
     text = re.sub(r"(AIza[a-zA-Z0-9_-]{30,})", "AIza***", text)
-    # Basic trigger scrubbing
+    
+    # 2. Strip CLI Noise (Progress Bars)
+    # Curl progress meter
+    text = re.sub(r"%.*?Total.*?%.*?Received.*?%.*?Xferd.*?Average.*?Speed.*?Time.*?Time.*?Time.*?Current\s+Dload.*?Upload.*?Total.*?Spent.*?Left.*?Speed", "", text, flags=re.DOTALL | re.IGNORECASE)
+    # Generic percentage noise and repeated 0s from curl
+    text = re.sub(r"\r?\n\s*\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+[\d:]+\s+[\d:]+\s+[\d:]+\s+[\d.]+[MkG]?", "", text)
+    
+    # 3. Clean Triggers
     for trigger in ["System:", "User:", "Assistant:"]:
         text = text.replace(trigger, f"[Sanitized {trigger}]")
-    return text
+        
+    return text.strip()
