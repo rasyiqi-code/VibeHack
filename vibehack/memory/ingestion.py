@@ -16,30 +16,26 @@ from typing import List, Dict
 from vibehack.memory.db import record_experiences
 from vibehack.llm.provider import Finding
 
-# Simple tech fingerprints. Can be extended.
-TECH_PATTERNS = {
-    "express": r"express|node\.?js|npm",
-    "nginx": r"nginx",
-    "apache": r"apache|httpd",
-    "django": r"django",
-    "flask": r"flask",
-    "spring": r"spring[\s\-]?boot|java",
-    "wordpress": r"wordpress|wp-content|wp-login",
-    "laravel": r"laravel",
-    "rails": r"ruby.on.rails|rails",
-    "asp.net": r"asp\.net|iis|microsoft",
-    "fastapi": r"fastapi|uvicorn",
-    "tomcat": r"tomcat|catalina",
-}
+def detect_technologies(text: str) -> List[str]:
+    """Dynamically detect technologies from headers, banners, or patterns."""
+    found = set()
+    
+    # Generic Server & Powered-By Headers
+    server_matches = re.findall(r"Server:\s+([a-zA-Z0-9\-_]+)", text, re.IGNORECASE)
+    found.update([s.lower() for s in server_matches])
+    
+    powered_matches = re.findall(r"X-Powered-By:\s+([a-zA-Z0-9\-_]+)", text, re.IGNORECASE)
+    found.update([p.lower() for p in powered_matches])
 
-
-def detect_technology(text: str) -> str:
-    """Attempt to detect a technology from command output or thought text."""
-    ltext = text.lower()
-    for tech, pattern in TECH_PATTERNS.items():
-        if re.search(pattern, ltext):
-            return tech
-    return "unknown"
+    # Universal Technology/Banner extraction pattern: Name/1.2.3 or Name_1.2.3 or Name 1.2.3
+    # We ensure the name starts with a letter to avoid capturing protocol versions like 1.1/HTTP as tech
+    generic_banner = re.compile(r"([a-zA-Z][a-zA-Z0-9\-_]{2,})[/_\s](\d+\.[\d\.a-z\-]+)", re.IGNORECASE)
+    for m in generic_banner.finditer(text):
+        tech_name = m.group(1).lower()
+        if tech_name not in ["http", "https", "tcp", "udp", "port", "server", "ok"]:
+            found.add(tech_name)
+            
+    return list(found) if found else ["unknown"]
 
 
 def ingest_session(
@@ -81,7 +77,7 @@ def ingest_session(
         if not command:
             continue
 
-        tech = detect_technology(thought + feedback)
+        techs = detect_technologies(thought + feedback)
         exit_code_match = re.search(r"EXIT_CODE:\s*(\d+)", feedback)
         exit_code = int(exit_code_match.group(1)) if exit_code_match else -1
         stdout_snippet = feedback[:300] if feedback else ""
@@ -89,21 +85,19 @@ def ingest_session(
         # Determine if this command contributed to a finding
         is_successful = False
         for finding in findings:
-            # Heuristic: if command text appears in finding evidence or description
-            if command in (finding.evidence or "") or command[:30] in (
-                finding.description or ""
-            ):
+            if command in (finding.evidence or "") or command[:30] in (finding.description or ""):
                 is_successful = True
                 break
 
-        # Also treat exit_code 0 with non-empty stdout as partial success
         if not is_successful and exit_code == 0 and len(stdout_snippet) > 50:
             is_successful = True
 
         score = 1 if is_successful else -1
         summary = f"{command[:80]}... → exit:{exit_code}"
 
-        experiences_to_record.append((target, tech, command[:500], score, summary))
+        # Record once for each tech found to improve LTM search results
+        for t in techs:
+            experiences_to_record.append((target, t, command[:500], score, summary))
 
     recorded = record_experiences(experiences_to_record)
 

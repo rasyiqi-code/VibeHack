@@ -126,7 +126,12 @@ def start_sandbox():
         cmd = [
             "docker", "run", "-d",
             "--name", CONTAINER_NAME,
-            "-v", f"{cfg.BIN_DIR.absolute()}:/usr/local/vibehack/bin:ro",
+            "--memory", "512m",             # Limit memory usage
+            "--cpus", "0.5",                # Limit CPU usage
+            "--cap-drop", "ALL",            # Drop all capabilities
+            "--cap-add", "NET_RAW",          # Keep NET_RAW for network scanning tools
+            "--cap-add", "NET_ADMIN",
+            "-v", f"{cfg.BIN_DIR.absolute()}:/usr/local/bin:rw",
             "-v", f"{workspace_dir.absolute()}:/root/workspace:rw",
             "-w", "/root/workspace",
             IMAGE_NAME,

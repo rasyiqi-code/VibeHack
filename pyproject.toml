@@ -19,6 +19,7 @@ dependencies = [
     "google-auth-oauthlib>=1.0.0",
     "nest-asyncio>=1.6.0",
     "pynput>=1.7.6",
+    "keyring>=25.0.0",
 ]
 
 [project.optional-dependencies]

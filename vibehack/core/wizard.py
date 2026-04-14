@@ -15,6 +15,7 @@ from vibehack.core.discovery import (
     get_github_info,
     get_opencode_info
 )
+from vibehack.core.keyring_mgr import set_api_key, get_api_key
 
 console = Console()
 
@@ -65,11 +66,33 @@ def _save_and_sync(final_env):
     for k, v in final_env.items():
         env_dict[k] = v
         
+    # Write to .env
     with open(cfg.GLOBAL_ENV, "w") as f:
         for k, v in env_dict.items():
             f.write(f"{k}={v}\n")
-        
-    console.print(f"\n[bold green]✓ Configuration saved to {cfg.GLOBAL_ENV}[/bold green]")
+    
+    # Secure the file permissions (Owner RW only)
+    try:
+        os.chmod(cfg.GLOBAL_ENV, 0o600)
+    except Exception:
+        pass
+
+    # ── KEYRING SYNC ──────────────────────────────────────────────────
+    for k, v in final_env.items():
+        # Map env names (GEMINI_API_KEY) to friendly keyring names (google)
+        mapping = {
+            "OPENROUTER_API_KEY": "openrouter",
+            "GEMINI_API_KEY": "google",
+            "GOOGLE_API_KEY": "google",
+            "ANTHROPIC_API_KEY": "anthropic",
+            "OPENAI_API_KEY": "openai",
+            "GITHUB_TOKEN": "github",
+            "VH_API_KEY": "primary"
+        }
+        if k in mapping and v != "BRIDGE_MODE":
+            set_api_key(mapping[k], v)
+            
+    console.print(f"\n[bold green]✓ Configuration saved to {cfg.GLOBAL_ENV} and Secure Keyring[/bold green]")
     
     for k, v in final_env.items():
         os.environ[k] = str(v)

@@ -2,7 +2,7 @@
 vibehack/agent/knowledge.py — Goal-Oriented Knowledge State (PRD v1.8 §6.4).
 
 Tracks WHAT THE AI KNOWS about the target — not what steps it has completed.
-This is the difference between "ran nmap" (task state) and
+This is the difference between "ran scan" (task state) and
 "ports 80, 443, 8080 are open running nginx/1.18" (knowledge state).
 
 The KnowledgeState is:
@@ -64,86 +64,67 @@ class KnowledgeState:
 
 # ── Auto-extraction from command output ───────────────────────────────────────
 
-# Port patterns: nmap, rustscan, naabu output
-_PORT_NMAP = re.compile(r"(\d{1,5})/tcp\s+open", re.IGNORECASE)
-_PORT_RUSTSCAN = re.compile(r"Open .*?:(\d{1,5})", re.IGNORECASE)
-_PORT_GENERIC = re.compile(r"\bport[s]?\s+(\d{1,5})\s+(?:open|listening)", re.IGNORECASE)
+# Generic Port Recognition (Supports Nmap, Rustscan, Naabu, Masscan, etc.)
+_PORT_GENERIC_1 = re.compile(r"(\d{1,5})/(tcp|udp)\s+(?:open|listening|up)", re.IGNORECASE)
+_PORT_GENERIC_2 = re.compile(r"(?:open|found|port)\s+.*?(\d{1,5})(?:\s|:|$)", re.IGNORECASE)
+_PORT_GENERIC_3 = re.compile(r"(\d{1,5}):\s*open", re.IGNORECASE)
 
-# Technology fingerprints (server headers, banner grabs, etc.)
-TECH_FINGERPRINTS: dict[str, re.Pattern] = {
-    "nginx":       re.compile(r"nginx[/\s]", re.IGNORECASE),
-    "apache":      re.compile(r"apache[/\s]", re.IGNORECASE),
-    "express":     re.compile(r"Express|node\.?js", re.IGNORECASE),
-    "django":      re.compile(r"django|wsgi", re.IGNORECASE),
-    "flask":       re.compile(r"Werkzeug|flask", re.IGNORECASE),
-    "spring":      re.compile(r"Spring[- ]Boot|java", re.IGNORECASE),
-    "wordpress":   re.compile(r"wp-content|wp-login|WordPress", re.IGNORECASE),
-    "laravel":     re.compile(r"laravel|php artisan", re.IGNORECASE),
-    "rails":       re.compile(r"Ruby on Rails|Passenger", re.IGNORECASE),
-    "asp.net":     re.compile(r"ASP\.NET|IIS/", re.IGNORECASE),
-    "fastapi":     re.compile(r"FastAPI|uvicorn", re.IGNORECASE),
-    "tomcat":      re.compile(r"Apache Tomcat|Catalina", re.IGNORECASE),
-    "iis":         re.compile(r"Microsoft-IIS", re.IGNORECASE),
-    "grafana":     re.compile(r"Grafana", re.IGNORECASE),
-    "jenkins":     re.compile(r"Jenkins|Hudson", re.IGNORECASE),
-    "kubernetes":  re.compile(r"kubernetes|k8s|kubectl", re.IGNORECASE),
-    "docker":      re.compile(r"Docker|container", re.IGNORECASE),
-    "mysql":       re.compile(r"MySQL|MariaDB", re.IGNORECASE),
-    "postgresql":  re.compile(r"PostgreSQL|psql", re.IGNORECASE),
-    "mongodb":     re.compile(r"MongoDB|mongod", re.IGNORECASE),
-    "redis":       re.compile(r"Redis", re.IGNORECASE),
-    "openssh":     re.compile(r"OpenSSH", re.IGNORECASE),
-}
+# Universal Technology/Banner extraction pattern: Name/1.2.3 or Name 1.2.3
+_GENERIC_TECH_BANNER = re.compile(r"([a-zA-Z0-9\-_]{3,})[/\s](\d+\.[\d\.a-z\-]+)", re.IGNORECASE)
 
 # Endpoint patterns (URLs found in output)
 _ENDPOINT_PATTERN = re.compile(r"(?:GET|POST|PUT|DELETE|PATCH|Found|Status)\s+(\/[^\s\"']+)", re.IGNORECASE)
 _URL_PATH_PATTERN = re.compile(r"https?://[^\s\"']+(/[^\s\"']*)", re.IGNORECASE)
 
-# Nuclei/Scanner patterns: [severity] [template] url
-_NUCLEI_FINDING = re.compile(r"\[(info|low|medium|high|critical)\] \[.*?\] (https?://[^\s]+)", re.IGNORECASE)
-# Ffuf patterns: [Status: 200, ...] | /endpoint
-_FFUF_ENDPOINT = re.compile(r"\|\s+(\/[^\s]+)", re.IGNORECASE)
-
+# ── Universal Scanner Patterns ─────────────────────────────────────────
+# Matches common pattern: [severity] [any-label] <target/url>
+_SCANNER_FINDING = re.compile(r"\[(info|low|medium|high|critical)\] \[.*?\] ([^\s]+)", re.IGNORECASE)
+# Matches common directory discovery: (Status: 200) | /endpoint
+_DISCOVERY_PATH = re.compile(r"(?:\||Status:.*)\s+(\/[^\s]+)", re.IGNORECASE)
 
 def extract_knowledge(output: str, knowledge: KnowledgeState) -> KnowledgeState:
-    """
-    Auto-extract knowledge from shell command output and merge into KnowledgeState.
-    Returns the same object (mutated in-place) for chaining.
-    """
+    """Auto-extract knowledge from ANY shell command output."""
     if not output or len(output.strip()) < 5:
         return knowledge
 
-    # ── Ports ─────────────────────────────────────────────────────────────
-    for m in _PORT_NMAP.finditer(output):
-        knowledge.open_ports.add(int(m.group(1)))
-    for m in _PORT_RUSTSCAN.finditer(output):
-        knowledge.open_ports.add(int(m.group(1)))
-    for m in _PORT_GENERIC.finditer(output):
-        knowledge.open_ports.add(int(m.group(1)))
+    # 1. Ports (Universal)
+    for p in [_PORT_GENERIC_1, _PORT_GENERIC_2, _PORT_GENERIC_3]:
+        for m in p.finditer(output):
+            try:
+                port_num = int(m.group(1))
+                if 1 <= port_num <= 65535:
+                    knowledge.open_ports.add(port_num)
+            except (ValueError, IndexError): continue
 
-    # ── Technologies ──────────────────────────────────────────────────────
-    for tech, pattern in TECH_FINGERPRINTS.items():
-        if pattern.search(output):
-            knowledge.technologies.add(tech)
+    # 2. Technologies (Universal Dynamic Discovery)
+    # Check headers first (highest confidence)
+    server_match = re.search(r"Server:\s+([a-zA-Z0-9\-_]+)", output, re.IGNORECASE)
+    if server_match:
+        knowledge.technologies.add(server_match.group(1).lower())
+    powered_match = re.search(r"X-Powered-By:\s+([a-zA-Z0-9\-_]+)", output, re.IGNORECASE)
+    if powered_match:
+        knowledge.technologies.add(powered_match.group(1).lower())
 
-    # ── Endpoints ─────────────────────────────────────────────────────────
+    # Generic Banner matching (extracts 'Name' from 'Name/Version' or 'Name Version')
+    for m in _GENERIC_TECH_BANNER.finditer(output):
+        tech_name = m.group(1).lower()
+        # Filter out common false positives if necessary, or just trust the pattern
+        if tech_name not in ["http", "tcp", "udp", "port"]:
+            knowledge.technologies.add(tech_name)
+            knowledge.add_note(f"Detected {tech_name} version {m.group(2)}")
+
+    # 3. Endpoints & Findings (Generic)
     seen_endpoints = set(knowledge.endpoints)
     for m in _ENDPOINT_PATTERN.finditer(output):
         ep = m.group(1)
         if ep not in seen_endpoints and len(ep) < 120:
             knowledge.endpoints.append(ep)
             seen_endpoints.add(ep)
-    for m in _URL_PATH_PATTERN.finditer(output):
-        ep = m.group(1)
-        if ep not in seen_endpoints and len(ep) < 120:
-            knowledge.endpoints.append(ep)
-            seen_endpoints.add(ep)
-
-    # ── Tool-Specific Extractions ─────────────────────────────────────────
-    for m in _NUCLEI_FINDING.finditer(output):
-        knowledge.add_note(f"Nuclei found {m.group(1)} at {m.group(2)}")
+            
+    for m in _SCANNER_FINDING.finditer(output):
+        knowledge.add_note(f"Finding [{m.group(1)}]: {m.group(2)}")
         
-    for m in _FFUF_ENDPOINT.finditer(output):
+    for m in _DISCOVERY_PATH.finditer(output):
         ep = m.group(1)
         if ep not in seen_endpoints and len(ep) < 120:
             knowledge.endpoints.append(ep)

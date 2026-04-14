@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from vibehack.core.keyring_mgr import get_api_key
 
 # Define Home first
 VIBEHACK_HOME = Path.home() / ".vibehack"
@@ -34,12 +35,15 @@ class Config:
         self.AUTH_TYPE = os.getenv("VH_AUTH_TYPE", "key") # 'key' or 'oauth'
         self.AUTH_FILE = os.getenv("VH_AUTH_FILE", "")
 
-        # Provider Keys
-        self.OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
-        self.GOOGLE_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
-        self.ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-        self.OPENAI_KEY = os.getenv("OPENAI_API_KEY", "")
-        self.GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN", "")
+        # Provider Keys (Env Var > Keyring)
+        self.OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY") or get_api_key("openrouter") or ""
+        self.GOOGLE_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or get_api_key("google") or ""
+        self.ANTHROPIC_KEY = os.getenv("ANTHROPIC_API_KEY") or get_api_key("anthropic") or ""
+        self.OPENAI_KEY = os.getenv("OPENAI_API_KEY") or get_api_key("openai") or ""
+        self.GITHUB_TOKEN = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN") or get_api_key("github") or ""
+        
+        # Primary key mapping
+        self.API_KEY = os.getenv("VH_API_KEY") or get_api_key("primary") or ""
 
         # ── Token Economy & Context (v2.6) ───────────────────────────────────
         self.MAX_TURN_MEMORY = int(os.getenv("VH_MAX_TURNS", "10"))

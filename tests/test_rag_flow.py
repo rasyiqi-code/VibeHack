@@ -29,7 +29,7 @@ def test_rag():
     record_experience(
         target="http://test-target.local",
         tech="nginx",
-        payload="nmap -p80 --script http-enum",
+        payload="httpx -u http://target.local -p 80,443 -title",
         score=1,
         summary="Successfully discovered hidden /admin endpoint on Nginx."
     )

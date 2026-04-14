@@ -120,35 +120,31 @@ def _extract_python_code(content: str) -> str:
     return script_code
 
 
-def _execute_script(script_code: str, action: str):
-    with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w") as f:
-        f.write(script_code)
-        temp_path = f.name
-
+async def _execute_script_async(script_code: str, action: str):
+    from vibehack.core.shell import execute_shell
+    
     console.print(
-        f"[dim cyan]Executing Headless Script ({action})...[/dim cyan]", err=True
+        f"[dim cyan]Executing Headless Script via Shell Engine ({action})...[/dim cyan]", err=True
     )
-    try:
-        result = subprocess.run(
-            [sys.executable, temp_path], capture_output=True, text=True, timeout=60
-        )
-        output = result.stdout
-        if result.stderr:
-            output += f"\n[Browser Error]:\n{result.stderr}"
-        if not output.strip():
-            output = "[No stdout produced by browser script]"
-        print(output)
-    except subprocess.TimeoutExpired:
-        print("[Error] Playwright script execution timed out after 60 seconds.")
-    finally:
-        os.unlink(temp_path)
-
+    
+    # We escape the script to run it as a one-liner.
+    safe_script = script_code.replace("'", "'\\''")
+    cmd = f"python3 -c '{safe_script}'"
+    
+    res = await execute_shell(cmd)
+    output = res.stdout
+    if res.stderr:
+        output += f"\n[Browser Error]:\n{res.stderr}"
+    if not output.strip():
+        output = "[No stdout produced by browser script]"
+    
+    print(output)
 
 def run_browser_subagent(url: str, action: str):
     ensure_playwright()
     content = _safe_run(_generate_script_content(url, action))
     script_code = _extract_python_code(content)
-    _execute_script(script_code, action)
+    _safe_run(_execute_script_async(script_code, action))
 
 
 def main():

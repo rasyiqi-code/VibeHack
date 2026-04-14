@@ -1,112 +1,129 @@
 import re
 import shlex
+import ast
+import base64
 from typing import Optional, List
 
-# The "Terminal Sins" — commands that could destroy the host OS or exfiltrate unintended data.
-# Note: These regex patterns are now the second line of defense after structural analysis.
+# The "Terminal Sins" — patterns that are fundamentally dangerous.
 DANGEROUS_PATTERNS = [
-    # Recursive deletion (Linux)
     r"rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+|--force\s+).*(/|\*|~)",
-    # Disk operations
     r"mkfs\.",
     r"dd\s+if=(/.+|/dev/)",
     r">\s*/dev/sd[a-z]",
-    r">\s*/dev/nvme",
-    # Permission bombers
     r"chmod\s+(-R\s+)?(777|000)",
-    # Fork bomb
     r":\(\)\s*\{\s*:|:\s*&\s*\}\s*;:\s*",
-    # System halt/reboot
     r"shutdown\s+(-[a-zA-Z]\s+)?now",
     r"reboot\s*(--force)?",
     r"init\s+[06]\b",
     r"systemctl\s+(poweroff|halt|reboot)",
-    # Windows destructive commands
-    r"format\s+[a-zA-Z]:",
-    r"del\s+/[fFsS]\s+/[fFsS]",
-    # Pipe-to-shell download execution (supply chain)
     r"(curl|wget)\s+.+?\|\s*(sudo\s+)?(ba)?sh",
     r"(curl|wget)\s+.+?\|\s*(sudo\s+)?python",
-    # Direct disk exfiltration/wipe via netcat
-    r"(cat|dd)\s+/dev/[a-z]+.+\|\s*nc\s+",
+    r"echo\s+['\"]?[a-zA-Z0-9+/=]{10,}['\"]?\s*\|\s*base64",
+    r"format\s+[a-zA-Z]:",
+    r"del\s+/[fF]\s+/[sS]",
 ]
 
-# Sensitive system files/directories that should NEVER be targets of shell redirection
 SENSITIVE_TARGETS = [
     "/etc/passwd", "/etc/shadow", "/etc/sudoers", "/etc/crontab",
     "/etc/pam.d", "/boot", "/dev/sd", "/dev/nvme", "/root/.ssh"
 ]
 
-_COMPILED_PATTERNS = [re.compile(pattern, re.IGNORECASE) for pattern in DANGEROUS_PATTERNS]
+_COMPILED_PATTERNS = [re.compile(p, re.IGNORECASE) for p in DANGEROUS_PATTERNS]
+
+def _check_python_ast(py_code: str) -> Optional[str]:
+    """Analyze Python code using AST to find forbidden imports/calls."""
+    try:
+        tree = ast.parse(py_code)
+        for node in ast.walk(tree):
+            # 1. Imports check
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                forbidden = {"os", "subprocess", "pty", "socket", "requests", "httpx", "urllib"}
+                names = [n.name for n in node.names] if isinstance(node, ast.Import) else [node.module]
+                for name in names:
+                    if name and any(f in name for f in forbidden):
+                        return f"Forbidden Python import: {name}"
+            
+            # 2. Function calls check
+            if isinstance(node, ast.Call):
+                func_name = ""
+                if isinstance(node.func, ast.Name):
+                    func_name = node.func.id
+                elif isinstance(node.func, ast.Attribute):
+                    func_name = node.func.attr
+                
+                danger_calls = {"exec", "eval", "system", "run", "call", "popen", "spawn"}
+                if func_name in danger_calls:
+                    return f"Forbidden Python function call: {func_name}"
+    except SyntaxError:
+        return None 
+    return None
 
 def _check_structural_danger(command: str) -> Optional[str]:
-    """
-    Parses the command to detect shell manipulation techniques 
-    like redirection and basic obfuscation.
-    """
-    # 0. Basic bash substitution expansion obfuscation (e.g., r=r; m=m; $r$m -f /)
-    if re.search(r'\$[a-zA-Z_]+.*\$[a-zA-Z_]+', command):
-        return "Blocked by pattern guardrails: Excessive variable expansion detected."
-
+    """Deep structural analysis of the command."""
     try:
-        # Use shlex to handle quotes correctly
-        parts = shlex.split(command)
-        if not parts:
-            return None
-        
-        # 1. Redirection Check (e.g., command > /etc/passwd)
-        for i, part in enumerate(parts):
-            if part in (">", ">>", "1>", "2>"):
-                if i + 1 < len(parts):
-                    target = parts[i+1].lower()
-                    for sensitive in SENSITIVE_TARGETS:
-                        if sensitive in target:
-                            return f"Attempted redirection to sensitive path: {target}"
-        
-        # 2. Obfuscated Execution Check (eval, sh -c with suspicious vars)
-        if "eval" in command.lower() or "sh -c" in command.lower():
-            if "$" in command or "`" in command:
-                return "Potential shell execution obfuscation detected."
-
+        tokens = shlex.split(command)
+        if not tokens: return None
     except ValueError:
-        # Allow commands with unclosed quotes (often used legitimately in fuzzing/scanning)
-        # We rely on regex patterns instead for safety here
-        pass
-    except Exception:
-        return "Command structure is too complex or malformed for safety audit."
+        return "Malformed shell command"
+
+    # 1. Python AST Check
+    if "python" in tokens[0] and "-c" in tokens:
+        try:
+            idx = tokens.index("-c")
+            if idx + 1 < len(tokens):
+                py_err = _check_python_ast(tokens[idx+1])
+                if py_err: return f"AST Guardrail: {py_err}"
+        except ValueError: pass
+
+    # 2. Redirection Check
+    for i, token in enumerate(tokens):
+        if token in (">", ">>", "1>", "2>"):
+            if i + 1 < len(tokens):
+                target = tokens[i+1].lower()
+                for sensitive in SENSITIVE_TARGETS:
+                    if sensitive in target:
+                        return f"Blocked redirection to {target}"
     
+    # 3. Expansion Check
+    if re.search(r'\$[a-zA-Z_]+.*\$[a-zA-Z_]+', command):
+        return "Excessive variable expansion detected."
+
     return None
 
 def check_command(command: str, unchained: bool = False) -> Optional[str]:
-    """
-    Multi-stage command verification:
-    1. Structural Analysis (shlex)
-    2. Regex Pattern Matching
-    """
-    if unchained:
-        return None
+    """Three-stage defense: Structure (AST/Shlex) -> De-obf (Recursive) -> Patterns."""
+    if unchained: return None
     
-    # Stage 1: Structure
-    struct_error = _check_structural_danger(command)
-    if struct_error:
-        return f"Blocked by structural guardrails: {struct_error}"
+    # Stage 1: Structure & AST
+    struct_err = _check_structural_danger(command)
+    if struct_err: return f"Blocked (Structure Error): {struct_err}"
     
-    # Stage 2: Patterns
-    for compiled_pattern in _COMPILED_PATTERNS:
-        if compiled_pattern.search(command):
-            return f"Blocked by pattern guardrails: {compiled_pattern.pattern}"
+    # Stage 2: Recursive De-obfuscation
+    b64_match = re.search(r"echo\s+['\"]?([a-zA-Z0-9+/=]{10,})['\"]?\s*\|\s*base64\s+-d", command)
+    if b64_match:
+        try:
+            decoded = base64.b64decode(b64_match.group(1)).decode(errors="replace")
+            inner_err = check_command(decoded, unchained=False)
+            if inner_err: return f"Blocked (De-obfuscation Error): {inner_err}"
+            return None
+        except Exception: pass
+
+    # Stage 3: Patterns
+    for p in _COMPILED_PATTERNS:
+        if p.search(command): return f"Blocked (Pattern Match): {p.pattern}"
     
     return None
 
 def check_target(target: str) -> Optional[str]:
-    """
-    Sanity check for the target domain.
-    Prevents accidental attacks on major public services.
-    """
-    blocked_suffixes = [".gov", ".mil", ".edu", "google.com", "facebook.com", "amazon.com", "microsoft.com", "apple.com"]
-    
-    for suffix in blocked_suffixes:
-        if target.lower().endswith(suffix) or f"{suffix}/" in target.lower():
-            return f"Target sanity check failed: {suffix} is a restricted domain."
+    """Sanity check for the target."""
+    blocked = [".gov", ".mil", ".edu", "google.com", "facebook.com", "amazon.com", "microsoft.com", "apple.com"]
+    for b in blocked:
+        if target.lower().endswith(b) or f"{b}/" in target.lower():
+            return f"Restricted domain: {b}"
             
-    return None
+    internal = [r"127\.", r"10\.", r"172\.(1[6-9]|2[0-9]|3[0-1])\.", r"192\.168\.", r"localhost", r"\.local", r"\.internal"]
+    for p in internal:
+        if re.search(p, target.lower()):
+            return None # Internal network ALLOWED
+    
+    return "External/Public target blocked for safety. Only internal/private targets allowed."

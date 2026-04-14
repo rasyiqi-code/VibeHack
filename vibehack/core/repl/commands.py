@@ -30,10 +30,10 @@ SLASH_COMMANDS = {
     "/auth":      "Reconfigure AI provider / API keys",
     "/switch":    "Seamlessly swap AI model without losing context",
     "/unchained": "Toggle unchained mode (disables regex guardrails)",
-    "/install":   "Install a tool (/install nuclei)",
     "/findings":  "List confirmed findings",
     "/knowledge": "Show current knowledge state (ports, tech, endpoints)",
     "/map":       "Visualise attack surface as a tree",
+    "/skills":    "List, install, edit or learn skills (/skills list | install <url> | edit <name> | learn <url>)",
     "/report":    "Generate Markdown audit report",
     "/clear":     "Clear conversation history (keeps knowledge & findings)",
     "/memory":    "Browse or search Long-Term Memory (/memory list | /memory search <tech>)",
@@ -117,16 +117,6 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
             console.print("[green]🔒 Guardrails restored.[/green]")
             repl._rebuild_system_prompt()
 
-    elif verb == "/install":
-        if not arg:
-            console.print("[dim]Usage: /install <tool>[/dim]")
-        else:
-            from vibehack.toolkit.provisioner import DOWNLOADABLE_TOOLS
-            if arg not in DOWNLOADABLE_TOOLS:
-                console.print(f"[red]'{arg}' not in registry.[/red]")
-                console.print(f"[dim]{', '.join(DOWNLOADABLE_TOOLS.keys())}[/dim]")
-            else:
-                return ("__install__", arg)
 
     elif verb == "/knowledge":
         _display_knowledge(repl)
@@ -136,6 +126,9 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
             console.print("[red]Set a target first using /target[/red]")
         else:
             display_map(repl.target, repl.knowledge.to_dict())
+
+    elif verb == "/skills":
+        _handle_skills_command(repl, arg)
 
     elif verb == "/findings":
         _display_findings(repl)
@@ -482,3 +475,153 @@ def _display_history(repl):
         table.add_section()
         
     console.print(table)
+
+def _handle_skills_command(repl, arg: str):
+    """Handle /skills sub-commands: list, install <url>."""
+    from pathlib import Path
+    import urllib.request
+    
+    skill_dir = cfg.HOME / "skills"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Also check internal skills
+    internal_skill_dir = Path(__file__).parent.parent.parent / "skills"
+
+    if not arg or arg == "list":
+        from rich.table import Table
+        table = Table(title="🎯 Expert Security Skills", box=None)
+        table.add_column("Source", style="dim")
+        table.add_column("Skill Name", style="cyan")
+        table.add_column("Trigger Keywords", style="yellow")
+        
+        # Check both internal and external
+        for s_dir, label in [(internal_skill_dir, "Internal"), (skill_dir, "User")]:
+            if s_dir.exists():
+                for f in s_dir.glob("*.md"):
+                    content = f.read_text()
+                    first_line = content.split("\n")[0].replace("# Skill:", "").strip()
+                    trigger_line = content.split("\n")[1].replace("# Trigger:", "").strip() if len(content.split("\n")) > 1 else "None"
+                    table.add_row(label, first_line or f.stem, trigger_line)
+        
+        console.print(Panel(table, title="Knowledge Base", border_style="cyan"))
+
+    elif arg.startswith("learn "):
+        url = arg[6:].strip()
+        if not url.startswith("http"):
+            console.print("[red]Error: Invalid URL.[/red]")
+            return
+
+        console.print(f"[bold yellow]🧠 AI is learning from:[/bold yellow] [dim]{url}...[/dim]")
+        
+        # 1. Fetch content
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'VibeHack-Client'})
+            with urllib.request.urlopen(req, timeout=15) as response:
+                raw_html = response.read().decode('utf-8', errors='replace')
+                
+                # Simple HTML strip to avoid token bloat
+                clean_text = re.sub(r'<script.*?</script>', '', raw_html, flags=re.DOTALL)
+                clean_text = re.sub(r'<style.*?</style>', '', clean_text, flags=re.DOTALL)
+                clean_text = re.sub(r'<.*?>', ' ', clean_text)
+                clean_text = ' '.join(clean_text.split())[:8000] # Limit to 8k chars
+
+                # 2. Ask AI to synthesize into Skill format
+                learning_prompt = (
+                    "You are the VibeHack Knowledge Ingestor.\n"
+                    f"Read this content from {url} and extract actionable security techniques.\n"
+                    "Convert it into the VibeHack Skill format:\n\n"
+                    "# Skill: [Clear Descriptive Title]\n"
+                    "# Trigger: [comma, separated, technical, keywords]\n\n"
+                    "### [Phase 1: Description]\n...\n"
+                    "### [Phase 2: Actionable Payloads/Commands]\n...\n\n"
+                    "Output ONLY the markdown content for the skill file."
+                )
+                
+                # Process via AI (Wait for it)
+                import asyncio
+                async def _learn():
+                    return await repl.handler.raw_complete([
+                        {"role": "system", "content": learning_prompt},
+                        {"role": "user", "content": f"CONTENT FROM {url}:\n\n{clean_text}"}
+                    ])
+                
+                skill_content = asyncio.run(_learn())
+                
+                # 3. Save as Skill
+                # Extract filename from AI output
+                match = re.search(r"^# Skill:\s*([a-zA-Z0-9_\-\s]+)", skill_content)
+                filename = "learned_" + (match.group(1).strip().lower().replace(" ", "_") if match else "skill") + ".md"
+                
+                target_path = skill_dir / filename
+                target_path.write_text(skill_content)
+                
+                console.print(Panel(
+                    f"AI successfully learned and synthesized: [bold green]'{filename}'[/bold green]\n"
+                    "This new knowledge is now part of the expert database.",
+                    title="✅ Smart Learning Complete",
+                    border_style="green"
+                ))
+
+        except Exception as e:
+            console.print(f"[red]Learning failed:[/red] {e}")
+
+    elif arg.startswith("edit "):
+        name = arg[5:].strip()
+        if not name.endswith(".md"): name += ".md"
+        
+        target_path = skill_dir / name
+        if not target_path.exists():
+            # Check internal skills too, but we copy to user dir if editing
+            internal_path = internal_skill_dir / name
+            if internal_path.exists():
+                console.print(f"[dim]Note: Copying internal skill '{name}' to user directory for editing...[/dim]")
+                target_path.write_text(internal_path.read_text())
+            else:
+                console.print(f"[red]Error: Skill '{name}' not found.[/red]")
+                return
+
+        editor = os.getenv("EDITOR") or os.getenv("VISUAL") or "nano"
+        console.print(f"[bold yellow]📝 Opening editor ({editor}):[/bold yellow] [dim]{target_path.name}[/dim]")
+        
+        import subprocess
+        try:
+            # We use subprocess.run to allow the editor to take over the TTY
+            subprocess.run([editor, str(target_path)])
+            console.print(f"[bold green]✅ Skill '{name}' updated.[/bold green]")
+        except Exception as e:
+            console.print(f"[red]Failed to open editor:[/red] {e}")
+
+    elif arg.startswith("install "):
+        url = arg[8:].strip()
+        if not url.startswith("http"):
+            console.print("[red]Error: Invalid URL.[/red]")
+            return
+
+        console.print(f"[bold yellow]📡 Downloading skill from:[/bold yellow] [dim]{url}[/dim]")
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'VibeHack-Client'})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                content = response.read().decode('utf-8')
+                
+                # Auto-generate filename from title or URL
+                filename = url.split("/")[-1]
+                if not filename.endswith(".md"): filename += ".md"
+                
+                # Look for # Skill: ... to refine filename
+                match = re.search(r"^# Skill:\s*([a-zA-Z0-9_\-\s]+)", content)
+                if match:
+                    filename = match.group(1).strip().lower().replace(" ", "_") + ".md"
+                
+                target_path = skill_dir / filename
+                target_path.write_text(content)
+                
+                console.print(Panel(
+                    f"Expert Skill [bold green]'{filename}'[/bold green] has been installed.\n"
+                    "AI will now automatically use this knowledge when relevant patterns are detected.",
+                    title="✅ Skill Installed",
+                    border_style="green"
+                ))
+        except Exception as e:
+            console.print(f"[red]Failed to install skill:[/red] {e}")
+    else:
+        console.print("[dim]Usage: /skills [list | install <url> | edit <name> | learn <url>][/dim]")

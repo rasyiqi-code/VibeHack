@@ -22,7 +22,7 @@ from vibehack.memory.db import init_memory, get_memory_stats
 from vibehack.repl import VibehackREPL
 from vibehack.toolkit.discovery import discover_tools
 from vibehack.toolkit.manager import BIN_DIR, VIBEHACK_HOME
-from vibehack.toolkit.provisioner import DOWNLOADABLE_TOOLS, APT_TOOLS, get_install_hint
+from vibehack.toolkit.provisioner import get_install_hint
 from vibehack.core.discovery import (
     get_gemini_info, get_claude_info, get_codex_info, 
     get_github_info, get_opencode_info
@@ -219,32 +219,35 @@ def report(
 
 
 @app.command()
-def check():
+def check(
+    tool: Optional[str] = typer.Option(None, "--tool", help="Check for a specific tool instead of listing all"),
+):
     """Health-check: tools discovered in $PATH + Long-Term Memory stats."""
+    if tool:
+        found = discover_tools()
+        if tool in found:
+            console.print(f"[bold green]✓ {tool} is installed.[/bold green]")
+        else:
+            console.print(f"[bold red]✗ {tool} is NOT found.[/bold red]")
+        return
+
     console.print("[bold cyan]🛠  Vibe_Hack Health Check[/bold cyan]\n")
 
     # §6.2: Dynamic discovery — not a static list
     discovered = discover_tools()
 
-    # Split into known-security vs LotL built-ins for display
-    from vibehack.toolkit.provisioner import DOWNLOADABLE_TOOLS, APT_TOOLS
-    all_managed = set(DOWNLOADABLE_TOOLS) | set(APT_TOOLS)
-    security_tools = [t for t in discovered if t in all_managed]
-    lotl_tools = [t for t in discovered if t not in all_managed]
-
     from rich.table import Table
-    table = Table(title=f"Discovered Security Tools ({len(security_tools)} managed + {len(lotl_tools)} LotL)", show_lines=True)
+    table = Table(title="Discovered Tools", show_lines=True)
     table.add_column("Tool", style="cyan", no_wrap=True)
-    table.add_column("Type", style="dim")
-    table.add_column("How to install (if missing)", style="dim")
-
-    for tool in security_tools:
-        table.add_row(tool, "[green]security[/green]", "[green]— installed[/green]")
-    for tool in lotl_tools:
-        table.add_row(tool, "[blue]LotL[/blue]", "[blue]— built-in[/blue]")
-
-    # Show what's missing from managed list
-    missing_dl = [t for t in DOWNLOADABLE_TOOLS if t not in discovered]
+    
+    # Truncate for AI safety
+    if len(discovered) > 50:
+        for t in list(discovered)[:40]:
+            table.add_row(t)
+        table.add_row(f"... and {len(discovered) - 40} more")
+    else:
+        for t in discovered:
+            table.add_row(t)
 
     console.print(table)
 
@@ -262,27 +265,9 @@ def check():
     console.print(f"[dim]📁 Home: {VIBEHACK_HOME}[/dim]")
     console.print(f"[dim]🔍 Total tools discovered: {len(discovered)}[/dim]\n")
 
-    if missing_dl:
-        console.print(f"[yellow]⬇  {len(missing_dl)} security tools can be auto-installed:[/yellow]")
-        for t in missing_dl[:8]:
-            console.print(f"  vibehack install {t}")
-        if len(missing_dl) > 8:
-            console.print(f"  ... and {len(missing_dl) - 8} more")
 
 
 
-@app.command(name="install")
-def install_tool(
-    tool: str = typer.Argument(..., help="Tool to install (e.g. nuclei, rustscan)"),
-):
-    """Download and install a security tool to ~/.vibehack/bin/."""
-    from vibehack.toolkit.provisioner import download_tool
-
-    if tool not in DOWNLOADABLE_TOOLS:
-        console.print(f"[red]'{tool}' not in auto-provision registry.[/red]")
-        console.print(f"[dim]Downloadable: {', '.join(DOWNLOADABLE_TOOLS.keys())}[/dim]")
-        raise typer.Exit(code=1)
-    safe_run(download_tool(tool))
 
 
 @app.command()

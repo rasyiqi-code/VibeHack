@@ -214,7 +214,7 @@ def display_map(target: str, knowledge_state: dict):
         for note in intel_data[-8:]:
             # Style based on keywords
             style = "dim"
-            if "Nuclei found" in note: style = "bold red"
+            if "Finding [" in note: style = "bold red"
             elif "Finding recorded" in note: style = "bold yellow"
             intel.add(f"[{style}]{note}[/{style}]")
 

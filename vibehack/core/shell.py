@@ -26,7 +26,7 @@ class PersistentSession:
         self.container_name = CONTAINER_NAME
         
         # We start a direct bash session inside the docker container
-        sandbox_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/vibehack/bin"
+        sandbox_path = "/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"
         
         cmd = [
             "docker", "exec", "-i", "-u", "root",
@@ -53,10 +53,13 @@ class PersistentSession:
             await self.start()
 
         async with self.lock:
-            # We use a unique delimiter to know when the command finishes
-            delimiter = f"VIBEHACK_DONE_{os.urandom(4).hex()}"
-            # We wrap the command to capture exit code and delimiter
-            full_cmd = f"{command}\necho $? && echo {delimiter}\n"
+            # Robust delimiter with UUID-like randomness and salt
+            salt = os.urandom(8).hex()
+            delimiter = f"---VIBEHACK_COMMAND_BOUNDARY_{salt}---"
+            
+            # Wrap command to capture exit code and delimiter accurately
+            # We use printf to avoid echo interpretation issues
+            full_cmd = f"{command}\n_vh_ret=$?; printf \"\\n%s\\n%s\\n\" \"$_vh_ret\" \"{delimiter}\"\n"
             
             try:
                 self.process.stdin.write(full_cmd.encode())
@@ -122,11 +125,14 @@ async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 
     """Facade for the persistent session or stateless fallback."""
     from vibehack.config import cfg
     if not cfg.SANDBOX_ENABLED:
-        return await _execute_stateless(command, timeout, env)
+        # Prevent accidental host execution unless VH_ALLOW_HOST=true
+        if os.getenv("VH_ALLOW_HOST", "false").lower() != "true":
+            return ShellResult("", "Error: Sandbox is disabled and Host Execution is blocked for safety. Set VH_ALLOW_HOST=true to override.", 1, False)
+        res = await _execute_stateless(command, timeout, env)
+    else:
+        res = await _SESSION.execute(command, timeout, callback=output_callback, interrupter=interrupter)
     
-    res = await _SESSION.execute(command, timeout, callback=output_callback, interrupter=interrupter)
-    
-    # Handle truncation
+    # Handle truncation (Common for both)
     stdout = res.stdout
     truncated = res.truncated
     if len(stdout) > truncate_limit:

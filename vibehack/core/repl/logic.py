@@ -82,11 +82,11 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
 
         repl.history.append({"role": "assistant", "content": response.model_dump_json()})
 
-        # Update tech hint from thought
-        from vibehack.memory.ingestion import detect_technology
-        tech = detect_technology(response.thought)
-        if tech != "unknown":
-            if tech not in repl.knowledge.technologies:
+        # 2. Update tech hint from thought
+        from vibehack.memory.ingestion import detect_technologies
+        techs = detect_technologies(response.thought)
+        for tech in techs:
+            if tech != "unknown" and tech not in repl.knowledge.technologies:
                 repl.knowledge.technologies.add(tech)
                 repl._rebuild_system_prompt()
 
@@ -146,19 +146,10 @@ async def _execute_proposed_command(repl, response: AgentResponse):
         _handle_memory_tool(repl, cmd)
         return
 
-    # AI can trigger Slash Commands (like /install)
+    # System: Slash commands are prioritized as user-defined skills, not hardcoded installers.
     if cmd.startswith("/"):
         from vibehack.core.repl.commands import handle_slash_command
-        result = handle_slash_command(repl, cmd)
-        if isinstance(result, tuple) and result[0] == "__install__":
-            from vibehack.toolkit.provisioner import download_tool
-            console.print(f"[cyan]AI requested tool installation: {result[1]}[/cyan]")
-            if await download_tool(result[1]):
-                repl._discover_tools()
-                repl._rebuild_system_prompt()
-                repl.history.append({"role": "user", "content": f"System: Tool {result[1]} installed successfully."})
-            else:
-                repl.history.append({"role": "user", "content": f"System: Failed to install {result[1]}."})
+        handle_slash_command(repl, cmd)
         return
 
     display_command(cmd)
@@ -214,12 +205,7 @@ async def _execute_proposed_command(repl, response: AgentResponse):
     repl.history.append({"role": "user", "content": feedback})
 
 def _handle_shell_intercept(repl, user_message: str):
-    parts = user_message.strip().split()
-    if len(parts) > 2 and parts[1] == "install":
-        tool_name = parts[2]
-        console.print(f"\n[yellow]ℹ  Use:[/yellow] [cyan]/install {tool_name}[/cyan]\n")
-    else:
-        console.print(f"\n[yellow]ℹ  Shell commands go outside the REPL.[/yellow]\n")
+    console.print(f"\n[yellow]ℹ  Shell commands go outside the REPL.[/yellow]\n")
 
 def _handle_memory_tool(repl, cmd: str):
     """Internal tool for AI to search past experiences."""

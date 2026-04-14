@@ -1,31 +1,24 @@
 import time
-import re
-from vibehack.guardrails.regex_engine import DANGEROUS_PATTERNS
+import ctypes
+from vibehack.guardrails.regex_engine import check_command
 
-COMPILED_PATTERNS = [re.compile(p, re.IGNORECASE) for p in DANGEROUS_PATTERNS]
+def run_benchmark_compiled():
+    # Performance testing using a neutral network check command.
+    test_cmd = "curl --head --user-agent 'VibeHack-Audit' http://localhost:8080"
 
-def check_command_compiled(command: str, unchained: bool = False) -> str | None:
-    if unchained:
-        return None
-    for pattern_obj in COMPILED_PATTERNS:
-        if pattern_obj.search(command):
-            return f"Blocked by guardrails (Pattern matched: {pattern_obj.pattern})"
-    return None
-
-def run_benchmark():
     # Warm up
     for _ in range(100):
-        check_command_compiled("nmap -sV -p 80 localhost")
+        check_command(test_cmd)
 
     start_time = time.time()
 
-    # Run a lot of times for a safe command (which hits all patterns)
+    # Intensive stress-test for the guardrail engine
     for _ in range(100000):
-        check_command_compiled("nmap -sV -p 80 localhost")
+        check_command(test_cmd)
 
     end_time = time.time()
 
-    print(f"Time taken for 100000 check_command_compiled calls: {end_time - start_time:.4f} seconds")
+    print(f"Time taken for 100000 check_command calls (compiled context): {end_time - start_time:.4f} seconds")
 
 if __name__ == "__main__":
-    run_benchmark()
+    run_benchmark_compiled()

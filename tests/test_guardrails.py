@@ -41,7 +41,7 @@ class TestRegexKillSwitch:
         assert "Blocked" in result
 
     @pytest.mark.parametrize("command", [
-        "nmap -sV -p 80 localhost",
+        "masscan -p1-65535 127.0.0.1",
         "httpx -l targets.txt -json",
         "nuclei -u http://localhost:3000 -t http/misconfiguration/",
         "ffuf -u http://localhost/FUZZ -w /usr/share/wordlists/dirb/common.txt",

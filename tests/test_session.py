@@ -25,8 +25,8 @@ class TestSessionPersistence:
             "unchained": False,
             "history": [
                 {"role": "system", "content": "You are a security agent..."},
-                {"role": "assistant", "content": '{"thought": "start recon", "raw_command": "nmap localhost", "is_destructive": false}'},
-                {"role": "user", "content": "STDOUT:\nPORT   STATE SERVICE\n80/tcp open  http"},
+                {"role": "assistant", "content": '{"thought": "fuzz endpoints", "raw_command": "ffuf -u http://target/FUZZ -w list.txt", "is_destructive": false}'},
+                {"role": "user", "content": "STDOUT:\n/admin [Status: 200]"},
             ],
             "findings": [
                 {"severity": "high", "title": "Open Port 80", "description": "HTTP open", "evidence": None, "remediation": None}

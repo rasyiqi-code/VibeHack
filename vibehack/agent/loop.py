@@ -26,7 +26,7 @@ from vibehack.agent.prompts.tactical import (
 from vibehack.guardrails.regex_engine import check_command, check_target
 from vibehack.guardrails.waiver import verify_unchained_access
 from vibehack.memory.db import init_memory, get_memory_context, get_memory_stats
-from vibehack.memory.ingestion import ingest_session, detect_technology
+from vibehack.memory.ingestion import ingest_session, detect_technologies
 from vibehack.session.persistence import save_session, generate_session_id
 from vibehack.toolkit.discovery import discover_tools
 from vibehack.toolkit.manager import get_toolkit_env
@@ -67,11 +67,13 @@ class AgentLoop:
         self.key_findings: List[Finding] = []
         self.session_id = session_id or generate_session_id()
         self.env = get_toolkit_env()
-        self._tech_hint = "web"
+        self._tech_hint = "" # Start with zero bias; let discovery determine the hint
         
         # Level Dewa: Pipeline Infrastructure
         self.pipeline = AgentPipeline()
         self.pipeline.use(ExperienceMiddleware())
+        self.pipeline.use(SkillMiddleware())
+        self.pipeline.use(HoneypotMiddleware())
         self.pipeline.use(ToolValidationMiddleware())
         self.pipeline.use(ChameleonMiddleware())
         self.pipeline.use(ShadowCriticMiddleware(self.handler))
@@ -130,16 +132,12 @@ class AgentLoop:
                 return base_cmds[0]
         return None
 
-    def _handle_memory_tool(self, cmd: str):
-        """Handle internal memory management commands."""
-        self.history.append({"role": "user", "content": get_memory_feedback("Memory command processed.")})
-        self._persist()
 
     def _refine_tech_hint(self, text: str):
         """Update tech hint from any rich text (AI thoughts + tool output)."""
-        detected = detect_technology(text)
-        if detected != "unknown":
-            self._tech_hint = detected
+        detected = detect_technologies(text)
+        if detected and detected[0] != "unknown":
+            self._tech_hint = detected[0]
 
     # ── Main run loop ─────────────────────────────────────────────────────
 
@@ -255,6 +253,18 @@ class AgentLoop:
                 if exp_context:
                     console.print(f"[dim]🧠 Context: Past experience localized for the current tech stack.[/dim]")
                     self.history.append({"role": "user", "content": f"HISTORICAL CONTEXT: {exp_context}"})
+
+                # Inject expert skills if found by Skill middleware
+                skill_context = ctx.metadata.get("skills_context")
+                if skill_context:
+                    console.print(f"[dim]🎯 Skill: Expert patterns for '{ctx.metadata.get('technologies', ['target'])[0]}' activated.[/dim]")
+                    self.history.append({"role": "user", "content": f"EXPERT KNOWLEDGE INJECTION:\n{skill_context}"})
+
+                # Display Honeypot Risk
+                hp_risk = ctx.metadata.get("honeypot_risk")
+                if hp_risk:
+                    console.print(Panel(f"[bold red]⚠️ DECEPTION DETECTED:[/bold red] {hp_risk}", border_style="red"))
+                    self.history.append({"role": "user", "content": f"TACTICAL WARNING: {hp_risk}. Proceed with extreme caution."})
 
                 if response.education and self.persona == "dev-safe":
                     display_education(response.education)

@@ -26,7 +26,7 @@ def test_render_planning():
     # Modern
     opt = PromptOptions(planning=True, model_tier="modern")
     out = render_planning(opt)
-    assert "Planning Methodology" in out
+    assert "Tactical Philosophy" in out
     assert "technical hypothesis" in out
     
     # Off
@@ -57,14 +57,14 @@ def test_render_sandbox():
 def test_builder_composition():
     opt = PromptOptions(
         target="http://test.local",
-        tools=["nmap", "curl"],
+        tools=["ffuf", "curl"],
         mission_goals=["[DONE] Start"]
     )
     prompt = build_system_prompt(opt)
     
     # Check order/inclusion
     assert prompt.startswith("You are Vibe_Hack")
-    assert "Planning Methodology" in prompt
+    assert "Tactical Philosophy" in prompt
     assert "Mission Tracker" in prompt
     assert "Security mandates" in prompt
     assert prompt.endswith("No markdown decoration (**, *, _, `).")
