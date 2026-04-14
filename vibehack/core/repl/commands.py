@@ -76,6 +76,9 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
     elif verb == "/mode":
         if arg in ("agent", "ask"):
             repl.op_mode = arg
+            os.system('clear' if os.name == 'posix' else 'cls')
+            print("")
+            display_banner(repl)
             console.print(f"[green]✓ Operation mode:[/green] {arg}")
         else:
             console.print(f"Mode: {repl.op_mode} | Use: /mode agent  or  /mode ask")
@@ -83,6 +86,9 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
     elif verb == "/persona":
         if arg in ("dev-safe", "pro"):
             repl.persona = arg
+            os.system('clear' if os.name == 'posix' else 'cls')
+            print("")
+            display_banner(repl)
             console.print(f"[green]✓ Persona:[/green] {arg}")
             repl._rebuild_system_prompt()
         else:
@@ -110,10 +116,16 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
         if not repl.unchained:
             if verify_unchained_access(True):
                 repl.unchained = True
+                os.system('clear' if os.name == 'posix' else 'cls')
+                print("")
+                display_banner(repl)
                 console.print("[bold red]🔓 Unchained mode enabled.[/bold red]")
                 repl._rebuild_system_prompt()
         else:
             repl.unchained = False
+            os.system('clear' if os.name == 'posix' else 'cls')
+            print("")
+            display_banner(repl)
             console.print("[green]🔒 Guardrails restored.[/green]")
             repl._rebuild_system_prompt()
 
