@@ -67,17 +67,31 @@ else
 fi
 
 # 5. Virtual Environment & Python Install
-echo -e "${BLUE}🛠️  Setting up Python Virtual Environment...${NC}"
+echo -e "${BLUE}🛠️  Configuring environment and dependencies...${NC}"
 python3 -m venv .venv
-source .venv/bin/env/bin/activate || source .venv/bin/activate
 
-echo -e "${BLUE}📦 Installing VibeHack dependencies...${NC}"
-pip install --upgrade pip
-pip install -e .
+# Fix activation and install quietly
+source .venv/bin/activate
+pip install --upgrade pip --quiet
+pip install -e . --quiet
 
-echo -e "\n${GREEN}✅ INSTALLATION COMPLETE!${NC}"
+# 6. Create Global Wrapper (Experimental)
+BIN_PATH="$HOME/.local/bin/vibehack"
+mkdir -p "$HOME/.local/bin"
+cat <<EOF > "$BIN_PATH"
+#!/bin/bash
+source $(pwd)/.venv/bin/activate
+$(pwd)/.venv/bin/python3 $(pwd)/vibehack/cli.py "\$@"
+EOF
+chmod +x "$BIN_PATH"
+
+echo -e "\n${GREEN}✅ VibeHack v4.2.0 installed successfully!${NC}"
 echo -e "--------------------------------------------------------"
-echo -e "To start VibeHack, run:"
-echo -e "${CYAN}cd $(pwd) && source .venv/bin/activate && vibehack${NC}"
+echo -e "You can now run VibeHack from anywhere by typing:"
+echo -e "  ${YELLOW}vibehack${NC}"
 echo -e "--------------------------------------------------------"
-echo -e "${YELLOW}Don't forget to run '/auth' inside VibeHack to set your API Key.${NC}\n"
+echo -e "${YELLOW}Note: Run '/auth' inside VibeHack to set your API Key.${NC}\n"
+
+# Clean Exit: Deactivate and return to original folder
+deactivate
+cd - > /dev/null
