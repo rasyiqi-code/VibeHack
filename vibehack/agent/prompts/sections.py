@@ -203,6 +203,15 @@ def render_exploits(options: PromptOptions) -> str:
     return options.exploits
 
 
+def render_strategic_techniques(options: PromptOptions) -> str:
+    """Advanced technical maneuvers muated from dynamic skills."""
+    if not options.skills:
+        return ""
+        
+    content = "\n\n".join(options.skills)
+    return f"Tactical Guidance:\n{content}"
+
+
 def render_schema(options: PromptOptions) -> str:
     """JSON output contract. The anchor at the end of the prompt."""
     if not options.schema:

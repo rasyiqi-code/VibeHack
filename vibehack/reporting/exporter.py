@@ -289,7 +289,7 @@ def _render_pdf_footer(pdf, commands: List[dict]):
             warn = " [DESTRUCTIVE] " if entry["is_destructive"] else ""
             pdf.set_font("helvetica", "B", 10)
             clean_thought = str(entry['thought']).encode('latin-1', 'replace').decode('latin-1')
-            pdf.multi_cell(0, 6, f"Step {i} — {clean_thought}{warn}")
+            pdf.multi_cell(0, 6, f"Step {i} - {clean_thought}{warn}")
             
             pdf.set_font("courier", "", 9)
             clean_cmd = str(entry['command']).encode('latin-1', 'replace').decode('latin-1')

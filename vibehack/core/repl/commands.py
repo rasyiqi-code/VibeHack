@@ -15,7 +15,7 @@ from vibehack.guardrails.regex_engine import check_target
 from vibehack.guardrails.waiver import verify_unchained_access
 from vibehack.memory.db import get_memory_stats
 from vibehack.ui.tui import (
-    display_map, display_finding, display_banner, display_notice
+    display_map, display_finding, display_banner, display_notice, log_to_pane
 )
 
 console = Console()
@@ -45,7 +45,7 @@ SLASH_COMMANDS = {
     "/exit":      "Save session and exit",
 }
 
-def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
+async def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
     """
     Process slash commands. 
     Returns:
@@ -57,51 +57,57 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
     verb = parts[0].lower()
     arg = parts[1].strip() if len(parts) > 1 else ""
 
+
+
     if verb == "/help":
-        lines = [f"  [cyan]{k}[/cyan]  [dim]{v}[/dim]" for k, v in SLASH_COMMANDS.items()]
-        console.print(Panel("\n".join(lines), title="Slash Commands", border_style="dim"))
+        lines = [f"  {k:15}  {v}" for k, v in SLASH_COMMANDS.items()]
+        help_text = "\n".join(lines)
+        log_to_pane(repl, "history", f"\n[ SLASH COMMANDS ]\n{help_text}\n")
 
     elif verb == "/target":
         if arg:
             err = check_target(arg)
             if err:
-                console.print(f"[red]Blocked:[/red] {err}")
+                log_to_pane(repl, "logs", f"🚨 Blocked: {err}")
             else:
                 repl.target = arg
-                console.print(f"[green]✓ Target:[/green] {arg}")
+                log_to_pane(repl, "logs", f"🎯 Target Set: {arg}")
                 repl._rebuild_system_prompt()
         else:
-            console.print(f"Target: [cyan]{repl.target or 'not set'}[/cyan]")
+            log_to_pane(repl, "history", f"Current Target: {repl.target or 'not set'}")
 
     elif verb == "/mode":
         if arg in ("agent", "ask"):
             repl.op_mode = arg
-            os.system('clear' if os.name == 'posix' else 'cls')
-            print("")
-            display_banner(repl)
-            console.print(f"[green]✓ Operation mode:[/green] {arg}")
+            log_to_pane(repl, "logs", f"⚙️ Operational Mode: {arg.upper()}")
         else:
-            console.print(f"Mode: {repl.op_mode} | Use: /mode agent  or  /mode ask")
+            log_to_pane(repl, "history", f"Operational Mode: {repl.op_mode.upper()} | Use: /mode agent | ask")
 
     elif verb == "/persona":
         if arg in ("dev-safe", "pro"):
             repl.persona = arg
-            os.system('clear' if os.name == 'posix' else 'cls')
-            print("")
-            display_banner(repl)
-            console.print(f"[green]✓ Persona:[/green] {arg}")
+            log_to_pane(repl, "logs", f"🎭 Persona Set: {arg.upper()}")
             repl._rebuild_system_prompt()
         else:
-            console.print(f"Persona: {repl.persona} | Use: /persona dev-safe  or  /persona pro")
+            log_to_pane(repl, "history", f"Persona: {repl.persona.upper()} | Use: /persona dev-safe | pro")
 
     elif verb == "/auth":
         from vibehack.core.wizard import _setup_wizard
         from vibehack.config import load_config_env
-        _setup_wizard()
-        load_config_env()
-        cfg.load()
+        
+        def _run_auth():
+            _setup_wizard()
+            load_config_env()
+            cfg.load()
+        
+        if repl and hasattr(repl, "app"):
+            from prompt_toolkit.application import run_in_terminal
+            await run_in_terminal(_run_auth)
+        else:
+            _run_auth()
+            
         repl.handler = UniversalHandler(api_key=cfg.API_KEY, model=cfg.MODEL)
-        console.print("[bold green]✓ Authentication updated & AI engine re-initialized.[/bold green]")
+        log_to_pane(repl, "logs", "✓ Authentication updated & AI engine re-initialized.")
 
     elif verb == "/switch":
         _handle_switch(repl, arg)
@@ -110,37 +116,37 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
         _display_status(repl)
 
     elif verb == "/sessions":
-        return _handle_sessions_interactively(repl)
+        return await _handle_sessions_interactively(repl)
 
     elif verb == "/unchained":
         if not repl.unchained:
             if verify_unchained_access(True):
                 repl.unchained = True
-                os.system('clear' if os.name == 'posix' else 'cls')
-                print("")
-                display_banner(repl)
-                console.print("[bold red]🔓 Unchained mode enabled.[/bold red]")
+                log_to_pane(repl, "logs", "🔓 UNCHAINED MODE ENABLED — Guardrails disabled.")
                 repl._rebuild_system_prompt()
         else:
             repl.unchained = False
-            os.system('clear' if os.name == 'posix' else 'cls')
-            print("")
-            display_banner(repl)
-            console.print("[green]🔒 Guardrails restored.[/green]")
+            log_to_pane(repl, "logs", "🔒 Guardrails restored.")
             repl._rebuild_system_prompt()
-
 
     elif verb == "/knowledge":
         _display_knowledge(repl)
 
     elif verb == "/map":
         if not repl.target:
-            console.print("[red]Set a target first using /target[/red]")
+            log_to_pane(repl, "history", "🚨 Set a target first using /target")
         else:
-            display_map(repl.target, repl.knowledge.to_dict())
+            # For complex trees, we just log a simplified list to the pane for now
+            log_to_pane(repl, "history", "\n[ ATTACK SURFACE MAP ]")
+            for port in sorted(repl.knowledge.open_ports):
+                log_to_pane(repl, "history", f"  • Port {port}")
+            for tech in sorted(repl.knowledge.technologies):
+                log_to_pane(repl, "history", f"  • Tech: {tech}")
+            for ep in repl.knowledge.endpoints[:10]:
+                log_to_pane(repl, "history", f"  • Endpoint: {ep}")
 
     elif verb == "/skills":
-        _handle_skills_command(repl, arg)
+        await _handle_skills_command(repl, arg)
 
     elif verb == "/findings":
         _display_findings(repl)
@@ -148,78 +154,70 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
     elif verb == "/report":
         from vibehack.reporting.exporter import export_report
         path = export_report(repl.target or "unknown", repl.key_findings, repl.history, cfg.HOME / "reports")
-        console.print(f"[bold green]✅ Report:[/bold green] {path}")
+        log_to_pane(repl, "logs", f"✅ Report Generated: {path}")
 
     elif verb == "/clear":
         sys_msg = repl.history[0] if repl.history and repl.history[0]["role"] == "system" else None
         repl.history = [sys_msg] if sys_msg else []
-        
-        # Visual Clear
-        os.system('clear' if os.name == 'posix' else 'cls')
-        print("") # Top margin
-        display_banner(repl)
-        display_notice(
-            "VibeHack is an autonomous security agent. All activities are logged to "
-            "~/.vibehack/sessions for audit and cross-session learning.",
-            title="SECURITY ADVISORY"
-        )
-        console.print("[dim]History cleared. Knowledge and findings preserved.[/dim]")
+        repl.history_buffer.text = ""
+        log_to_pane(repl, "history", "✓ Mission Timeline cleared. Knowledge and findings preserved.")
 
     elif verb == "/memory":
         from vibehack.memory.db import search_experience, get_memory_stats
-        from rich.table import Table
-
         if repl.no_memory:
-            console.print("[dim]LTM disabled.[/dim]")
+            log_to_pane(repl, "logs", "🧠 LTM disabled.")
             return True
 
         if not arg:
             s = get_memory_stats()
-            console.print(f"🧠 LTM: [bold]{s['total']}[/bold] experiences ([green]{s['successes']} ✅[/green] / [red]{s['failures']} ❌[/red])")
-            console.print("[dim]Use /memory list or /memory search <keyword> to browse.[/dim]")
-        
+            log_to_pane(repl, "history", f"\n[ LONG-TERM MEMORY ]\n  • Experiences: {s['total']}\n  • Successes: {s['successes']}\n  • Failures: {s['failures']}\n")
         elif arg.startswith("list"):
-            # Use '%' to search for everything
-            results = search_experience("", limit=15) # empty string for tech matches all 'LIKE %%%'
+            results = search_experience("", limit=15)
             if not results:
-                console.print("[dim]No experiences in database yet.[/dim]")
+                log_to_pane(repl, "history", "🧠 No experiences in database yet.")
             else:
-                table = Table(title="🧠 Recent Experiences (LTM)")
-                table.add_column("Target", style="cyan")
-                table.add_column("Tech", style="yellow")
-                table.add_column("Score", justify="center")
-                table.add_column("Summary", style="white")
-                
+                log_to_pane(repl, "history", "\n[ RECENT EXPERIENCES ]")
                 for target, tech, payload, score, summary in results:
-                    label = "[green]✅[/green]" if score > 0 else ("[red]❌[/red]" if score < 0 else "[dim]ℹ[/dim]")
-                    table.add_row(target[:20], tech, label, summary)
-                console.print(table)
-                
+                    label = "✅" if score > 0 else ("❌" if score < 0 else "ℹ")
+                    log_to_pane(repl, "history", f"  {label} [{tech}] {target[:20]}: {summary}")
         elif arg.startswith("search "):
             keyword = arg[7:].strip()
             results = search_experience(keyword, limit=10)
             if not results:
-                console.print(f"[dim]No experiences found for '{keyword}'.[/dim]")
+                log_to_pane(repl, "history", f"🧠 No experiences found for '{keyword}'")
             else:
-                table = Table(title=f"🔎 Memory search: '{keyword}'")
-                table.add_column("Target", style="cyan")
-                table.add_column("Tech", style="yellow")
-                table.add_column("Score", justify="center")
-                table.add_column("Summary", style="white")
+                log_to_pane(repl, "history", f"\n[ MEMORY SEARCH: {keyword} ]")
                 for target, tech, payload, score, summary in results:
-                    label = "[green]✅[/green]" if score > 0 else ("[red]❌[/red]" if score < 0 else "[dim]ℹ[/dim]")
-                    table.add_row(target[:20], tech, label, summary)
-                console.print(table)
+                    label = "✅" if score > 0 else ("❌" if score < 0 else "ℹ")
+                    log_to_pane(repl, "history", f"  {label} [{tech}] {target[:20]}: {summary}")
         else:
-            console.print("[dim]Usage: /memory [list | search <keyword>][/dim]")
+            log_to_pane(repl, "history", "Usage: /memory [list | search <keyword>]")
 
     elif verb == "/tokens":
-        _handle_tokens_command(repl, arg)
+        if not arg or arg == "status":
+            log_to_pane(repl, "history", f"\n[ TOKEN ECONOMY ]\n  • Limit: {cfg.TOKEN_LIMIT}\n  • Window: {cfg.CONTEXT_WINDOW} turns\n")
+        elif arg.startswith("limit "):
+            try:
+                val = int(arg[6:].strip())
+                cfg.TOKEN_LIMIT = val
+                log_to_pane(repl, "logs", f"✓ Output truncation limit: {val}")
+            except:
+                log_to_pane(repl, "logs", "🚨 Error: Limit must be an integer.")
+        elif arg.startswith("turns "):
+            try:
+                val = int(arg[6:].strip())
+                cfg.CONTEXT_WINDOW = val
+                log_to_pane(repl, "logs", f"✓ Context window: {val} turns")
+            except:
+                log_to_pane(repl, "logs", "🚨 Error: Turns must be an integer.")
+        else:
+            log_to_pane(repl, "history", "Usage: /tokens [status | limit <n> | turns <n>]")
 
     elif verb == "/tools":
-        tools = repl._available_tools
-        console.print(f"[green]Discovered ({len(tools)}):[/green] {', '.join(tools) or 'none'}")
-        console.print("[dim]Scanned from $PATH + ~/.vibehack/bin/[/dim]")
+        from vibehack.toolkit.discovery import discover_tools
+        tools = discover_tools()
+        log_to_pane(repl, "history", f"\n[ DISCOVERED TOOLS ]\n{', '.join(tools) or 'none'}\n")
+        log_to_pane(repl, "logs", f"ℹ {len(tools)} tools available in path.")
 
     elif verb == "/check-update":
         _check_update_logic(repl)
@@ -228,10 +226,10 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
         return False
 
     elif verb == "/history":
-        _display_history(repl)
+        await _display_history(repl)
 
     else:
-        console.print(f"[red]Unknown:[/red] {verb}. Type /help")
+        log_to_pane(repl, "history", f"🚨 Unknown command: {verb}. Type /help for assistance.")
 
     return True
 
@@ -259,142 +257,59 @@ def _handle_switch(repl, arg: str):
          new_key = os.getenv(env_map[new_provider])
 
     if new_provider and not new_key:
-        console.print(f"[red]Error: No API Key found for {new_provider or new_model}.[/red]\n[dim]Run /auth first.[/dim]")
-    else:
-        repl.handler.switch_model(model=new_model, api_key=new_key, provider=new_provider)
-        console.print(f"[bold green]✓ Seamless Switch:[/bold green] Brain swapped to [cyan]{new_model}[/cyan]")
+        log_to_pane(repl, "logs", f"🚨 Error: No API Key found for {new_provider or new_model}. Run /auth first.")
+        return
+        
+    repl.handler = UniversalHandler(api_key=new_key, model=new_model)
+    cfg.MODEL = new_model
+    log_to_pane(repl, "logs", f"✓ Seamless Switch: Brain swapped to {new_model}")
 
 def _display_status(repl):
-    from rich.table import Table
-    table = Table(title=f"🛸 VibeHack Session Status ({repl.session_id})", show_header=False, box=None)
-    table.add_column("Key", style="cyan")
-    table.add_column("Value")
-    table.add_row("Target", f"[bold white]{repl.target or '(not set)'}[/bold white]")
-    table.add_row("AI Provider", f"[green]{repl.handler.provider.upper()}[/green]")
-    table.add_row("AI Model", f"[green]{repl.handler.model}[/green]")
-    table.add_row("Auth Type", f"[dim]{repl.handler.auth_type}[/dim]")
-    table.add_row("Mode", f"[magenta]{repl.op_mode}[/magenta]")
-    table.add_row("Persona", f"[yellow]{repl.persona}[/yellow]")
-    table.add_row("Guardrails", "[red]UNCHAINED[/red]" if repl.unchained else "[green]Guarded[/green]")
-    s = get_memory_stats()
-    table.add_row("Knowledge", f"{len(repl.knowledge.open_ports)} ports, {len(repl.knowledge.technologies)} techniques")
-    table.add_row("Findings", f"[bold yellow]{len(repl.key_findings)} confirmed findings[/bold yellow]")
-    table.add_row("LTM Context", f"{s['total']} shared experiences")
-    table.add_row("Tools", f"{len(repl._available_tools)} discovered in PATH")
-    console.print(Panel(table, border_style="dim"))
+    """Refined status for the dashboard pane."""
+    m = getattr(repl, 'handler', None)
+    model = m.model if m else "???"
+    log_to_pane(repl, "history", f"\n[ SYSTEM STATUS ]\n  • Model: {model}\n  • Target: {repl.target or 'none'}\n  • Mode: {repl.op_mode.upper()}\n  • Findings: {len(repl.key_findings)}\n  • Session: {repl.session_id}\n")
 
 def _display_knowledge(repl):
     k = repl.knowledge
-    if k.is_empty():
-        console.print("[dim]No knowledge accumulated yet. Start scanning.[/dim]")
-        return
-    if k.open_ports:
-        console.print(f"🔌 [bold]Open ports:[/bold] {', '.join(map(str, sorted(k.open_ports)))}")
-    if k.technologies:
-        console.print(f"⚙  [bold]Technologies:[/bold] {', '.join(sorted(k.technologies))}")
-    if k.endpoints:
-        console.print(f"🗺  [bold]Endpoints ({len(k.endpoints)}):[/bold] {', '.join(k.endpoints[:10])}{'...' if len(k.endpoints) > 10 else ''}")
-    if k.credentials:
-        console.print(f"🔑 [bold]Credentials:[/bold] {len(k.credentials)} found")
+    log_to_pane(repl, "history", "\n[ INTELLIGENCE BASE ]")
+    if not k.open_ports and not k.technologies and not k.endpoints:
+        log_to_pane(repl, "history", "  • No knowledge accumulated yet.")
+    else:
+        if k.open_ports: log_to_pane(repl, "history", f"  • Ports: {', '.join(map(str, sorted(k.open_ports)))}")
+        if k.technologies: log_to_pane(repl, "history", f"  • Tech: {', '.join(sorted(k.technologies))}")
+        if k.endpoints: log_to_pane(repl, "history", f"  • Endpoints ({len(k.endpoints)})")
+        if k.credentials: log_to_pane(repl, "history", f"  • Credentials Found: {len(k.credentials)}")
     for note in k.notes[-5:]:
-        console.print(f"  • {note}")
+        log_to_pane(repl, "history", f"  • {note}")
 
 def _display_findings(repl):
     if not repl.key_findings:
-        console.print("[dim]No confirmed findings yet.[/dim]")
+        log_to_pane(repl, "history", "🚨 No confirmed findings yet.")
     else:
-        BADGES = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵", "info": "⚪"}
+        log_to_pane(repl, "history", "\n[ MISSION FINDINGS ]")
         for i, f in enumerate(repl.key_findings, 1):
-            console.print(f"  {i}. {BADGES.get(f.severity.lower(), '?')} [{f.severity.upper()}] {f.title}")
-
-def _handle_tokens_command(repl, arg: str):
-    """Handle /tokens sub-commands."""
-    from rich.table import Table
-    
-    if not arg or arg == "status":
-        table = Table(title="📉 Token Economy Status", show_header=False, box=None)
-        # Check current history tokens approx (very rough)
-        hist_len = len(repl.history)
-        total_chars = sum(len(m["content"]) for m in repl.history)
-        
-        table.add_row("Conversation Turns", f"[bold]{hist_len}[/bold]")
-        table.add_row("Context Window (Sliding)", f"{cfg.MAX_TURN_MEMORY} turns")
-        table.add_row("Output Truncation", f"{cfg.TRUNCATE_LIMIT} chars")
-        table.add_row("Est. Active Context", f"~{total_chars // 4} tokens")
-        console.print(Panel(table, border_style="cyan"))
-        console.print("[dim]Use: /tokens limit <n> or /tokens turns <n>[/dim]")
-
-    elif arg.startswith("limit "):
-        try:
-            val = int(arg[6:].strip())
-            cfg.TRUNCATE_LIMIT = val
-            console.print(f"[green]✓ Output truncation limit set to [bold]{val}[/bold] characters.[/green]")
-        except ValueError:
-            console.print("[red]Error: Limit must be an integer.[/red]")
-
-    elif arg.startswith("turns "):
-        try:
-            val = int(arg[6:].strip())
-            cfg.MAX_TURN_MEMORY = val
-            console.print(f"[green]✓ Sliding window set to [bold]{val}[/bold] turns.[/green]")
-        except ValueError:
-            console.print("[red]Error: Turns must be an integer.[/red]")
-    else:
-        console.print("[dim]Usage: /tokens [status | limit <n> | turns <n>][/dim]")
+            log_to_pane(repl, "history", f"  {i}. [{f.severity.upper()}] {f.title}")
 
 def _check_update_logic(repl):
     """Network-check for the latest version on GitHub."""
     import urllib.request
     import re
     from vibehack import __version__
-    
-    # We prefer checking pyproject.toml as it is the canonical source truth for versioning now
-    url = "https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/pyproject.toml"
-    console.print("[bold yellow]📡 Checking GitHub for updates...[/bold yellow]")
-    
+    log_to_pane(repl, "logs", "📡 Checking for updates...")
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'VibeHack-Client'})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            content = response.read().decode('utf-8')
-            # Extract version = "..."
-            match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
-            
-            if not match:
-                # Fallback to __init__.py if pyproject parsing fails (legacy support)
-                fallback_url = "https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/vibehack/__init__.py"
-                with urllib.request.urlopen(fallback_url, timeout=5) as fb_resp:
-                    fb_content = fb_resp.read().decode('utf-8')
-                    match = re.search(r'__version__\s*=\s*"([^"]+)"', fb_content)
-
-            if not match:
-                console.print("[red]Error: Could not parse remote version file.[/red]")
-                return
-
-            remote_version = match.group(1)
-            
-            from packaging import version
-            
-            local_v = version.parse(__version__)
-            remote_v = version.parse(remote_version)
-
-            if remote_v > local_v:
-                console.print(Panel(
-                    f"A new version of VibeHack is available: [bold green]{remote_version}[/bold green]\n"
-                    f"You are currently running: [dim]{__version__}[/dim]\n\n"
-                    "Run [cyan]vibehack update[/cyan] outside the REPL to upgrade.",
-                    title="🚀 Update Available",
-                    border_style="green"
-                ))
-            elif remote_v < local_v:
-                console.print(f"[yellow]⚡ You are running a development version (v{__version__}) ahead of GitHub (v{remote_version}).[/yellow]")
+        url = "https://raw.githubusercontent.com/rasyiqi/VibeHack/main/vibehack/__init__.py"
+        with urllib.request.urlopen(url, timeout=5) as r:
+            content = r.read().decode()
+            remote_version = re.search(r'__version__ = "([^"]+)"', content).group(1)
+            if remote_version > __version__:
+                log_to_pane(repl, "history", f"\n⚠️  UPDATE AVAILABLE: v{remote_version} (Current: v{__version__})\n  • Running: pip install --upgrade git+https://github.com/rasyiqi/VibeHack.git\n")
             else:
-                console.print(f"[green]✓ VibeHack is up to date (v{__version__}).[/green]")
-                
+                log_to_pane(repl, "logs", f"✓ VibeHack is up to date (v{__version__}).")
     except Exception as e:
-        console.print(f"[red]Update check failed:[/red] {e}")
-        console.print("[dim]Ensure you have an active internet connection.[/dim]")
+        log_to_pane(repl, "logs", f"🚨 Update check failed: {e}")
 
-def _handle_sessions_interactively(repl):
+async def _handle_sessions_interactively(repl):
     """Shows a dialog to pick and resume a session."""
     from prompt_toolkit.shortcuts import radiolist_dialog
     from vibehack.session.persistence import list_sessions, load_session
@@ -418,13 +333,17 @@ def _handle_sessions_interactively(repl):
             date = sid.split("_")[0] # Rough date from ID
             choices.append((sid, f"{sid} | {target}"))
 
-    result = radiolist_dialog(
+    dialog = radiolist_dialog(
         title="📂 Resume Session",
         text="Pick a session to hot-swap into the current environment:",
         values=choices
     )
     
-    selected_sid = result.run() if hasattr(result, "run") else result
+    if repl and hasattr(repl, "app"):
+        from prompt_toolkit.application import run_in_terminal
+        selected_sid = await run_in_terminal(dialog.run)
+    else:
+        selected_sid = await dialog.run_async() if hasattr(dialog, "run_async") else dialog.run()
 
     if selected_sid:
         state = load_session(selected_sid)
@@ -458,7 +377,7 @@ def _handle_sessions_interactively(repl):
             
     return True
 
-def _display_history(repl):
+async def _display_history(repl):
     """Prints a clean summary of the session turns."""
     from rich.table import Table
     import json
@@ -496,9 +415,13 @@ def _display_history(repl):
         
         table.add_section()
         
-    console.print(table)
+    if repl and hasattr(repl, "app"):
+        from prompt_toolkit.application import run_in_terminal
+        await run_in_terminal(lambda: console.print(table))
+    else:
+        console.print(table)
 
-def _handle_skills_command(repl, arg: str):
+async def _handle_skills_command(repl, arg: str):
     """Handle /skills sub-commands: list, install <url>."""
     from pathlib import Path
     import urllib.request
@@ -510,36 +433,28 @@ def _handle_skills_command(repl, arg: str):
     internal_skill_dir = Path(__file__).parent.parent.parent / "skills"
 
     if not arg or arg == "list":
-        from rich.table import Table
-        table = Table(title="🎯 Expert Security Skills", box=None)
-        table.add_column("Source", style="dim")
-        table.add_column("Skill Name", style="cyan")
-        table.add_column("Trigger Keywords", style="yellow")
-        
-        # Check both internal and external
+        log_to_pane(repl, "history", "\n[ EXPERT SECURITY SKILLS ]")
         for s_dir, label in [(internal_skill_dir, "Internal"), (skill_dir, "User")]:
             if s_dir.exists():
                 for f in s_dir.glob("*.md"):
                     content = f.read_text()
                     first_line = content.split("\n")[0].replace("# Skill:", "").strip()
-                    trigger_line = content.split("\n")[1].replace("# Trigger:", "").strip() if len(content.split("\n")) > 1 else "None"
-                    table.add_row(label, first_line or f.stem, trigger_line)
+                    log_to_pane(repl, "history", f"  • {first_line or f.stem} ({label})")
         
-        console.print(Panel(table, title="Knowledge Base", border_style="cyan"))
-
     elif arg.startswith("learn "):
         url = arg[6:].strip()
         if not url.startswith("http"):
-            console.print("[red]Error: Invalid URL.[/red]")
-            return
+            log_to_pane(repl, "logs", "🚨 Error: Invalid URL.")
+            return True
 
-        console.print(f"[bold yellow]🧠 AI is learning from:[/bold yellow] [dim]{url}...[/dim]")
+        log_to_pane(repl, "logs", f"🧠 AI is learning from: {url}")
         
-        # 1. Fetch content
+        # 1. Fetch content (asynchronous fetch)
         try:
-            req = urllib.request.Request(url, headers={'User-Agent': 'VibeHack-Client'})
-            with urllib.request.urlopen(req, timeout=15) as response:
-                raw_html = response.read().decode('utf-8', errors='replace')
+            import httpx
+            async with httpx.AsyncClient(headers={'User-Agent': 'VibeHack-Client'}) as client:
+                response = await client.get(url, timeout=15)
+                raw_html = response.text
                 
                 # Simple HTML strip to avoid token bloat
                 clean_text = re.sub(r'<script.*?</script>', '', raw_html, flags=re.DOTALL)
@@ -560,14 +475,10 @@ def _handle_skills_command(repl, arg: str):
                 )
                 
                 # Process via AI (Wait for it)
-                import asyncio
-                async def _learn():
-                    return await repl.handler.raw_complete([
-                        {"role": "system", "content": learning_prompt},
-                        {"role": "user", "content": f"CONTENT FROM {url}:\n\n{clean_text}"}
-                    ])
-                
-                skill_content = asyncio.run(_learn())
+                skill_content = await repl.handler.raw_complete([
+                    {"role": "system", "content": learning_prompt},
+                    {"role": "user", "content": f"CONTENT FROM {url}:\n\n{clean_text}"}
+                ])
                 
                 # 3. Save as Skill
                 # Extract filename from AI output
@@ -577,15 +488,10 @@ def _handle_skills_command(repl, arg: str):
                 target_path = skill_dir / filename
                 target_path.write_text(skill_content)
                 
-                console.print(Panel(
-                    f"AI successfully learned and synthesized: [bold green]'{filename}'[/bold green]\n"
-                    "This new knowledge is now part of the expert database.",
-                    title="✅ Smart Learning Complete",
-                    border_style="green"
-                ))
+                log_to_pane(repl, "history", f"\n✅ Smart Learning Complete: synthesized '{filename}'\n")
 
         except Exception as e:
-            console.print(f"[red]Learning failed:[/red] {e}")
+            log_to_pane(repl, "logs", f"🚨 Learning failed: {e}")
 
     elif arg.startswith("edit "):
         name = arg[5:].strip()
@@ -607,23 +513,30 @@ def _handle_skills_command(repl, arg: str):
         
         import subprocess
         try:
-            # We use subprocess.run to allow the editor to take over the TTY
-            subprocess.run([editor, str(target_path)])
-            console.print(f"[bold green]✅ Skill '{name}' updated.[/bold green]")
+            def _run_editor():
+                subprocess.run([editor, str(target_path)])
+                console.print(f"[bold green]✅ Skill '{name}' updated.[/bold green]")
+
+            if repl and hasattr(repl, "app"):
+                from prompt_toolkit.application import run_in_terminal
+                await run_in_terminal(_run_editor)
+            else:
+                _run_editor()
         except Exception as e:
             console.print(f"[red]Failed to open editor:[/red] {e}")
 
     elif arg.startswith("install "):
         url = arg[8:].strip()
         if not url.startswith("http"):
-            console.print("[red]Error: Invalid URL.[/red]")
-            return
+            log_to_pane(repl, "logs", "🚨 Error: Invalid URL.")
+            return True
 
-        console.print(f"[bold yellow]📡 Downloading skill from:[/bold yellow] [dim]{url}[/dim]")
+        log_to_pane(repl, "logs", f"📡 Downloading skill from: {url}")
         try:
-            req = urllib.request.Request(url, headers={'User-Agent': 'VibeHack-Client'})
-            with urllib.request.urlopen(req, timeout=10) as response:
-                content = response.read().decode('utf-8')
+            import httpx
+            async with httpx.AsyncClient(headers={'User-Agent': 'VibeHack-Client'}) as client:
+                response = await client.get(url, timeout=10)
+                content = response.text
                 
                 # Auto-generate filename from title or URL
                 filename = url.split("/")[-1]
@@ -637,13 +550,8 @@ def _handle_skills_command(repl, arg: str):
                 target_path = skill_dir / filename
                 target_path.write_text(content)
                 
-                console.print(Panel(
-                    f"Expert Skill [bold green]'{filename}'[/bold green] has been installed.\n"
-                    "AI will now automatically use this knowledge when relevant patterns are detected.",
-                    title="✅ Skill Installed",
-                    border_style="green"
-                ))
+                log_to_pane(repl, "history", f"\n✅ Skill Installed: '{filename}'\n")
         except Exception as e:
-            console.print(f"[red]Failed to install skill:[/red] {e}")
+            log_to_pane(repl, "logs", f"🚨 Installation failed: {e}")
     else:
         console.print("[dim]Usage: /skills [list | install <url> | edit <name> | learn <url>][/dim]")

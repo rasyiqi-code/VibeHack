@@ -73,6 +73,9 @@ def get_system_prompt(
     tech_list = list(knowledge_state.get("technologies", [])) if knowledge_state else []
     exploit_intel = get_exploit_context(tech_list)
 
+    from vibehack.agent.prompts.loader import load_skills_for_tech
+    skills = load_skills_for_tech(tech_list)
+
     options = PromptOptions(
         interactive=True,
         target=target,
@@ -86,7 +89,8 @@ def get_system_prompt(
         sandbox=sandbox or cfg.SANDBOX_ENABLED,
         education=(persona == "dev-safe"),
         model_tier=tier,
-        mission_goals=knowledge_state.get("mission_goals") if knowledge_state else None
+        mission_goals=knowledge_state.get("mission_goals") if knowledge_state else None,
+        skills=skills
     )
 
     return _build(options, overrides=overrides)

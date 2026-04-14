@@ -20,7 +20,7 @@ from vibehack.agent.knowledge import extract_knowledge
 from vibehack.ui.tui import (
     display_thought, display_command, display_education, 
     display_finding, display_output, display_knowledge_update, 
-    ask_approval, display_mission
+    ask_approval, display_mission, log_to_pane, pop_last_line_from_pane
 )
 
 console = Console()
@@ -39,7 +39,7 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
         detected = repl._extract_target_from_text(user_message)
         if detected and not check_target(detected):
             repl.target = detected
-            console.print(f"[dim]✓ Target auto-detected: {detected}[/dim]")
+            log_to_pane(repl, "logs", f"✓ Target auto-detected: {detected}")
             repl._rebuild_system_prompt()
 
     if not repl._system_built:
@@ -47,11 +47,16 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
 
     repl.history.append({"role": "user", "content": user_message})
 
-    while True:
+    max_turns = cfg.MAX_TURN_MEMORY
+    turn_count = 0
+
+    while turn_count < max_turns:
+        turn_count += 1
         try:
             if getattr(repl, "interrupted", False):
-                repl.interrupted = False
-                console.print("\n[bold red]🛑 Process stopped by user (ESC).[/bold red]\n")
+                # Refresh telemetry and status every second
+                await asyncio.sleep(0.1)
+                log_to_pane(repl, "logs", "🛑 Process stopped by user (ESC).")
                 return
 
             repl._trim_history() # Safeguard context window
@@ -62,18 +67,24 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
             # Loop Detection (Tactical)
             duplicate_cmd = detect_logic_loop(repl.history)
             if duplicate_cmd:
+                log_to_pane(repl, "logs", f"LOOP_DETECTOR: detected repetitive pattern for '{duplicate_cmd}', injecting recovery protocol...")
                 repl.history.append({"role": "user", "content": get_loop_recovery(f"Command '{duplicate_cmd}' repeated 3x")})
 
-            with console.status("[bold green]🤖 AI is thinking...[/bold green]", spinner="dots"):
-                response: AgentResponse = await repl.handler.complete(repl.history)
+            # Update TUI status (Minimized)
+            repl.app.invalidate()
+            
+            
+            response: AgentResponse = await repl.handler.complete(repl.history)
+            pop_last_line_from_pane(repl, "history")
         except Exception as e:
+            pop_last_line_from_pane(repl, "history")
             err_msg = str(e)
             if "QUOTA_EXHAUSTED" in err_msg or "429" in err_msg:
-                console.print(f"\n[bold red]🛑 API Quota Exhausted:[/bold red] {err_msg}")
-                console.print(f"[yellow]Session {repl.session_id} has been saved.[/yellow]")
-                console.print(f"[cyan]You can resume this audit later with:[/cyan] [bold]vibehack resume {repl.session_id}[/bold]")
+                log_to_pane(repl, "logs", f"🛑 API Quota Exhausted: {err_msg}")
+                log_to_pane(repl, "logs", f"Session {repl.session_id} has been saved.")
+                log_to_pane(repl, "logs", f"Resume later: vibehack resume {repl.session_id}")
             else:
-                console.print(f"[red]LLM error:[/red] {e}")
+                log_to_pane(repl, "logs", f"🚨 LLM error: {e}")
             
             repl._persist()
             if repl.history and repl.history[-1]["role"] == "user":
@@ -90,55 +101,82 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
                 repl.knowledge.technologies.add(tech)
                 repl._rebuild_system_prompt()
 
-        display_thought(response.thought)
+        display_thought(response.thought, repl=repl)
 
         if response.education and repl.persona == "dev-safe":
-            display_education(response.education)
+            display_education(response.education, repl=repl)
 
         if response.mission_goals:
             if set(repl.knowledge.mission_goals) != set(response.mission_goals):
                 repl.knowledge.mission_goals = response.mission_goals
-                display_mission(repl.knowledge.mission_goals)
+                display_mission(repl.knowledge.mission_goals, repl=repl)
 
+        # 1. Process Finding if present
         if response.finding:
-            display_finding(response.finding.severity, response.finding.title, response.finding.description)
+            display_finding(response.finding.severity, response.finding.title, response.finding.description, repl=repl)
             repl.key_findings.append(response.finding)
             repl.knowledge.tested_surfaces.add(response.finding.title)
             repl.history.append({"role": "user", "content": get_finding_note(response.finding.title)})
             repl._persist()
-            continue  # Finding recorded — let AI propose next step automatically
-
-        # Process Command
+        
+        # 2. Process Command if present
         if response.raw_command:
-            if getattr(repl, "interrupted", False):
-                repl.interrupted = False
-                console.print("\n[bold red]🛑 Command execution cancelled by user (ESC).[/bold red]\n")
-                return
             await _execute_proposed_command(repl, response)
             repl._trim_history()
             repl._persist()
             continue  # Feedback received — let AI analyze result automatically
 
-        # If no command or finding was triggered, break and let user steer
+        # 3. If no command was executed, check if we just recorded a finding
+        if response.finding:
+            continue # Let AI propose the next move after the finding
+
+        # If nothing left to do, break and let user steer
+        log_to_pane(repl, "logs", "✓ Turn complete. Awaiting further mission instructions.")
         break
+    
+    if turn_count >= max_turns:
+        log_to_pane(repl, "logs", "⚠ Mission limit reached (10 turns). Stopping to prevent loop.")
 
 async def _handle_ask_mode(repl):
-    from vibehack.agent.prompts import load_template
-    ask_sys = {"role": "system", "content": load_template("ask_mode")}
-    from vibehack.ui.tui import display_ask_response
-    with console.status("[bold magenta]🤖 AI is formulating answer...[/bold magenta]", spinner="dots"):
-        raw_resp = await repl.handler.complete_raw([ask_sys] + repl.history)
+    ask_instr = load_template("ask_mode")
     
-    display_ask_response(raw_resp)
+    # Preserve original system prompt (which contains target/knowledge)
+    # but append ask mode instructions to it.
+    original_sys = repl.history[0]["content"] if repl.history and repl.history[0]["role"] == "system" else ""
+    ask_sys = {"role": "system", "content": f"{original_sys}\n\n[ ASK MODE INSTRUCTIONS ]\n{ask_instr}"}
+    
+    messages = [ask_sys] + [m for m in repl.history if m["role"] != "system"]
+    
+    # Update status
+    # Status update removed
+    repl.app.invalidate()
+    
+    
+    from vibehack.ui.tui import display_ask_response
+    raw_resp = await repl.handler.complete_raw(messages)
+    pop_last_line_from_pane(repl, "history")
+    
+    display_ask_response(raw_resp, repl=repl)
     repl.history.append({"role": "assistant", "content": raw_resp})
     repl._trim_history()
     repl._persist()
+    # Status update removed
+    repl.app.invalidate()
 
 async def _execute_proposed_command(repl, response: AgentResponse):
     cmd = response.raw_command.strip()
+
+    # 0. Shadow Critic Sidecar (v2.7) — Prevents logical loops and bad decisions
+    critique = await repl.handler.critique(repl.history, cmd)
+    if critique:
+        from vibehack.ui.tui import log_to_pane
+        log_to_pane(repl, "logs", f"🕵️ SHADOW CRITIC: {critique}")
+        repl.history.append({"role": "user", "content": f"System (Shadow Critic): {critique}"})
+        return
+
     block = check_command(cmd, repl.unchained)
     if block:
-        console.print(f"\n[bold red]🛡 BLOCKED:[/bold red] {block}\n")
+        log_to_pane(repl, "logs", f"🛡 BLOCKED: {block}")
         repl.history.append({"role": "user", "content": get_block_note(block)})
         return
 
@@ -149,43 +187,40 @@ async def _execute_proposed_command(repl, response: AgentResponse):
     # System: Slash commands are prioritized as user-defined skills, not hardcoded installers.
     if cmd.startswith("/"):
         from vibehack.core.repl.commands import handle_slash_command
-        handle_slash_command(repl, cmd)
+        await handle_slash_command(repl, cmd)
         return
 
-    display_command(cmd)
+    display_command(cmd, repl=repl)
 
     if response.is_destructive:
-        console.print("[bold red]⚠  DESTRUCTIVE — manual approval required[/bold red]")
-        approval = await ask_approval()
+        log_to_pane(repl, "logs", "⚠ DESTRUCTIVE — manual approval required")
+        approval = await ask_approval(repl=repl)
     elif repl.auto_allow:
-        approval, _ = "y", console.print("[dim]⚡ Auto-Allow[/dim]")
+        log_to_pane(repl, "logs", "⚡ Auto-Allowing command execution")
+        approval = "y"
     else:
-        approval = await ask_approval()
+        approval = await ask_approval(repl=repl)
 
     if approval == "n":
-        note = Prompt.ask("[dim]Hint for AI (optional)[/dim]", default="")
-        repl.history.append({"role": "user", "content": f"System: USER REJECTED COMMAND. {note}"})
+        log_to_pane(repl, "logs", "🛑 User rejected command execution.")
+        repl.history.append({"role": "user", "content": "System: USER REJECTED COMMAND."})
         return
 
     if approval == "a":
         repl.auto_allow = True
-        console.print("[yellow]⚡ Auto-Allow enabled[/yellow]")
+        log_to_pane(repl, "logs", "⚡ Auto-Allow enabled")
 
     # Execute and Stream
-    from rich.live import Live
-    from rich.panel import Panel
-    output_lines = []
     def live_callback(text, is_stderr):
-        output_lines.extend(text.splitlines(keepends=True))
-        display_lines = "".join(output_lines[-15:])
-        style = "red" if is_stderr else "dim white"
-        _live.update(Panel(display_lines, title="📝 Streaming Output", border_style=style))
+        # Stream directly to output pane
+        log_to_pane(repl, "output", text)
 
-    with Live(Panel("Initializing...", title="📝 Streaming Output", border_style="dim white"), refresh_per_second=4, transient=True) as _live:
-        result = await execute_shell(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=repl.env, output_callback=live_callback, interrupter=lambda: getattr(repl, "interrupted", False))
+    log_to_pane(repl, "logs", f"🚀 EXEC: {cmd}")
+    result = await execute_shell(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=repl.env, output_callback=live_callback, interrupter=lambda: getattr(repl, "interrupted", False))
+    log_to_pane(repl, "logs", f"SH_RET: process exited with code {result.exit_code}")
 
-    display_output(result.stdout)
-    if result.stderr: display_output(result.stderr, is_error=True)
+    display_output(result.stdout, repl=repl)
+    if result.stderr: display_output(result.stderr, is_error=True, repl=repl)
 
     # Knowledge Extraction
     old_k = (len(repl.knowledge.open_ports), len(repl.knowledge.technologies), len(repl.knowledge.endpoints))
@@ -193,19 +228,22 @@ async def _execute_proposed_command(repl, response: AgentResponse):
     extract_knowledge(result.stderr or "", repl.knowledge)
     
     if (len(repl.knowledge.open_ports), len(repl.knowledge.technologies), len(repl.knowledge.endpoints)) != old_k:
-        display_knowledge_update(list(repl.knowledge.open_ports), list(repl.knowledge.technologies), repl.knowledge.endpoints)
+        log_to_pane(repl, "logs", "INTEL: extracted new entities from command output, updating state...")
+        display_knowledge_update(list(repl.knowledge.open_ports), list(repl.knowledge.technologies), repl.knowledge.endpoints, repl=repl)
         repl._rebuild_system_prompt()
 
     feedback = f"COMMAND: {cmd}\nEXIT_CODE: {result.exit_code}\nSTDOUT:\n{result.stdout}"
     if result.stderr: feedback += f"\nSTDERR:\n{result.stderr}"
     if result.truncated:
         feedback += get_truncation_note(cfg.TRUNCATE_LIMIT)
-        console.print(f"[dim]ℹ Output truncated to {cfg.TRUNCATE_LIMIT} chars to save tokens.[/dim]")
+        log_to_pane(repl, "logs", f"ℹ Output truncated to {cfg.TRUNCATE_LIMIT} chars.")
 
     repl.history.append({"role": "user", "content": feedback})
+    # Status update removed
+    repl.app.invalidate()
 
 def _handle_shell_intercept(repl, user_message: str):
-    console.print(f"\n[yellow]ℹ  Shell commands go outside the REPL.[/yellow]\n")
+    log_to_pane(repl, "logs", "ℹ Shell commands go outside the REPL.")
 
 def _handle_memory_tool(repl, cmd: str):
     """Internal tool for AI to search past experiences."""
@@ -214,8 +252,13 @@ def _handle_memory_tool(repl, cmd: str):
     parts = cmd.strip().split()
     keyword = parts[2] if len(parts) > 2 else "web"
     
-    console.print(f"[dim]🧠 AI is searching Long-Term Memory for: [cyan]{keyword}[/cyan][/dim]")
+    log_to_pane(repl, "logs", f"🧠 BRAIN: searching long-term memory for '{keyword}'...")
     memory_ctx = get_memory_context(keyword)
+    
+    if memory_ctx:
+        log_to_pane(repl, "logs", f"BRAIN: retrieval successful ({len(memory_ctx)} relevant matches found).")
+    else:
+        log_to_pane(repl, "logs", "BRAIN: no relevant historical context found for this keyword.")
     
     repl.history.append({"role": "user", "content": get_memory_feedback(keyword, memory_ctx)})
     repl._persist()

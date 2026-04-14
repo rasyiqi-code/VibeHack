@@ -44,77 +44,107 @@ class PersistentSession:
                 stderr=asyncio.subprocess.PIPE
             )
         except Exception as e:
-            # Fallback for local testing if docker fails
-            pass
+            # If docker fails, we don't set self.process, and execute will handle it
+            print(f"DEBUG: Failed to start persistent Docker session: {e}")
+            self.process = None
 
     async def execute(self, command: str, timeout: int = 120, callback=None, interrupter=None) -> ShellResult:
         """Executes a command in the persistent shell and captures output."""
-        if not self.process:
+        if not self.process or self.process.returncode is not None:
             await self.start()
+            
+        if not self.process:
+             return ShellResult("", "Error: Persistent Sandbox session could not be started. Ensure Docker is running.", 1, False)
 
         async with self.lock:
-            # Robust delimiter with UUID-like randomness and salt
+            # Robust delimiter with UUID-like randomness
             salt = os.urandom(8).hex()
-            delimiter = f"---VIBEHACK_COMMAND_BOUNDARY_{salt}---"
+            delimiter = f"---VIBEHACK_BOUNDARY_{salt}---"
             
-            # Wrap command to capture exit code and delimiter accurately
-            # We use printf to avoid echo interpretation issues
-            full_cmd = f"{command}\n_vh_ret=$?; printf \"\\n%s\\n%s\\n\" \"$_vh_ret\" \"{delimiter}\"\n"
+            # Wrap command: 
+            # 1. Disable history for this internal wrapper
+            # 2. Execute command with stderr redirection to stdout
+            # 3. Print exit code and delimiter
+            full_cmd = f"{{ {command}; }} 2>&1\n_vh_ret=$?; printf \"\\n%s\\n%s\\n\" \"$_vh_ret\" \"{delimiter}\"\n"
             
             try:
+                # Clear any leftover output before sending new command
+                while True:
+                    try:
+                        # Increased timeout to ensuring clearing large leftover buffers
+                        chunk = await asyncio.wait_for(self.process.stdout.read(4096), timeout=0.1)
+                        if not chunk: break
+                    except (asyncio.TimeoutError, Exception):
+                        break
+
                 self.process.stdin.write(full_cmd.encode())
                 await self.process.stdin.drain()
 
-                stdout_lines = []
+                output_buffer = ""
                 exit_code = 0
+                start_time = asyncio.get_event_loop().time()
                 
-                # Read until delimiter
                 while True:
-                    try:
-                        line = await asyncio.wait_for(self.process.stdout.readline(), timeout=timeout)
-                    except asyncio.TimeoutError:
-                        stdout = "\n".join(stdout_lines)
-                        stdout += "\n... [Execution Timed Out] ..."
-                        # Send Ctrl+C to the bash session just in case it's still running
+                    # Check for external interruption
+                    if interrupter and (interrupter() if callable(interrupter) else interrupter):
+                        self.process.stdin.write(b"\x03") # Send Ctrl+C
+                        await self.process.stdin.drain()
+                        return ShellResult(output_buffer + "\n[Interrupted]", "", 130, True)
+
+                    # Check for timeout
+                    if asyncio.get_event_loop().time() - start_time > timeout:
                         self.process.stdin.write(b"\x03")
                         await self.process.stdin.drain()
-                        return ShellResult(
-                            stdout=_sanitize_output(stdout),
-                            stderr="",
-                            exit_code=124, # Standard timeout exit code
-                            truncated=True
-                        )
+                        return ShellResult(output_buffer + "\n[Timeout]", "", 124, True)
 
-                    if not line: break
-                    line_str = line.decode(errors="replace").strip()
-                    if interrupter and interrupter() if callable(interrupter) else interrupter:
-                        # Kill the current bash command if interrupted
-                        self.process.stdin.write(b"\x03") # Send Ctrl+C to the bash session
-                        await self.process.stdin.drain()
-                        break
+                    try:
+                        # Read chunk instead of line for better performance with large outputs
+                        chunk = await asyncio.wait_for(self.process.stdout.read(4096), timeout=0.1)
+                        if not chunk: break
+                        
+                        chunk_str = chunk.decode(errors="replace")
+                        
+                        # RAM Protection: Stop buffering if exceeds 5MB
+                        if len(output_buffer) > 5 * 1024 * 1024:
+                            output_buffer += "\n... [TRUNCATED BY VIBEHACK RAM PROTECTION] ...\n"
+                            # We still need to find the delimiter or eventually timeout/error
+                            # but we stop growing the main buffer.
+                            # For simplicity in this stateful shell, we'll just return what we have.
+                            return ShellResult(output_buffer, "Buffer Overflow: Output exceeded 5MB", 1, True)
 
-                    if line_str == delimiter:
-                        if stdout_lines:
-                            exit_code_str = stdout_lines.pop()
-                            try:
-                                exit_code = int(exit_code_str)
-                            except:
-                                exit_code = 1
-                        break
-                    
-                    if callback:
-                        # Feed the raw line (with newline) to callback
-                        callback(line.decode(errors="replace"), False)
-                    
-                    stdout_lines.append(line_str)
-                
-                stdout = "\n".join(stdout_lines)
-                return ShellResult(
-                    stdout=_sanitize_output(stdout),
-                    stderr="",
-                    exit_code=exit_code,
-                    truncated=False
-                )
+                        output_buffer += chunk_str
+                        
+                        if callback:
+                            callback(chunk_str, False)
+                            
+                        # Search for delimiter in the last part of the buffer
+                        if delimiter in output_buffer:
+                            parts = output_buffer.split(delimiter)
+                            main_content = parts[0].rstrip()
+                            
+                            # The exit code should be the last non-empty line before the delimiter
+                            content_lines = main_content.splitlines()
+                            if content_lines:
+                                try:
+                                    exit_code = int(content_lines[-1])
+                                    final_stdout = "\n".join(content_lines[:-1])
+                                except:
+                                    exit_code = 1
+                                    final_stdout = main_content
+                            else:
+                                final_stdout = ""
+                            
+                            return ShellResult(
+                                stdout=_sanitize_output(final_stdout),
+                                stderr="",
+                                exit_code=exit_code,
+                                truncated=False
+                            )
+                    except asyncio.TimeoutError:
+                        continue
+                    except Exception as e:
+                        return ShellResult(output_buffer, f"Read Error: {e}", 1, False)
+
             except Exception as e:
                 return ShellResult("", f"Internal Pipe Error: {str(e)}", 1, False)
 
@@ -128,7 +158,7 @@ async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 
         # Allow host execution by default unless explicitly blocked (User requested permanent override)
         if os.getenv("VH_ALLOW_HOST", "true").lower() != "true":
             return ShellResult("", "Error: Host Execution is blocked. Set VH_ALLOW_HOST=true to override.", 1, False)
-        res = await _execute_stateless(command, timeout, env)
+        res = await _execute_stateless(command, timeout, env, callback=output_callback)
     else:
         res = await _SESSION.execute(command, timeout, callback=output_callback, interrupter=interrupter)
     
@@ -145,8 +175,8 @@ async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 
     
     return ShellResult(stdout, res.stderr, res.exit_code, truncated)
 
-async def _execute_stateless(command: str, timeout: int, env=None) -> ShellResult:
-    """Fallback stateless execution for host OS (use with caution)."""
+async def _execute_stateless(command: str, timeout: int, env=None, callback=None) -> ShellResult:
+    """Stateless execution for host OS with streaming support."""
     try:
         process = await asyncio.create_subprocess_exec(
             "bash", "-c", command,
@@ -154,10 +184,43 @@ async def _execute_stateless(command: str, timeout: int, env=None) -> ShellResul
             stderr=asyncio.subprocess.PIPE,
             env=env
         )
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+        
+        stdout_buf = []
+        stderr_buf = []
+
+        async def _read_stream(stream, buf, is_err):
+            while True:
+                chunk = await stream.read(4096)
+                if not chunk: break
+                
+                # RAM Protection: Stop buffering if exceeds 5MB
+                if sum(len(c) for c in buf) > 5 * 1024 * 1024:
+                    buf.append("\n... [Truncated by VibeHack Memory Protection] ...\n")
+                    break
+                text = chunk.decode(errors="replace")
+                buf.append(text)
+                if callback:
+                    callback(text, is_err)
+
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(
+                    _read_stream(process.stdout, stdout_buf, False),
+                    _read_stream(process.stderr, stderr_buf, True)
+                ),
+                timeout=timeout
+            )
+            await process.wait()
+        except asyncio.TimeoutError:
+            try:
+                process.kill()
+            except:
+                pass
+            return ShellResult("".join(stdout_buf) + "\n[Timeout]", "".join(stderr_buf), 124, True)
+
         return ShellResult(
-            _sanitize_output(stdout.decode(errors="replace")),
-            _sanitize_output(stderr.decode(errors="replace")),
+            _sanitize_output("".join(stdout_buf)),
+            _sanitize_output("".join(stderr_buf)),
             process.returncode or 0,
             False
         )
@@ -168,26 +231,35 @@ def _sanitize_output(text: str) -> str:
     """Redacts secrets, cleans triggers, and strips CLI noise like curl progress bars."""
     if not text: return ""
     
-    # 1. Redact Secrets
-    text = re.sub(r"(sk-[a-zA-Z0-9]{30,})", "sk-***", text)
-    text = re.sub(r"(AIza[a-zA-Z0-9_-]{30,})", "AIza***", text)
+    # 1. Redact Secrets (Security Hardening)
+    patterns = [
+        (r"(sk-[a-zA-Z0-9]{30,})", "sk-***"),                           # OpenAI / Generic
+        (r"(AIza[a-zA-Z0-9_-]{30,})", "AIza***"),                       # Google Gemini
+        (r"(or-v1-[a-f0-9]{64,})", "or-v1-***"),                        # OpenRouter
+        (r"(ghp_[a-zA-Z0-9]{36,})", "ghp_***"),                         # GitHub PAT
+        (r"(xox[bap]-[a-zA-Z0-9-]{10,})", "slack-***"),                 # Slack
+        (r"(['\"]?password['\"]?\s*[:=]\s*['\"]?)[^'\"\s]+(['\"]?)", r"\1***\2"), # Generic Passwords
+        (r"(?:AKIA|ASIA)[A-Z0-9]{16}", "AWS-KEY-***"),                 # AWS Access Key
+        (r"(?:\"|')?[a-zA-Z0-9/+=]{40}(?:\"|')?", "AWS-SECRET-***"),    # AWS Secret (Potential)
+    ]
+    for pattern, replacement in patterns:
+        if isinstance(replacement, str):
+            text = re.sub(pattern, replacement, text)
+        else:
+            text = re.sub(pattern, replacement, text)
     
     # 2. Strip CLI Noise (Progress Bars)
     text = re.sub(r"%.*?Total.*?%.*?Received.*?%.*?Xferd.*?Average.*?Speed.*?Time.*?Time.*?Time.*?Current\s+Dload.*?Upload.*?Total.*?Spent.*?Left.*?Speed", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"\r?\n\s*\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+[\d:]+\s+[\d:]+\s+[\d:]+\s+[\d.]+[MkG]?", "", text)
     
     # 3. HTML Asset Stripping (Advanced Token Saving)
-    # Strip <style> blocks
     text = re.sub(r"<style.*?>.*?</style>", "[CSS Stripped by VibeHack]", text, flags=re.DOTALL | re.IGNORECASE)
-    # Strip <svg> blocks
     text = re.sub(r"<svg.*?>.*?</svg>", "[SVG Stripped by VibeHack]", text, flags=re.DOTALL | re.IGNORECASE)
-    # Strip HTML comments
     text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
-    # Collapse excessive whitespace
     text = re.sub(r"\n\s*\n", "\n\n", text)
     
-    # 4. Clean Triggers
-    for trigger in ["System:", "User:", "Assistant:"]:
+    # 4. Clean Triggers to prevent prompt injection via command output
+    for trigger in ["System:", "User:", "Assistant:", "Instruction:"]:
         text = text.replace(trigger, f"[Sanitized {trigger}]")
         
     return text.strip()

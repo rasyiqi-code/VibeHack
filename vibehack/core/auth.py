@@ -245,9 +245,9 @@ def run_gemini_bridge(prompt: str, model: Optional[str] = None) -> Optional[str]
         if stdout:
             return stdout.strip()
         
-        # If no stdout but command was successful, might be silent
+        # If no stdout but command was successful, return empty to trigger proper error handling
         if process.returncode == 0:
-            return "Command successful (No output produced)."
+            return ""
 
         console.print(f"[bold red]Bridge Error (Status {process.returncode}):[/bold red] {stderr or 'Terminated with error but no message.'}")
         return None

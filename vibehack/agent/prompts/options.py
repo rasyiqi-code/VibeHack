@@ -38,3 +38,4 @@ class PromptOptions:
     findings: Optional[list] = None
     mission_goals: Optional[List[str]] = None
     exploits: Optional[str] = None
+    skills: List[str] = field(default_factory=list) # Raw markdown content of skills

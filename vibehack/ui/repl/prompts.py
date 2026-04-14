@@ -61,65 +61,100 @@ def get_input_hint(repl):
     hint = Text(f"{left}[{label}]{right}", style="#444444")
     return hint
 
+import os
+import re
+import psutil
+from vibehack import __version__
+
 def get_repl_style():
-    """Gemini CLI inspired styling with dark input area."""
+    """Gold Hacker Style: Transparent and high-contrast."""
     return Style.from_dict({
-        'bottom-toolbar': '#00ff00 bg:#000000',
-        'top-toolbar':    '#00ffff bg:#000000',
-        'prompt':         '#00ffff bold',
-        'prompt-area':    'bg:#000000',
-        'completion-menu': 'bg:#111111 #00ff00',
-        'completion-menu.completion': 'bg:#111111 #00ff00',
-        'completion-menu.completion.current': 'bg:#00ffff #000000',
-        'completion-menu.meta.completion': 'bg:#111111 #00aaaa',
-        'completion-menu.meta.completion.current': 'bg:#00ffff #000000',
-        'logo':           '#00ff00 bold',
-        'version':        '#ffd700',
-        'auth':           '#ffd700',
+        'bottom-toolbar': 'noinherit #ffd700 bg:default bold',
+        'top-toolbar':    'noinherit #ffd700 bg:default bold',
+        'prompt':         '#ffd700 bold',
+        'prompt-area':    '',
+        'completion-menu': 'bg:default #00ff00',
+        'completion-menu.completion': 'bg:default #00ff00',
+        'completion-menu.completion.current': 'bg:#ffd700 #000000 bold',
+        'completion-menu.meta.completion': 'bg:default #00aaaa',
+        'completion-menu.meta.completion.current': 'bg:#ffd700 #000000',
+        'logo':           '#ffd700 bold',
+        'version':        '#ffffff dim',
+        'auth':           '#00ff00',
         'sandbox-safe':   '#00ff00',
         'sandbox-warn':   '#ff0000 bold blink',
+        'status-thinking': 'noinherit #ff0000 bg:default bold blink',
+        'status-listening': 'noinherit #ffd700 bg:default bold',
+        
+        # Frame & Border Styles (GOLD Theme)
+        'history-frame':   '#00ff00',
+        'output-frame':    '#00ff00',
+        'logs-frame':      '#00ff00 dim',
+        'frame.border':    '#ffd700',
+        'frame.label':     '#ffd700 bold',
     })
 
 def get_top_toolbar(repl):
-    """Tactical header for hacker style."""
-    from vibehack import __version__
-    logo = HTML('<logo><b>[ VIBEHACK CORE ]</b></logo>')
-    return HTML(
-        f'{logo} <version>v{__version__}</version> '
-        f'| <auth>LINK_ESTABLISHED</auth> '
-        f'| CPU: [OK] | MEM: [OK] | SEC_OPS: [ACTIVE]'
-    )
-
-def get_bottom_toolbar(repl):
-    """Refined Dashboard Toolbar with Version and Model info across the bottom."""
-    from vibehack import __version__
-    import os
+    """Tactical header with real-time system telemetry."""
+    # Real Telemetry with fallback
+    try:
+        cpu = psutil.cpu_percent()
+        mem = psutil.virtual_memory().percent
+        right = f' CPU: [{cpu}%] | MEM: [{mem}%] | SEC_OPS: [ACTIVE] '
+    except:
+        right = ' CPU: [OK] | MEM: [OK] | SEC_OPS: [ACTIVE] '
     
-    # Left Side: Status & Intelligence
-    target = (repl.target[:25] + '...') if repl.target and len(repl.target) > 25 else (repl.target or "NO_TARGET")
-    findings = len(repl.key_findings)
-    status_icon = "🔓" if getattr(repl, 'unchained', False) else "🔒"
-    
-    # Brain Meta
-    model = repl.handler.model if hasattr(repl, 'handler') else "???"
-    short_model = model.split("/")[-1] # e.g. gemini-1.5-flash
-    
-    # Session Metadata
-    session_id = getattr(repl, 'session_id', '???')
-    persona = getattr(repl, 'persona', 'dev-safe')
-    mode = getattr(repl, 'op_mode', 'AGENT').upper()
-    tokens = sum(len(m.get("content", "")) for m in getattr(repl, 'history', [])) // 4
-    status = getattr(repl, 'status', 'LISTENING').upper()
-    
-    left_part = f" [v{__version__}] | {status_icon} {target} | TOKENS: {tokens} | {mode}: {status} | FINDINGS: {findings} | BRAIN: {short_model} "
-    right_part = f" SESSION: {session_id} "
+    left_raw = f' [ VIBEHACK CORE ] v{__version__} | LINK_ESTABLISHED '
+    left_styled = f' <logo><b>[ VIBEHACK CORE ]</b></logo> <version>v{__version__}</version> | <auth>LINK_ESTABLISHED</auth> '
     
     try:
         width = os.get_terminal_size().columns
     except OSError:
         width = 100
         
-    padding_count = width - len(left_part) - len(right_part) - 2
-    padding = " " * max(0, padding_count)
+    padding = width - len(left_raw) - len(right)
+    if padding < 0: padding = 1
     
-    return HTML(f"<b><ansiyellow>{left_part}{padding}{right_part}</ansiyellow></b>")
+    return HTML(left_styled + (" " * padding) + right)
+
+def get_bottom_toolbar(repl):
+    """Balanced Mission Control bar with left and right alignment."""
+    # Mission Context
+    target = getattr(repl, 'target', 'NO_TARGET') or 'NO_TARGET'
+    findings = len(getattr(repl, 'key_findings', []))
+    
+    # Simple token estimation
+    history = getattr(repl, 'history', [])
+    tokens = sum(len(m.get("content", "")) for m in history) // 4
+    
+    model_name = "AI"
+    if hasattr(repl, 'handler') and hasattr(repl.handler, 'model'):
+        model_name = repl.handler.model.split("/")[-1]
+        
+    session_id = str(getattr(repl, 'session_id', 'UNKNOWN'))
+    
+    # Status indicators
+    status = getattr(repl, 'status', 'LISTENING').upper()
+    status_icon = "🧠" if status == "THINKING" else "🔒"
+    status_style = "status-thinking" if status == "THINKING" else "status-listening"
+    
+    left_styled = (
+        f' [v{__version__}] | {status_icon} {target} | TOKENS: {tokens} | '
+        f'AGENT: <{status_style}>{status}</{status_style}> | '
+        f'FINDINGS: {findings} | BRAIN: {model_name} '
+    )
+    left_raw = (
+        f' [v{__version__}] | {status_icon} {target} | TOKENS: {tokens} | '
+        f'AGENT: {status} | FINDINGS: {findings} | BRAIN: {model_name} '
+    )
+    right = f' SESSION: {session_id} '
+    
+    try:
+        width = os.get_terminal_size().columns
+    except OSError:
+        width = 100
+        
+    padding = width - len(left_raw) - len(right)
+    if padding < 0: padding = 1
+    
+    return HTML(left_styled + (" " * padding) + right)

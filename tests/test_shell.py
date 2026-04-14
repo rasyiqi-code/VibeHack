@@ -33,7 +33,7 @@ class TestShellExecution:
 
     async def test_output_truncation(self):
         """Output exceeding the limit must be truncated."""
-        result = await execute_shell("python3 -c \"print('A' * 5000)\"", truncate_limit=2500)
+        result = await execute_shell("python3 -c \"print('A ' * 2500)\"", truncate_limit=2500)
         assert result.truncated is True
         assert len(result.stdout) < 5000
 
@@ -56,13 +56,35 @@ class TestSandboxShellExecution:
     async def test_sandbox_execute_shell(self, mock_exec):
         # Mock the process creation with specific sync/async boundaries
         class MockStream:
-            def __init__(self, side_effect):
-                self.readline = unittest.mock.AsyncMock(side_effect=side_effect)
+            def __init__(self, data, stdin_mock):
+                self.data = data
+                self.ptr = 0
+                self.stdin = stdin_mock
+                self.read = unittest.mock.AsyncMock(side_effect=self._read)
+                self.readline = unittest.mock.AsyncMock(side_effect=self._readline)
+
+            async def _read(self, n):
+                # Only return real data IF something has been written to stdin
+                # This bypasses the 'cleanup' loop which reads before writing
+                if self.stdin.write.call_count == 0:
+                    return b""
+                
+                if self.ptr >= len(self.data): return b""
+                res = self.data[self.ptr]
+                self.ptr += 1
+                return res
+
+            async def _readline(self):
+                # Fallback for other tests if they use readline
+                if self.ptr >= len(self.data): return b""
+                res = self.data[self.ptr]
+                self.ptr += 1
+                return res
 
         class MockStdin:
             def __init__(self):
-                self.write = unittest.mock.Mock() # Synchronous
-                self.drain = unittest.mock.AsyncMock() # Asynchronous
+                self.write = unittest.mock.Mock()
+                self.drain = unittest.mock.AsyncMock()
 
         class MockProcess:
             def __init__(self):
@@ -71,10 +93,10 @@ class TestSandboxShellExecution:
                 self.stdout = MockStream([
                     b"test output\n",
                     b"0\n",
-                    b"---VIBEHACK_COMMAND_BOUNDARY_SALT---\n",
+                    b"---VIBEHACK_BOUNDARY_53414c5453414c54---\n",
                     b""
-                ])
-                self.stderr = MockStream([b""])
+                ], self.stdin)
+                self.stderr = MockStream([b""], self.stdin)
 
             async def wait(self): return 0
             def kill(self): pass
@@ -82,8 +104,8 @@ class TestSandboxShellExecution:
         mock_proc = MockProcess()
         mock_exec.return_value = mock_proc
 
-        # We need to mock the salt generation to match our boundary
-        with unittest.mock.patch("os.urandom", return_value=bytes.fromhex("53414c54")):
+        # Use 8-byte salt as required by v4.0 shell logic
+        with unittest.mock.patch("os.urandom", return_value=bytes.fromhex("53414c5453414c54")):
              result = await execute_shell("echo 'hello'")
 
         assert "test output" in result.stdout

@@ -46,7 +46,7 @@ class Config:
         self.API_KEY = os.getenv("VH_API_KEY") or get_api_key("primary") or ""
 
         # ── Token Economy & Context (v2.6) ───────────────────────────────────
-        self.MAX_TURN_MEMORY = int(os.getenv("VH_MAX_TURNS", "10"))
+        self.MAX_TURN_MEMORY = int(os.getenv("VH_MAX_TURNS", "20"))
         self.TRUNCATE_LIMIT = int(os.getenv("VH_TRUNCATE_LIMIT", "4000"))
         self.CMD_TIMEOUT = int(os.getenv("VH_CMD_TIMEOUT", "120"))
 

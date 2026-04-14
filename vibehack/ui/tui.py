@@ -11,6 +11,26 @@ from rich.markdown import Markdown
 from rich.tree import Tree
 
 console = Console()
+_CONN_CACHE = {"status": "Unknown", "last_check": 0}
+
+async def update_connectivity():
+    """Background task to update connectivity status."""
+    import requests
+    import time
+    import asyncio
+    
+    def _check():
+        try:
+            return requests.head("https://www.google.com", timeout=2)
+        except:
+            return None
+
+    response = await asyncio.to_thread(_check)
+    if response:
+        _CONN_CACHE["status"] = "Ready" if response.status_code < 400 else "Offline"
+    else:
+        _CONN_CACHE["status"] = "Offline"
+    _CONN_CACHE["last_check"] = time.time()
 
 def get_masked_input(prompt_text: str) -> str:
     """Gets password input while printing '*' for each character. Works on Linux/UNIX."""
@@ -68,20 +88,19 @@ def display_banner(repl=None):
     # Vertical Separator Logic
     separator = Text.from_markup("[dim]|\n|\n|[/dim]")
 
-    # Check LLM Readiness & Tokens
-    from vibehack.config import cfg
-    import requests
-    
-    # ── Real Connectivity Test ──
-    try:
-        # Pinging a reliable global endpoint as proxy for API connectivity
-        response = requests.head("https://www.google.com", timeout=3)
-        llm_ready = "Ready" if (cfg.API_KEY and response.status_code < 400) else "Not Ready"
-    except:
-        # Fallback to simple key check if connection probe fails (Stealth/Offline mode)
-        llm_ready = "Ready (Cached)" if cfg.API_KEY else "No Key"
-    
-    llm_color = "green" if "Ready" in llm_ready else "red"
+    # ── Non-blocking Connectivity Test ──
+    import time
+    if time.time() - _CONN_CACHE["last_check"] > 60: # Check every 60s
+        # If it's the first time or expired, we show cached or initiate (usually run in background)
+        if _CONN_CACHE["status"] == "Unknown":
+            llm_ready = "Checking..."
+            llm_color = "yellow"
+        else:
+            llm_ready = f"{_CONN_CACHE['status']} (Cached)"
+            llm_color = "green" if _CONN_CACHE["status"] == "Ready" else "red"
+    else:
+        llm_ready = _CONN_CACHE["status"]
+        llm_color = "green" if llm_ready == "Ready" else "red"
     
     # Accurate token estimation from history
     hist_len = 0
@@ -108,8 +127,77 @@ def display_banner(repl=None):
     table.add_column("info")
     table.add_row(logo_text, separator, info_text)
     
-    console.print(table)
-    console.print("")
+def get_banner_text(repl=None):
+    """Returns the banner as formatted text for prompt-toolkit."""
+    from rich.console import Console
+    from io import StringIO
+    from prompt_toolkit.formatted_text import ANSI
+    
+    # We use a virtual console to capture rich output and convert to ANSI
+    virt_console = Console(width=120, force_terminal=True, color_system="truecolor")
+    with virt_console.capture() as capture:
+        display_banner(repl)
+    
+    return ANSI(capture.get())
+
+import os
+import re
+from datetime import datetime
+
+def log_to_pane(repl, pane: str, message: str):
+    """Helper to write to specific TUI buffers from anywhere. Strips Rich tags."""
+    if not repl or not hasattr(repl, f"{pane}_buffer"):
+        return
+        
+    buffer = getattr(repl, f"{pane}_buffer")
+    
+    # 1. Smarter Tag Stripping
+    # Strip Rich tags ONLY if they look like formatting [bold], [red], [/] 
+    # Protect potential technical data like [127.0.0.1] or [DEBUG]
+    keywords = r"bold|italic|underline|dim|blink|red|green|blue|yellow|magenta|cyan|white|grey|black|strike|reverse|link|#?[a-fA-F0-9]+|ansi[a-z0-9]+|class:[a-z.-]+"
+    fmt_tags = rf"\[(?:/?(?:{keywords})(?:\s+(?:{keywords}))*|/)\s*\]"
+    clean_msg = re.sub(fmt_tags, "", message, flags=re.IGNORECASE)
+    
+    # Strip HTML-style tags often used in prompt-toolkit HTML
+    clean_msg = re.sub(r"<(?:ansicyan|ansired|ansiyellow|ansigreen|ansiblue|ansimagenta|ansigray|b|u|i|/b|/u|/i)>", "", clean_msg)
+    
+    now = datetime.now()
+    if pane == "logs":
+        timestamp = now.strftime("%b %d %H:%M:%S")
+        pid = os.getpid()
+        tag = f"{timestamp} [{pid}]: "
+    else:
+        tag = ""
+    
+    # We append using buffer text to stay simple, but we avoid excessive resets
+    new_text = tag + clean_msg
+    if not new_text.endswith("\n"):
+        new_text += "\n"
+        
+    buffer.text += new_text
+    
+    # 2. Buffer capping (Memory Protection)
+    # Prevent infinite growth. If buffer > 1500 lines, keep only last 1000.
+    lines = buffer.text.splitlines()
+    if len(lines) > 1500:
+        buffer.text = "\n".join(lines[-1000:]) + "\n"
+        
+    # Auto-scroll to bottom
+    buffer.cursor_position = len(buffer.text)
+    
+    # Force UI redraw to ensure immediate visibility of updates
+    if repl and hasattr(repl, "app"):
+        repl.app.invalidate()
+
+def pop_last_line_from_pane(repl, pane: str):
+    """Removes the last line from a buffer. Useful for clearing 'Thinking...' status."""
+    if not repl or not hasattr(repl, f"{pane}_buffer"):
+        return
+    buffer = getattr(repl, f"{pane}_pane" if hasattr(repl, f"{pane}_pane") else f"{pane}_buffer")
+    lines = buffer.text.rstrip().splitlines()
+    if lines:
+        buffer.text = "\n".join(lines[:-1]) + "\n"
+        buffer.cursor_position = len(buffer.text)
 
 def display_notice(message: str, title: str = "SECURITY ADVISORY"):
     """Gemini-style yellow boxed notice. Mirrors the screenshot layout."""
@@ -118,55 +206,97 @@ def display_notice(message: str, title: str = "SECURITY ADVISORY"):
     console.print(Panel(message, border_style="yellow", expand=True, padding=(0, 1)))
     console.print("")
 
-def display_thought(thought: str):
+def display_thought(thought: str, repl=None):
     summary = thought.split('\n')[0][:120]
     if len(thought) > len(summary):
         summary += "..."
-    console.print(f"[dim]🤖 AI Thought: {summary}[/dim]")
+    msg = f"🧠 AI THOUGHT: {summary}"
+    if repl:
+        log_to_pane(repl, "history", msg)
+    else:
+        console.print(f"[dim]{msg}[/dim]")
 
-def display_command(command: str):
-    syntax = Syntax(command, "bash", theme="monokai", line_numbers=False)
-    console.print(Panel(syntax, title="⚙️ Suggested Command", border_style="yellow"))
+def display_command(command: str, repl=None):
+    if repl:
+        log_to_pane(repl, "logs", f"⚙️ SUGGESTED: {command}")
+    else:
+        syntax = Syntax(command, "bash", theme="monokai", line_numbers=False)
+        console.print(Panel(syntax, title="⚙️ Suggested Command", border_style="yellow"))
 
-def display_education(education: str):
+def display_education(education: str, repl=None):
     if education:
-        console.print(Panel(education, title="📚 Education", border_style="green", subtitle="Dev-Safe Mode"))
+        if repl:
+            log_to_pane(repl, "history", f"📖 INTEL: {education}")
+        else:
+            console.print(Panel(education, title="📚 Education", border_style="green", subtitle="Dev-Safe Mode"))
 
-def display_finding(severity: str, title: str, description: str):
+def display_finding(severity: str, title: str, description: str, repl=None):
     color = "red" if severity.lower() in ["critical", "high"] else "yellow"
-    console.print(Panel(f"[bold]{title}[/bold]\n{description}", title=f"🚨 Finding: {severity.upper()}", border_style=color))
+    msg = f"🚨 FINDING: [{severity.upper()}] {title} - {description}"
+    if repl:
+        log_to_pane(repl, "logs", msg)
+    else:
+        console.print(Panel(f"[bold]{title}[/bold]\n{description}", title=f"🚨 Finding: {severity.upper()}", border_style=color))
 
-def display_knowledge_update(ports: list, technologies: list, endpoints: list):
+def display_knowledge_update(ports: list, technologies: list, endpoints: list, repl=None):
     """Prints a brief intelligence dashboard update."""
     lines = []
     if ports:
-        lines.append(f"[bold cyan]Ports:[/bold cyan] {', '.join(map(str, ports))}")
+        lines.append(f"🔌 Ports: {', '.join(map(str, ports))}")
     if technologies:
-        lines.append(f"[bold magenta]Tech:[/bold magenta] {', '.join(technologies)}")
+        lines.append(f"⚙️ Tech: {', '.join(technologies)}")
     if endpoints:
-        lines.append(f"[bold green]Endpoints:[/bold green] {len(endpoints)} mapped")
+        lines.append(f"🌐 Endpoints: {len(endpoints)} mapped")
         
     if lines:
-        console.print(Panel("\n".join(lines), title="[bold]📡 New Intel Gathered[/bold]", border_style="cyan"))
+        msg = "📡 INTEL UPDATE:\n" + "\n".join(lines)
+        if repl:
+            log_to_pane(repl, "logs", msg)
+        else:
+            console.print(Panel("\n".join(lines), title="[bold]📡 New Intel Gathered[/bold]", border_style="cyan"))
 
-async def ask_approval() -> str:
-    """The Ultimate Firewall: HitL Approval Matrix"""
+async def ask_approval(repl=None) -> str:
+    """The Ultimate Firewall: HitL Approval Matrix. REPL-aware to avoid UI corruption."""
     from prompt_toolkit.shortcuts import button_dialog
-    result = await button_dialog(
-        title='⚠️ Security Gate: HitL Required',
-        text='Execute this shell command?',
-        buttons=[
-            ('Yes', 'y'),
-            ('No', 'n'),
-            ('Auto-Allow', 'a'),
-        ],
-    ).run_async()
-    return result or "n"
+    
+    def _run_dialog():
+        return button_dialog(
+            title='⚠️ Security Gate: HitL Required',
+            text='Execute this shell command?',
+            buttons=[
+                ('Yes', 'y'),
+                ('No', 'n'),
+                ('Auto-Allow', 'a'),
+            ],
+        ).run()
 
-def display_output(output: str, is_error: bool = False):
-    style = "red" if is_error else "dim white"
-    if output:
-        console.print(Panel(output, title="📝 Terminal Output", border_style=style, expand=True))
+    if repl and hasattr(repl, 'app'):
+        # Suspend the main TUI application to show the dialog cleanly
+        from prompt_toolkit.application import run_in_terminal
+        result = await run_in_terminal(_run_dialog)
+        return result or "n"
+    else:
+        # Normal CLI fallback
+        from prompt_toolkit.shortcuts import button_dialog
+        result = await button_dialog(
+            title='⚠️ Security Gate: HitL Required',
+            text='Execute this shell command?',
+            buttons=[
+                ('Yes', 'y'),
+                ('No', 'n'),
+                ('Auto-Allow', 'a'),
+            ],
+        ).run_async()
+        return result or "n"
+
+def display_output(output: str, is_error: bool = False, repl=None):
+    if repl:
+        prefix = "🚨 " if is_error else "📝 "
+        log_to_pane(repl, "output", f"{prefix}TERMINAL OUTPUT:\n{output}")
+    else:
+        style = "red" if is_error else "dim white"
+        if output:
+            console.print(Panel(output, title="📝 Terminal Output", border_style=style, expand=True))
 
 def ask_waiver() -> bool:
     """Liability waiver for Unchained mode."""
@@ -252,35 +382,38 @@ def display_map(target: str, knowledge_state: dict):
     console.print(Panel(tree, border_style="cyan", title="[bold white]📡 REAL-TIME ATTACK MAP[/bold white]", expand=False))
     console.print("")
 
-def display_mission(goals: list):
+def display_mission(goals: list, repl=None):
     """Displays the active mission objectives."""
     if not goals:
         return
     
-    table = Table(show_header=False, box=None, padding=(0, 1))
-    table.add_column("Objective", style="dim")
-    table.add_column("Status", justify="right")
-    
-    for goal in goals:
-        if "[DONE]" in goal.upper():
-            status = "[bold green]COMPLETE[/bold green]"
-            color = "dim green"
-        else:
-            status = "[bold yellow]RUNNING[/bold yellow]"
-            color = "white"
-            
-        clean_goal = goal.replace("[DONE]", "").replace("[IN_PROGRESS]", "").strip()
-        table.add_row(f"[{color}]{clean_goal}[/{color}]", status)
+    msg = "🏁 MISSION PLAN:\n" + "\n".join([f"  - {g}" for g in goals])
+    if repl:
+        log_to_pane(repl, "logs", msg)
+    else:
+        table = Table(show_header=False, box=None, padding=(0, 1))
+        table.add_column("Objective", style="dim")
+        table.add_column("Status", justify="right")
         
-    console.print(Panel(table, title="🏁 Active Mission Plan", border_style="magenta", expand=False))
+        for goal in goals:
+            if "[DONE]" in goal.upper():
+                status = "[bold green]COMPLETE[/bold green]"
+                color = "dim green"
+            else:
+                status = "[bold yellow]RUNNING[/bold yellow]"
+                color = "white"
+                
+            clean_goal = goal.replace("[DONE]", "").replace("[IN_PROGRESS]", "").strip()
+            table.add_row(f"[{color}]{clean_goal}[/{color}]", status)
+            
+        console.print(Panel(table, title="🏁 Active Mission Plan", border_style="magenta", expand=False))
 
-def display_ask_response(raw_resp: str):
+def display_ask_response(raw_resp: str, repl=None):
     """Render the AI response beautifully, handling both JSON and Markdown."""
     import json
     
     # Try parsing as JSON first
     try:
-        # Clean potential markdown code blocks if AI wrapped JSON in ```json
         clean_json = raw_resp.strip()
         if clean_json.startswith("```json"):
             clean_json = clean_json[7:]
@@ -291,16 +424,23 @@ def display_ask_response(raw_resp: str):
         thought = data.get("thought", "")
         education = data.get("education", "")
         command = data.get("raw_command", "")
+        answer = data.get("answer", "") or thought # Fill answer if missing
         
-        if thought:
-            console.print(Panel(Markdown(thought), title="🤖 AI Thought", border_style="magenta"))
-        
-        if education:
-            display_education(education)
-            
-        if command:
-            display_command(command)
+        if repl:
+            if thought: log_to_pane(repl, "history", f"🧠 THOUGHT: {thought}")
+            if education: log_to_pane(repl, "history", f"📖 INTEL: {education}")
+            if command: log_to_pane(repl, "logs", f"⚙️ CMD: {command}")
+            log_to_pane(repl, "history", f"📡 RESPONSE: {answer}")
+        else:
+            if thought:
+                console.print(Panel(Markdown(thought), title="🤖 AI Thought", border_style="magenta"))
+            if education:
+                display_education(education)
+            if command:
+                display_command(command)
             
     except (json.JSONDecodeError, TypeError, AttributeError):
-        # Fallback to pure Markdown
-        console.print(Panel(Markdown(raw_resp), title="🤖 VibeHack Answer", border_style="cyan"))
+        if repl:
+            log_to_pane(repl, "history", f"📡 RESPONSE: {raw_resp}")
+        else:
+            console.print(Panel(Markdown(raw_resp), title="🤖 VibeHack Answer", border_style="cyan"))
