@@ -48,7 +48,7 @@ def safe_run(coro):
 load_dotenv()
 
 app = typer.Typer(
-    help="🔥 Vibe_Hack v4.1.0 — The Autonomous Weapon (Universal Reconfig Release)",
+    help=f"🔥 Vibe_Hack v{__version__} — The Intelligence & Optimization Release",
     no_args_is_help=False,  # Allow bare `vibehack` to open REPL
     invoke_without_command=True,
 )
