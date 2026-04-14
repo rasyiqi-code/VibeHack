@@ -5,6 +5,7 @@ Tests for the Raw Shell execution engine.
 import pytest
 import asyncio
 import unittest.mock
+import os
 from vibehack.core.shell import ShellResult, execute_shell
 from vibehack.config import cfg
 
@@ -53,30 +54,35 @@ class TestSandboxShellExecution:
 
     @unittest.mock.patch("asyncio.create_subprocess_exec")
     async def test_sandbox_execute_shell(self, mock_exec):
-        # Mock the process creation
+        # Mock the process creation with specific sync/async boundaries
+        class MockStream:
+            def __init__(self, side_effect):
+                self.readline = unittest.mock.AsyncMock(side_effect=side_effect)
+
+        class MockStdin:
+            def __init__(self):
+                self.write = unittest.mock.Mock() # Synchronous
+                self.drain = unittest.mock.AsyncMock() # Asynchronous
+
         class MockProcess:
             def __init__(self):
                 self.returncode = 0
-                # stdin.write is synchronous in asyncio, but drain is async
-                self.stdin = unittest.mock.MagicMock()
-                self.stdin.drain = unittest.mock.AsyncMock()
-                self.stdout = unittest.mock.AsyncMock()
-                self.stderr = unittest.mock.AsyncMock()
+                self.stdin = MockStdin()
+                self.stdout = MockStream([
+                    b"test output\n",
+                    b"0\n",
+                    b"---VIBEHACK_COMMAND_BOUNDARY_SALT---\n",
+                    b""
+                ])
+                self.stderr = MockStream([b""])
 
             async def wait(self): return 0
             def kill(self): pass
 
         mock_proc = MockProcess()
-        # Mock readline to return delimiter eventually
-        mock_proc.stdout.readline.side_effect = [
-            b"test output\n",
-            b"0\n",
-            b"---VIBEHACK_COMMAND_BOUNDARY_SALT---\n",
-            b""
-        ]
         mock_exec.return_value = mock_proc
 
-        # We need to mock the salt generation to match our side_effect
+        # We need to mock the salt generation to match our boundary
         with unittest.mock.patch("os.urandom", return_value=bytes.fromhex("53414c54")):
              result = await execute_shell("echo 'hello'")
 
