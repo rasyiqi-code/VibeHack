@@ -15,7 +15,7 @@ from vibehack.guardrails.regex_engine import check_target
 from vibehack.guardrails.waiver import verify_unchained_access
 from vibehack.memory.db import get_memory_stats
 from vibehack.ui.tui import (
-    display_map, display_finding
+    display_map, display_finding, display_banner, display_notice
 )
 
 console = Console()
@@ -141,6 +141,16 @@ def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
     elif verb == "/clear":
         sys_msg = repl.history[0] if repl.history and repl.history[0]["role"] == "system" else None
         repl.history = [sys_msg] if sys_msg else []
+        
+        # Visual Clear
+        os.system('clear' if os.name == 'posix' else 'cls')
+        print("") # Top margin
+        display_banner(repl)
+        display_notice(
+            "VibeHack is an autonomous security agent. All activities are logged to "
+            "~/.vibehack/sessions for audit and cross-session learning.",
+            title="SECURITY ADVISORY"
+        )
         console.print("[dim]History cleared. Knowledge and findings preserved.[/dim]")
 
     elif verb == "/memory":

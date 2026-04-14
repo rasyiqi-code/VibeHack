@@ -225,7 +225,7 @@ class VibehackREPL:
         os.system('clear' if os.name == 'posix' else 'cls')
         print("") # Top margin
         
-        display_banner()
+        display_banner(self)
         self._check_sudo()
         self._discover_tools()
         if self.no_memory is False: init_memory()

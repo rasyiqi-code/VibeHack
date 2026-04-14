@@ -50,8 +50,8 @@ def get_masked_input(prompt_text: str) -> str:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     return buf
 
-def display_banner():
-    """Redesigned banner mirroring the Gemini CLI professional layout."""
+def display_banner(repl=None):
+    """Redesigned banner with dynamic session status indicators."""
     from vibehack import __version__
     from vibehack.config import cfg
     import os
@@ -68,19 +68,27 @@ def display_banner():
     # Vertical Separator Logic
     separator = Text.from_markup("[dim]|\n|\n|[/dim]")
 
-    # Tactical Info Block (Vertically aligned with 3-line logo)
-    provider = os.getenv("VH_PROVIDER", "Google")
-    model = cfg.MODEL
-    
-    # Check LLM Readiness
+    # Check LLM Readiness & Tokens
     from vibehack.config import cfg
-    llm_ready = "[bold green]READY[/bold green]" if cfg.API_KEY else "[bold red]NOT READY[/bold red]"
+    llm_ready = "Ready" if cfg.API_KEY else "Not Ready"
+    llm_color = "green" if cfg.API_KEY else "red"
     
-    # We build the info block as a single markup string for precise control
+    # Estimate tokens from history
+    hist_len = 0
+    if repl and hasattr(repl, 'history'):
+        hist_len = sum(len(m["content"]) for m in repl.history) // 4
+        
+    # Get Mode & Status
+    mode = getattr(repl, 'op_mode', 'AGENT').upper()
+    status = "RUNNING" if repl else "READY"
+    
+    # Tactical Info Block
+    provider = os.getenv("VH_PROVIDER", "Google")
+    
     info_markup = (
-        f" [dim]LLM:[/dim] {llm_ready}\n"
-        f" [dim]LOG:[/dim] {provider} [bold #ffd700]/auth[/bold #ffd700]\n"
-        f" [dim]MSN:[/dim] Autonomous /audit ([bold #ffd700]{model}[/bold #ffd700])"
+        f" [dim]LLM:[/dim] [bold {llm_color}]{llm_ready}[/bold {llm_color}] ({hist_len} tokens)\n"
+        f" [dim]STATUS:[/dim] [bold green]{status}...[/bold green]\n"
+        f" [dim]MODE:[/dim] [bold cyan]{mode}[/bold cyan]"
     )
     info_text = Text.from_markup(info_markup)
 
