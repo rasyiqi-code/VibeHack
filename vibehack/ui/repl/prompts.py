@@ -107,8 +107,10 @@ def get_bottom_toolbar(repl):
     # Session Metadata
     session_id = getattr(repl, 'session_id', '???')
     persona = getattr(repl, 'persona', 'dev-safe')
+    mode = getattr(repl, 'op_mode', 'AGENT').upper()
+    tokens = sum(len(m.get("content", "")) for m in getattr(repl, 'history', [])) // 4
     
-    left_part = f" [v{__version__}] | {status_icon} {target} | FINDINGS: {findings} | BRAIN: {short_model} | MISSION: {persona.upper()} "
+    left_part = f" [v{__version__}] | {status_icon} {target} | TOKENS: {tokens} | FINDINGS: {findings} | BRAIN: {short_model} | {mode}: {persona.upper()} "
     right_part = f" SESSION: {session_id} "
     
     try:
