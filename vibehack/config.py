@@ -47,7 +47,7 @@ class Config:
 
         # ── Token Economy & Context (v2.6) ───────────────────────────────────
         self.MAX_TURN_MEMORY = int(os.getenv("VH_MAX_TURNS", "10"))
-        self.TRUNCATE_LIMIT = int(os.getenv("VH_TRUNCATE_LIMIT", "2500"))
+        self.TRUNCATE_LIMIT = int(os.getenv("VH_TRUNCATE_LIMIT", "4000"))
         self.CMD_TIMEOUT = int(os.getenv("VH_CMD_TIMEOUT", "120"))
 
         # ── Paths ─────────────────────────────────────────────────────────────

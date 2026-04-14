@@ -132,12 +132,14 @@ async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 
     else:
         res = await _SESSION.execute(command, timeout, callback=output_callback, interrupter=interrupter)
     
-    # Handle truncation (Increased to 4000 for better context depth)
+    # Handle truncation (Configurable via VH_TRUNCATE_LIMIT)
+    from vibehack.config import cfg
+    limit = cfg.TRUNCATE_LIMIT
     stdout = res.stdout
     truncated = res.truncated
-    if len(stdout) > 4000:
-        half = 2000
-        removed_bytes = len(stdout) - 4000
+    if len(stdout) > limit:
+        half = limit // 2
+        removed_bytes = len(stdout) - limit
         stdout = stdout[:half] + f"\n... [Truncated Middle: {removed_bytes} bytes removed by VibeHack] ...\n" + stdout[-half:]
         truncated = True
     
