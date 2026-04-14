@@ -3,7 +3,7 @@
   "model_example": "google/gemini-2.0-flash-exp:free",
   "default_models": {
     "openrouter": "openrouter/auto",
-    "google": "gemini/gemini-3-flash-preview",
+    "google": "gemini/gemini-3-flash",
     "anthropic": "anthropic/claude-3-5-sonnet-20240620",
     "openai": "openai/gpt-4o"
   },
