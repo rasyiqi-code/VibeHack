@@ -251,15 +251,44 @@ def _sanitize_output(text: str) -> str:
     # 2. Strip CLI Noise (Progress Bars)
     text = re.sub(r"%.*?Total.*?%.*?Received.*?%.*?Xferd.*?Average.*?Speed.*?Time.*?Time.*?Time.*?Current\s+Dload.*?Upload.*?Total.*?Spent.*?Left.*?Speed", "", text, flags=re.DOTALL | re.IGNORECASE)
     text = re.sub(r"\r?\n\s*\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+[\d:]+\s+[\d:]+\s+[\d:]+\s+[\d.]+[MkG]?", "", text)
+
+    # 3. HTML Skeletonization (Extreme Token Saving)
+    text = _skeletonize_html(text)
     
-    # 3. HTML Asset Stripping (Advanced Token Saving)
-    text = re.sub(r"<style.*?>.*?</style>", "[CSS Stripped by VibeHack]", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<svg.*?>.*?</svg>", "[SVG Stripped by VibeHack]", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    # 4. Canonicalizing Whitespace
     text = re.sub(r"\n\s*\n", "\n\n", text)
+    text = re.sub(r"[ \t]+", " ", text) # Collapse multiple spaces/tabs
     
-    # 4. Clean Triggers to prevent prompt injection via command output
+    # 5. Clean Triggers to prevent prompt injection via command output
     for trigger in ["System:", "User:", "Assistant:", "Instruction:"]:
         text = text.replace(trigger, f"[Sanitized {trigger}]")
         
     return text.strip()
+
+def _skeletonize_html(html: str) -> str:
+    """Strips layout bloat (div, span, p, etc) while keeping security-relevant tags."""
+    if "<html" not in html.lower() and "<form" not in html.lower() and "<input" not in html.lower():
+        return html # Probably not HTML
+        
+    # Remove Scripts, Styles, and Comments first
+    html = re.sub(r"<(script|style|svg|noscript|iframe|header|footer|nav).*?>.*?</\1>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    html = re.sub(r"<!--.*?-->", "", html, flags=re.DOTALL)
+
+    # Keep only essential tags: form, input, button, select, textarea, a, meta, link
+    # We strip the tags but keep the content for non-essential ones, 
+    # OR we just strip the whole tag for generic containers.
+    
+    # 1. Strip generic containers entirely (both tag and content usually just text bloat)
+    # Actually, keep the text inside but remove the tag.
+    bloat_tags = ["div", "span", "p", "section", "article", "aside", "ul", "li", "ol", "br", "hr", "b", "i", "strong", "em"]
+    for tag in bloat_tags:
+        # Strip opening tag
+        html = re.sub(f"<{tag}.*?>", "", html, flags=re.IGNORECASE)
+        # Strip closing tag
+        html = re.sub(f"</{tag}>", "", html, flags=re.IGNORECASE)
+
+    # 2. Final cleanup of any tags that weren't in our "essential" list
+    # Essential list: a, form, input, button, select, textarea, meta, title, head, body, html
+    # But let's be even more aggressive: just keep a, form, input, button, title
+    
+    return html

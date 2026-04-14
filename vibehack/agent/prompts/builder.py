@@ -98,7 +98,8 @@ def build_system_prompt(options: PromptOptions, overrides: dict = None) -> str:
 
 def _substitute_variables(prompt: str, options: PromptOptions) -> str:
     """Replace ${var} placeholders in override templates."""
-    tools_csv = ", ".join(sorted(options.tools)) if options.tools else "coreutils"
+    from vibehack.toolkit.discovery import get_tools_context_string
+    tools_csv = get_tools_context_string(options.tools)
     replacements = {
         "${target}": options.target,
         "${tools}": tools_csv,

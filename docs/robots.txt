@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://vibehack.crediblemark.com/sitemap.xml

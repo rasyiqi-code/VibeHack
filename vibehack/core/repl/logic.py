@@ -169,7 +169,6 @@ async def _execute_proposed_command(repl, response: AgentResponse):
     # 0. Shadow Critic Sidecar (v2.7) — Prevents logical loops and bad decisions
     critique = await repl.handler.critique(repl.history, cmd)
     if critique:
-        from vibehack.ui.tui import log_to_pane
         log_to_pane(repl, "logs", f"🕵️ SHADOW CRITIC: {critique}")
         repl.history.append({"role": "user", "content": f"System (Shadow Critic): {critique}"})
         return
@@ -182,6 +181,10 @@ async def _execute_proposed_command(repl, response: AgentResponse):
 
     if cmd.startswith("vibehack-memory "):
         _handle_memory_tool(repl, cmd)
+        return
+
+    if cmd.startswith("vibehack-note "):
+        _handle_note_tool(repl, cmd)
         return
 
     # System: Slash commands are prioritized as user-defined skills, not hardcoded installers.
@@ -261,4 +264,26 @@ def _handle_memory_tool(repl, cmd: str):
         log_to_pane(repl, "logs", "BRAIN: no relevant historical context found for this keyword.")
     
     repl.history.append({"role": "user", "content": get_memory_feedback(keyword, memory_ctx)})
+    repl._persist()
+
+def _handle_note_tool(repl, cmd: str):
+    """Internal tool for AI to manage its manual 'Buku Saku' notes."""
+    parts = cmd.strip().split(maxsplit=2)
+    action = parts[1].lower() if len(parts) > 1 else "list"
+    content = parts[2] if len(parts) > 2 else ""
+
+    if action == "add" and content:
+        repl.knowledge.add_note(content)
+        log_to_pane(repl, "logs", f"📝 NOTE SAVED: {content[:50]}...")
+        msg = f"SUCCESS: Note added to your scratchpad."
+    elif action == "clear":
+        repl.knowledge.notes = []
+        log_to_pane(repl, "logs", "📝 NOTES CLEARED.")
+        msg = "SUCCESS: Scratchpad cleared."
+    else:
+        notes_str = "\n".join([f"{i}. {n}" for i, n in enumerate(repl.knowledge.notes)])
+        msg = f"CURRENT NOTES:\n{notes_str or 'Empty.'}"
+
+    repl.history.append({"role": "user", "content": f"SYSTEM (Notes): {msg}"})
+    repl._rebuild_system_prompt()
     repl._persist()

@@ -1,6 +1,6 @@
 # 📚 VibeHack Documentation Hub
 
-Welcome to the official technical documentation for VibeHack — the autonomous security simulation engine.
+Welcome to the official technical documentation for **VibeHack** — the premier autonomous AI-powered security simulation engine for offensive security automation and stateful red-team auditing.
 
 ## 🚀 Getting Started
 - **[Installation Guide](./INSTALL.md)**: How to set up VibeHack and its Docker sandbox.

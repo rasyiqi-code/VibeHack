@@ -42,6 +42,7 @@ SLASH_COMMANDS = {
     "/check-update": "Check for the latest version on GitHub",
     "/sessions":  "List and resume previous sessions interactively",
     "/history":   "Show a clean summary of the session ReAct chain",
+    "/open":      "Open the workspace folder in your OS file manager",
     "/exit":      "Save session and exit",
 }
 
@@ -227,6 +228,26 @@ async def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
 
     elif verb == "/history":
         await _display_history(repl)
+
+    elif verb == "/open":
+        import platform
+        import subprocess
+        
+        workspace_path = str(cfg.HOME / "workspace")
+        if not os.path.exists(workspace_path):
+            os.makedirs(workspace_path, exist_ok=True)
+            
+        log_to_pane(repl, "logs", f"📂 Opening workspace: {workspace_path}")
+        
+        try:
+            if platform.system() == "Darwin":       # macOS
+                subprocess.run(["open", workspace_path])
+            elif platform.system() == "Windows":    # Windows
+                os.startfile(workspace_path)
+            else:                                   # Linux
+                subprocess.run(["xdg-open", workspace_path])
+        except Exception as e:
+            log_to_pane(repl, "logs", f"🚨 Failed to open folder: {e}")
 
     else:
         log_to_pane(repl, "history", f"🚨 Unknown command: {verb}. Type /help for assistance.")

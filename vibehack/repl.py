@@ -115,7 +115,6 @@ class VibehackREPL:
                 
                 # 3. Ping-Pong Effect: show user message in timeline
                 if not text.startswith("/"):
-                    from vibehack.ui.tui import log_to_pane
                     log_to_pane(self, "history", f"👤 USER: {text}")
                     log_to_pane(self, "history", "  [ansicyan]● ● ●[/ansicyan] AI is formulating tactics...")
                 

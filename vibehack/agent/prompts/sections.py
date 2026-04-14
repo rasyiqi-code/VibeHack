@@ -100,6 +100,9 @@ def render_mindset(options: PromptOptions) -> str:
         "a custom PoC precisely suited to the target's configuration.\n\n"
         "Operational Mandate:\n"
         "- Stay stealthy. React to the target's defense posture.\n"
+        "- **Tool Discovery**: Use `which <tool>` to verify availability.\n"
+        "- **Data Offloading (Scratchpad)**: Save large datasets to files (e.g., `notes.txt`) in your workspace.\n"
+        "- **Manual Notes (Buku Saku)**: Use `vibehack-note add \"your observation\"` to save critical insights that you want to keep in your immediate context for the entire session.\n"
         "- Search your historical memory when relevant: `vibehack-memory search <keyword>`"
     )
 
@@ -121,12 +124,14 @@ def render_safety(options: PromptOptions) -> str:
 
     return "\n".join(lines)
 
-
 def render_context(options: PromptOptions) -> str:
-    """Live runtime context — target, tools, persona, guardrails."""
-    tools_csv = ", ".join(sorted(options.tools)) if options.tools else "standard coreutils"
-
-    lines = [f"Target: {options.target}", f"Tools in PATH: {tools_csv}"]
+    """Live runtime context — target, persona, guardrails."""
+    # We no longer list tools to save tokens. We just indicate existence.
+    tools_count = len(options.tools) if options.tools else 0
+    lines = [
+        f"Target: {options.target}", 
+        f"Arsenal: {tools_count} binaries available in $PATH (Not listed to save space)."
+    ]
 
     if options.persona == "dev-safe" and options.education:
         lines.append("Operator: Developer — explain what each command does and suggest code fixes.")
@@ -162,12 +167,13 @@ def render_knowledge(options: PromptOptions) -> str:
     if ks.get("technologies"):
         lines.append(f"- Tech stack: {', '.join(ks['technologies'])}")
     if ks.get("endpoints"):
-        lines.append(f"- Endpoints: {', '.join(ks['endpoints'][:8])}")
+        lines.append(f"- Map: {len(ks['endpoints'])} endpoints discovered (Stored in session memory. Use `vibehack-memory search endpoints` to recall).")
     if ks.get("credentials"):
         lines.append(f"- Credentials: {len(ks['credentials'])} found")
     if ks.get("notes"):
-        for n in ks["notes"][-3:]:
-            lines.append(f"- {n}")
+        lines.append("Buku Saku (Key Observations):")
+        for n in ks["notes"][-5:]:
+            lines.append(f"  • {n}")
     if ks.get("mission_goals"):
         lines.append("Mission progress:")
         lines.extend(f"  {g}" for g in ks["mission_goals"])
