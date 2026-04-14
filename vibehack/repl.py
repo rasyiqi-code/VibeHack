@@ -276,7 +276,8 @@ class VibehackREPL:
 
                 # Start Thinking
                 self.status = "THINKING"
-                app = Application.get_current()
+                from prompt_toolkit.application import get_app
+                app = get_app()
                 if app: app.invalidate() # Force UI refresh
                 
                 await process_llm_turn(self, user_input)
