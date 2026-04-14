@@ -171,12 +171,20 @@ def _sanitize_output(text: str) -> str:
     text = re.sub(r"(AIza[a-zA-Z0-9_-]{30,})", "AIza***", text)
     
     # 2. Strip CLI Noise (Progress Bars)
-    # Curl progress meter
     text = re.sub(r"%.*?Total.*?%.*?Received.*?%.*?Xferd.*?Average.*?Speed.*?Time.*?Time.*?Time.*?Current\s+Dload.*?Upload.*?Total.*?Spent.*?Left.*?Speed", "", text, flags=re.DOTALL | re.IGNORECASE)
-    # Generic percentage noise and repeated 0s from curl
     text = re.sub(r"\r?\n\s*\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+\d+\s+[\d.]+[MkG]?\s+[\d:]+\s+[\d:]+\s+[\d:]+\s+[\d.]+[MkG]?", "", text)
     
-    # 3. Clean Triggers
+    # 3. HTML Asset Stripping (Advanced Token Saving)
+    # Strip <style> blocks
+    text = re.sub(r"<style.*?>.*?</style>", "[CSS Stripped by VibeHack]", text, flags=re.DOTALL | re.IGNORECASE)
+    # Strip <svg> blocks
+    text = re.sub(r"<svg.*?>.*?</svg>", "[SVG Stripped by VibeHack]", text, flags=re.DOTALL | re.IGNORECASE)
+    # Strip HTML comments
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    # Collapse excessive whitespace
+    text = re.sub(r"\n\s*\n", "\n\n", text)
+    
+    # 4. Clean Triggers
     for trigger in ["System:", "User:", "Assistant:"]:
         text = text.replace(trigger, f"[Sanitized {trigger}]")
         
