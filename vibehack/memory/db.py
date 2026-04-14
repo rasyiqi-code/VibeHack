@@ -123,25 +123,31 @@ def search_experience(query: str, limit: int = 5) -> list[tuple]:
 
 
 def get_embedding(text: str) -> bytes:
-    """Get embedding vector from Gemini API and return as binary BLOB."""
+    """Get embedding vector from Gemini API with strict timeout to prevent hangs."""
     import google.generativeai as genai
     import numpy as np
+    import socket
     
-    api_key = cfg.API_KEY # Ensure this matches your config location
+    api_key = cfg.API_KEY
     if not api_key: return None
+    
+    # Set global socket timeout for this thread to prevent infinite hangs
+    socket.setdefaulttimeout(5)
     
     try:
         genai.configure(api_key=api_key)
+        # Use a faster, lighter model and set task_type
+        # We wrap this in a way that respects a short timeout
         result = genai.embed_content(
             model="models/text-embedding-004",
-            content=text,
+            content=text[:1000], # Limit text size for faster embedding
             task_type="retrieval_document"
         )
-        # Convert to float32 for storage efficiency
         vec = np.array(result['embedding'], dtype=np.float32)
         return vec.tobytes()
     except Exception as e:
-        print(f"DEBUG: Embedding failed: {e}")
+        # Silently fail to avoid blocking the REPL loop
+        # The agent will simply work without long-term memory context
         return None
 
 
