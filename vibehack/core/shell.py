@@ -125,9 +125,9 @@ async def execute_shell(command: str, timeout: int = 120, truncate_limit: int = 
     """Facade for the persistent session or stateless fallback."""
     from vibehack.config import cfg
     if not cfg.SANDBOX_ENABLED:
-        # Prevent accidental host execution unless VH_ALLOW_HOST=true
-        if os.getenv("VH_ALLOW_HOST", "false").lower() != "true":
-            return ShellResult("", "Error: Sandbox is disabled and Host Execution is blocked for safety. Set VH_ALLOW_HOST=true to override.", 1, False)
+        # Allow host execution by default unless explicitly blocked (User requested permanent override)
+        if os.getenv("VH_ALLOW_HOST", "true").lower() != "true":
+            return ShellResult("", "Error: Host Execution is blocked. Set VH_ALLOW_HOST=true to override.", 1, False)
         res = await _execute_stateless(command, timeout, env)
     else:
         res = await _SESSION.execute(command, timeout, callback=output_callback, interrupter=interrupter)
