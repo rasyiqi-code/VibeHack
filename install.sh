@@ -1,79 +1,83 @@
-#!/usr/bin/env bash
-# VibeHack One-Command Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/install.sh | bash
+#!/bin/bash
+
+# VibeHack v4.3 — Automated Agnostic Setup Script
+# Works on Ubuntu/Debian/WSL2
 
 set -e
 
-# Fetch version dynamically from GitHub
-VERSION=$(curl -s https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/pyproject.toml | grep -m 1 version | sed 's/version = "\(.*\)"/\1/' || echo "2.3.0")
+# Professional Styling
+BLUE='\033[0;34m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
-echo -e "\033[1;31m"
-echo "╔══════════════════════════════════════════╗"
-echo "║  🔥 Vibe_Hack v$VERSION Installer           ║"
-echo "╚══════════════════════════════════════════╝"
-echo -e "\033[0m"
+echo -e "${BLUE}"
+echo "█     █  █  █▀▀█  █▀▀  █  █  █▀▀█  █▀▀  █ █"
+echo " █   █   █  █▀▀▄  █▀▀  █▀▀█  █▄▄█  █    █▀▄"
+echo "  █ █    █  █▄▄█  █▄▄  █  █  █  █  █▄▄  █ █"
+echo -e "${NC}"
+echo -e "${YELLOW}🌪️  Initiating One-Command Tabula Rasa Installation...${NC}\n"
 
-# 1. Dependency checks
-if ! command -v python3 &> /dev/null; then
-    echo "[!] Python3 is not installed. Please install Python 3.11+ first."
-    exit 1
-fi
-
-if ! command -v git &> /dev/null; then
-    echo "[!] Git is not installed. Please install Git first."
-    exit 1
-fi
-
-# Utility function for spinner
-spinner() {
-    local pid=$1
-    local delay=0.15
-    local spinstr='|/-\'
-    while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
-        local temp=${spinstr#?}
-        printf " [%c]  " "$spinstr"
-        local spinstr=$temp${spinstr%"$temp"}
-        sleep $delay
-        printf "\b\b\b\b\b\b"
-    done
-    printf "    \b\b\b\b"
+# Function to check if a command exists
+exists() {
+  command -v "$1" >/dev/null 2>&1
 }
 
-# 2. Setup Directories
-INSTALL_DIR="$HOME/.vibehack-env"
-BIN_DIR="$HOME/.local/bin"
-
-echo -n "[+] Setting up isolated Python environment in $INSTALL_DIR... "
-python3 -m venv "$INSTALL_DIR" &
-spinner $!
-echo -e "\033[1;32mDone.\033[0m"
-
-echo -n "[+] Upgrading pip inside environment... "
-"$INSTALL_DIR/bin/pip" install --upgrade pip -q &
-spinner $!
-echo -e "\033[1;32mDone.\033[0m"
-
-echo -n "[+] Downloading & Installing VibeHack core (this may take a minute)... "
-"$INSTALL_DIR/bin/pip" install git+https://github.com/rasyiqi-code/VibeHack.git -q &
-spinner $!
-echo -e "\033[1;32mDone.\033[0m"
-
-# 3. Create Symlink
-mkdir -p "$BIN_DIR"
-ln -sf "$INSTALL_DIR/bin/vibehack" "$BIN_DIR/vibehack"
-
-echo ""
-echo -e "\033[1;32m[✓] VibeHack successfully installed!\033[0m"
-echo ""
-
-# 4. Path verification
-if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-    echo -e "\033[1;33m[!] WARNING: $BIN_DIR is NOT in your PATH.\033[0m"
-    echo "To run VibeHack from anywhere, add this to your ~/.bashrc or ~/.zshrc:"
-    echo "export PATH=\"\$HOME/.local/bin:\$PATH\""
-    echo "Then run: source ~/.bashrc"
-    echo ""
-    echo "For now, you can run it via: $BIN_DIR/vibehack"
+# 1. Check/Install Git
+if ! exists git; then
+    echo -e "${YELLOW}📦 Git not found. Installing...${NC}"
+    sudo apt-get update && sudo apt-get install -y git
 else
-    echo "Launch it anytime by typing: vibehack"
+    echo -e "${GREEN}✓ Git is already installed.${NC}"
 fi
+
+# 2. Check/Install Python3 & Venv
+if ! exists python3; then
+    echo -e "${YELLOW}🐍 Python3 not found. Installing...${NC}"
+    sudo apt-get update && sudo apt-get install -y python3 python3-pip python3-venv
+elif ! python3 -m venv --help >/dev/null 2>&1; then
+    echo -e "${YELLOW}📦 Python3-venv missing. Installing...${NC}"
+    sudo apt-get update && sudo apt-get install -y python3-venv
+else
+    echo -e "${GREEN}✓ Python3 is already installed.${NC}"
+fi
+
+# 3. Check/Install Docker
+if ! exists docker; then
+    echo -e "${YELLOW}🐳 Docker not found. Installing Docker Engine (Community)...${NC}"
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+    sudo usermod -aG docker $USER
+    rm get-docker.sh
+    echo -e "${YELLOW}ℹ️  NOTE: You might need to restart your session to use Docker without sudo.${NC}"
+else
+    echo -e "${GREEN}✓ Docker is already installed.${NC}"
+fi
+
+# 4. Clone/Update VibeHack
+if [ ! -d "VibeHack" ]; then
+    echo -e "${BLUE}📡 Cloning VibeHack repository...${NC}"
+    git clone https://github.com/rasyiqi-code/VibeHack.git
+    cd VibeHack
+else
+    echo -e "${BLUE}📂 VibeHack directory already exists. Pulling latest...${NC}"
+    cd VibeHack
+    git pull origin main
+fi
+
+# 5. Virtual Environment & Python Install
+echo -e "${BLUE}🛠️  Setting up Python Virtual Environment...${NC}"
+python3 -m venv .venv
+source .venv/bin/env/bin/activate || source .venv/bin/activate
+
+echo -e "${BLUE}📦 Installing VibeHack dependencies...${NC}"
+pip install --upgrade pip
+pip install -e .
+
+echo -e "\n${GREEN}✅ INSTALLATION COMPLETE!${NC}"
+echo -e "--------------------------------------------------------"
+echo -e "To start VibeHack, run:"
+echo -e "${CYAN}cd $(pwd) && source .venv/bin/activate && vibehack${NC}"
+echo -e "--------------------------------------------------------"
+echo -e "${YELLOW}Don't forget to run '/auth' inside VibeHack to set your API Key.${NC}\n"

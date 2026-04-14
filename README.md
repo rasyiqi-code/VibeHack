@@ -23,6 +23,13 @@ VibeHack is more than a tool; it is a **Body** for AI **Souls**. It provides the
 
 ## 🚀 Installation
 
+### Option 1: Automatic Setup (Recommended for fresh systems)
+This script will automatically check and install Git, Python3, and Docker if missing.
+```bash
+curl -sSL https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/install.sh | bash
+```
+
+### Option 2: Manual Installation
 ```bash
 # Clone and install the agnostic engine
 git clone https://github.com/rasyiqi-code/VibeHack.git
