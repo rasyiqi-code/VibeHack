@@ -44,6 +44,10 @@ def _check_structural_danger(command: str) -> Optional[str]:
     Parses the command to detect shell manipulation techniques 
     like redirection and basic obfuscation.
     """
+    # 0. Basic bash substitution expansion obfuscation (e.g., r=r; m=m; $r$m -f /)
+    if re.search(r'\$[a-zA-Z_]+.*\$[a-zA-Z_]+', command):
+        return "Blocked by pattern guardrails: Excessive variable expansion detected."
+
     try:
         # Use shlex to handle quotes correctly
         parts = shlex.split(command)
@@ -64,8 +68,11 @@ def _check_structural_danger(command: str) -> Optional[str]:
             if "$" in command or "`" in command:
                 return "Potential shell execution obfuscation detected."
 
+    except ValueError:
+        # Allow commands with unclosed quotes (often used legitimately in fuzzing/scanning)
+        # We rely on regex patterns instead for safety here
+        pass
     except Exception:
-        # If parsing fails, it's likely too complex (and thus suspicious)
         return "Command structure is too complex or malformed for safety audit."
     
     return None

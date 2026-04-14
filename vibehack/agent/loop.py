@@ -110,13 +110,24 @@ class AgentLoop:
             self.history = [self.history[0]] + self.history[-limit:]
 
     def _detect_loop(self) -> str:
-        """Detects if the last 3 commands are identical."""
+        """Detects if the last 3 commands use the same base tool."""
         cmds = [
             msg.get("content", "") for msg in self.history[-3:] 
             if msg.get("role") == "user" and "COMMAND:" in msg.get("content", "")
         ]
-        if len(cmds) == 3 and len(set(cmds)) == 1:
-            return cmds[0].split("COMMAND:")[1].split("\n")[0].strip()
+        if len(cmds) == 3:
+            import shlex
+            base_cmds = []
+            for cmd_str in cmds:
+                try:
+                    raw = cmd_str.split("COMMAND:")[1].split("\n")[0].strip()
+                    parts = shlex.split(raw)
+                    if parts:
+                        base_cmds.append(parts[0])
+                except Exception:
+                    pass
+            if len(base_cmds) == 3 and len(set(base_cmds)) == 1:
+                return base_cmds[0]
         return None
 
     def _handle_memory_tool(self, cmd: str):
