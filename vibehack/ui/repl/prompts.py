@@ -91,20 +91,32 @@ def get_top_toolbar(repl):
     )
 
 def get_bottom_toolbar(repl):
-    """Status bar with hacker icons."""
+    """Refined Dashboard Toolbar with Version and Model info across the bottom."""
+    from vibehack import __version__
     import os
-    target = (repl.target[:30] + '...') if repl.target and len(repl.target) > 30 else (repl.target or "NO_TARGET")
-    findings = len(repl.key_findings)
-    status_icon = "🔓" if repl.unchained else "🔒"
     
-    # Calculate right-side metadata for a balanced look
+    # Left Side: Status & Intelligence
+    target = (repl.target[:25] + '...') if repl.target and len(repl.target) > 25 else (repl.target or "NO_TARGET")
+    findings = len(repl.key_findings)
+    status_icon = "🔓" if getattr(repl, 'unchained', False) else "🔒"
+    
+    # Brain Meta
+    model = repl.handler.model if hasattr(repl, 'handler') else "???"
+    short_model = model.split("/")[-1] # e.g. gemini-1.5-flash
+    
+    # Session Metadata
+    session_id = getattr(repl, 'session_id', '???')
+    persona = getattr(repl, 'persona', 'dev-safe')
+    
+    left_part = f" [v{__version__}] | {status_icon} {target} | FINDINGS: {findings} | BRAIN: {short_model} | MISSION: {persona.upper()} "
+    right_part = f" SESSION: {session_id} "
+    
     try:
         width = os.get_terminal_size().columns
     except OSError:
-        width = 80
+        width = 100
         
-    left_part = f" TARGET: {target} | FINDINGS: {findings} | STATUS: {status_icon} "
-    right_part = f" SESSION: {getattr(repl, 'session_id', '???')} "
-    padding = " " * (width - len(left_part) - len(right_part) - 1)
+    padding_count = width - len(left_part) - len(right_part) - 2
+    padding = " " * max(0, padding_count)
     
     return HTML(f"<b><ansiyellow>{left_part}{padding}{right_part}</ansiyellow></b>")
