@@ -70,7 +70,19 @@ def _check_os_safety():
         console.print("\n[bold yellow]⚠️  ENVIRONMENT WARNING[/bold yellow]")
         console.print(f"VibeHack detected platform: [bold cyan]{sys.platform}[/bold cyan]")
         console.print("This engine is highly optimized for [bold green]Linux / WSL2[/bold green].")
-        console.print("Running on other platforms may cause tool discovery and sandbox failures.\n")
+        console.print("Running on other platforms may cause tool discovery and sandbox failures.")
+        
+        if sys.platform == "win32":
+            console.print("\n[bold cyan]💡 RECOMMENDATION (Windows):[/bold cyan]")
+            console.print("Please install [bold]WSL2[/bold] to run VibeHack. Simply run this in PowerShell:")
+            console.print("  [white]wsl --install[/white]")
+        elif sys.platform == "darwin":
+            console.print("\n[bold cyan]💡 RECOMMENDATION (macOS):[/bold cyan]")
+            console.print("Please use a [bold]Linux Docker container[/bold] or [bold]UTM/Multipass[/bold] VM.")
+        
+        console.print("\n[dim]Continuing anyway in 3 seconds...[/dim]")
+        import time
+        time.sleep(3)
 
 
 @app.callback(invoke_without_command=True)
