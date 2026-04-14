@@ -255,6 +255,7 @@ class VibehackREPL:
                     width = 80
 
                 # Hacker Style Prompt: Sharp and glowing neons with Gold placeholder
+                self.status = "LISTENING"
                 user_input = await self.session.prompt_async(
                     HTML('<b><ansiyellow>vibe</ansiyellow><ansigray>@</ansigray><ansicyan>hack</ansicyan><ansigray>:</ansigray><ansiblue>~</ansiblue><ansigray>$</ansigray> </b>'),
                     placeholder=HTML('<ansiyellow>awaiting_instruction...</ansiyellow>'),
@@ -273,8 +274,15 @@ class VibehackREPL:
                             self._rebuild_system_prompt()
                     continue
 
+                # Start Thinking
+                self.status = "THINKING"
+                app = Application.get_current()
+                if app: app.invalidate() # Force UI refresh
+                
                 await process_llm_turn(self, user_input)
-
+                
+                # Back to Listening
+                self.status = "LISTENING"
             except (EOFError, KeyboardInterrupt):
                 break
             except Exception as e:

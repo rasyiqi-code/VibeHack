@@ -109,8 +109,9 @@ def get_bottom_toolbar(repl):
     persona = getattr(repl, 'persona', 'dev-safe')
     mode = getattr(repl, 'op_mode', 'AGENT').upper()
     tokens = sum(len(m.get("content", "")) for m in getattr(repl, 'history', [])) // 4
+    status = getattr(repl, 'status', 'LISTENING').upper()
     
-    left_part = f" [v{__version__}] | {status_icon} {target} | TOKENS: {tokens} | FINDINGS: {findings} | BRAIN: {short_model} | {mode}: {persona.upper()} "
+    left_part = f" [v{__version__}] | {status_icon} {target} | TOKENS: {tokens} | {mode}: {status} | FINDINGS: {findings} | BRAIN: {short_model} "
     right_part = f" SESSION: {session_id} "
     
     try:
