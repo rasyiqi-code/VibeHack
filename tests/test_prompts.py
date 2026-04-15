@@ -80,7 +80,7 @@ def test_variable_substitution():
     opt = PromptOptions(target="TARGET_VAR", tools=["TOOL_VAR"])
     overrides = {"identity": "Testing ${target} with ${tools}"}
     prompt = build_system_prompt(opt, overrides=overrides)
-    assert "Testing TARGET_VAR with TOOL_VAR" in prompt
+    assert "Testing TARGET_VAR with `TOOL_VAR`" in prompt
 
 def test_debug_export(tmp_path):
     # Mock cfg.HOME to use tmp_path
