@@ -3,6 +3,7 @@ vibehack/core/repl/commands.py — Logic for slash commands in the REPL.
 Separated to avoid bloat in repl.py.
 """
 import os
+import re
 from typing import Optional, Union, Tuple
 from rich.console import Console
 from rich.panel import Panel
@@ -281,6 +282,7 @@ def _handle_switch(repl, arg: str):
         log_to_pane(repl, "logs", f"🚨 Error: No API Key found for {new_provider or new_model}. Run /auth first.")
         return
     
+    new_auth = "bridge" if new_key == "BRIDGE_MODE" else "key"
     repl.handler.switch_model(new_model, api_key=new_key, provider=new_provider, auth_type=new_auth)
     
     # Persist the change to .env
