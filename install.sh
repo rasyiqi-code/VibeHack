@@ -71,9 +71,8 @@ echo -e "${BLUE}🛠️  Configuring environment and dependencies...${NC}"
 python3 -m venv .venv
 
 # Fix activation and install quietly
-source .venv/bin/activate
-pip install --upgrade pip --quiet
-pip install -e . --quiet
+echo "📦 Mentautkan dependensi VibeHack..."
+./.venv/bin/pip install -e . --quiet
 
 # 6. Create Global Wrapper (Experimental)
 BIN_PATH="$HOME/.local/bin/vibehack"
