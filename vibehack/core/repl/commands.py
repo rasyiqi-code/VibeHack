@@ -280,10 +280,21 @@ def _handle_switch(repl, arg: str):
     if new_provider and not new_key:
         log_to_pane(repl, "logs", f"🚨 Error: No API Key found for {new_provider or new_model}. Run /auth first.")
         return
-        
-    repl.handler = UniversalHandler(api_key=new_key, model=new_model)
-    cfg.MODEL = new_model
-    log_to_pane(repl, "logs", f"✓ Seamless Switch: Brain swapped to {new_model}")
+    
+    repl.handler.switch_model(new_model, api_key=new_key, provider=new_provider, auth_type=new_auth)
+    
+    # Persist the change to .env
+    from vibehack.core.wizard import _save_and_sync
+    final_env = {
+        "VH_PROVIDER": new_provider,
+        "VH_MODEL": new_model,
+        "VH_AUTH_TYPE": new_auth,
+        "VH_API_KEY": new_key if new_key != "BRIDGE_MODE" else "BRIDGE_MODE"
+    }
+    _save_and_sync(final_env)
+    
+    log_to_pane(repl, "logs", f"✓ Switched to {new_provider}/{new_model} ({new_auth}) and saved to .env")
+    repl._rebuild_system_prompt()
 
 def _display_status(repl):
     """Refined status for the dashboard pane."""
