@@ -191,6 +191,7 @@ def resume(
     """Resume a previous REPL session from disk."""
     from vibehack.session.persistence import load_session
     from vibehack.llm.provider import Finding
+    from vibehack.agent.knowledge import KnowledgeState
 
     api_key = _get_api_key()
     state = load_session(session_id)
@@ -214,6 +215,7 @@ def resume(
     repl.history = state.get("history", [])
     repl.key_findings = [Finding(**f) for f in state.get("findings", [])]
     repl.auto_allow = state.get("auto_allow", False)
+    repl.knowledge = KnowledgeState.from_dict(state.get("knowledge", {}))
     repl._system_built = bool(repl.history and repl.history[0]["role"] == "system")
 
     console.print(f"[bold green]Resuming session:[/bold green] {session_id}")

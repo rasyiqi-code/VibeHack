@@ -46,6 +46,24 @@ def _pick_openrouter_model():
     except (KeyboardInterrupt, EOFError):
         return None
 
+def _pick_google_model():
+    """Interactive Gemini model selection."""
+    models = cfg.DEFAULTS.get("google_recommended_models", [])
+    if not models:
+        return cfg.DEFAULT_MODELS.get("google", "gemini-3-flash-preview")
+        
+    console.print(f"\n[bold cyan]Select Gemini Model:[/bold cyan]")
+    for i, m in enumerate(models, 1):
+        console.print(f"  {i}. [green]{m}[/green]")
+    console.print(f"  {len(models) + 1}. Custom model string")
+    
+    choice = Prompt.ask("➤ Select", choices=[str(i) for i in range(1, len(models) + 2)], default="1")
+    
+    if int(choice) <= len(models):
+        return models[int(choice) - 1]
+    else:
+        return Prompt.ask(f"➤ Enter custom model string (e.g. {cfg.MODEL_EXAMPLE})")
+
 def _save_and_sync(final_env):
     """Helper to save and sync environment."""
     import collections
@@ -128,10 +146,11 @@ def _setup_auth_cli():
                 use_bridge = Prompt.ask("➤ Use active session (Seamless Bridge Mode)?", choices=["y", "n", "Y", "N"], default="Y")
 
                 if use_bridge.upper() == "Y":
+                    model_choice = _pick_google_model()
                     final_env = {
                         "VH_PROVIDER": "google",
                         "VH_API_KEY": "BRIDGE_MODE",
-                        "VH_MODEL": cfg.DEFAULT_MODELS.get("google"),
+                        "VH_MODEL": model_choice,
                         "VH_AUTH_TYPE": "bridge"
                     }
                     return _save_and_sync(final_env)
@@ -155,10 +174,11 @@ def _setup_auth_cli():
         if not info:
             return _setup_wizard()
 
+        model_choice = _pick_google_model()
         final_env = {
             "VH_PROVIDER": "google",
             "VH_API_KEY": info["access_token"],
-            "VH_MODEL": cfg.DEFAULT_MODELS.get("google"),
+            "VH_MODEL": model_choice,
             "VH_AUTH_TYPE": "oauth",
             "VH_AUTH_FILE": str(auth_path)
         }
@@ -233,10 +253,13 @@ def _setup_api_key():
              p_model = Prompt.ask(f"➤ Enter custom model string (e.g. {cfg.MODEL_EXAMPLE})")
     else:
         # Standard logic for others
-        console.print(f"  Default is [green]{p_model}[/green]")
-        choice = Prompt.ask("➤ Use default model?", choices=["y", "n"], default="y")
-        if choice.lower() == "n":
-            p_model = Prompt.ask(f"➤ Enter custom model string (e.g. {cfg.MODEL_EXAMPLE})")
+        if pid == "google":
+            p_model = _pick_google_model()
+        else:
+            console.print(f"  Default is [green]{p_model}[/green]")
+            choice = Prompt.ask("➤ Use default model?", choices=["y", "n"], default="y")
+            if choice.lower() == "n":
+                p_model = Prompt.ask(f"➤ Enter custom model string (e.g. {cfg.MODEL_EXAMPLE})")
 
     final_env = {
         p_env: key,

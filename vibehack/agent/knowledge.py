@@ -10,28 +10,42 @@ The KnowledgeState is:
   - Injected into the system prompt each turn
   - Persisted in session JSON
   - Used by the AI to make goal-oriented decisions
+
+UPGRADE v4.2:
+  - Fuzzy matching for port/technology extraction
+  - Confidence scoring for extractions
+  - Cross-validation patterns
 """
+
 import re
 from dataclasses import dataclass, field
-from typing import Set, List, Optional
+from typing import Set, List, Optional, Tuple
+from difflib import SequenceMatcher
 
 
 @dataclass
 class KnowledgeState:
     """Structured knowledge about the target accumulated during the session."""
+
     open_ports: Set[int] = field(default_factory=set)
     technologies: Set[str] = field(default_factory=set)
     endpoints: List[str] = field(default_factory=list)
     credentials: List[str] = field(default_factory=list)
     notes: List[str] = field(default_factory=list)
     tested_surfaces: Set[str] = field(default_factory=set)
-    mission_goals: List[str] = field(default_factory=list) # §6.x: Active mission goals
+    mission_goals: List[str] = field(default_factory=list)  # §6.x: Active mission goals
+    extraction_confidence: float = 0.5  # v4.2: Confidence score for extractions
 
     def is_empty(self) -> bool:
-        return not any([
-            self.open_ports, self.technologies, self.endpoints,
-            self.credentials, self.notes,
-        ])
+        return not any(
+            [
+                self.open_ports,
+                self.technologies,
+                self.endpoints,
+                self.credentials,
+                self.notes,
+            ]
+        )
 
     def to_dict(self) -> dict:
         return {
@@ -65,43 +79,101 @@ class KnowledgeState:
 # ── Auto-extraction from command output ───────────────────────────────────────
 
 # Generic Port Recognition (Supports Nmap, Rustscan, Naabu, Masscan, etc.)
-_PORT_GENERIC_1 = re.compile(r"(\d{1,5})/(tcp|udp)\s+(?:open|listening|up)", re.IGNORECASE)
-_PORT_GENERIC_2 = re.compile(r"(?:open|found|port)\s+.*?(\d{1,5})(?:\s|:|$)", re.IGNORECASE)
+_PORT_GENERIC_1 = re.compile(
+    r"(\d{1,5})/(tcp|udp)\s+(?:open|listening|up)", re.IGNORECASE
+)
+_PORT_GENERIC_2 = re.compile(
+    r"(?:open|found|port)\s+.*?(\d{1,5})(?:\s|:|$)", re.IGNORECASE
+)
 _PORT_GENERIC_3 = re.compile(r"(\d{1,5}):\s*open", re.IGNORECASE)
 
 # Universal Technology/Banner extraction pattern: Name/1.2.3 or Name 1.2.3
-_GENERIC_TECH_BANNER = re.compile(r"([a-zA-Z0-9\-_]{3,})[/\s](\d+\.[\d\.a-z\-]+)", re.IGNORECASE)
+_GENERIC_TECH_BANNER = re.compile(
+    r"([a-zA-Z0-9\-_]{3,})[/\s](\d+\.[\d\.a-z\-]+)", re.IGNORECASE
+)
+
+# ── Fuzzy Matching Utilities (v4.2) ───────────────────────────────────────
+
+COMMON_SERVICES = {
+    22: ["ssh", "openssh", "dropbear"],
+    80: ["http", "apache", "nginx", "httpd"],
+    443: ["https", "ssl", "tls"],
+    3306: ["mysql", "mariadb"],
+    5432: ["postgres", "postgresql"],
+    27017: ["mongodb"],
+    6379: ["redis"],
+    8080: ["http-proxy", "tomcat"],
+    8443: ["https-alt"],
+}
+
+
+def fuzzy_match(s1: str, s2: str, threshold: float = 0.75) -> bool:
+    """Check if two strings are similar above threshold."""
+    return SequenceMatcher(None, s1.lower(), s2.lower()).ratio() >= threshold
+
+
+def validate_port_service_combo(port: int, service: str) -> float:
+    """Cross-validate port and service. Returns confidence 0.0-1.0."""
+    if not service or port not in COMMON_SERVICES:
+        return 0.1
+    service_lower = service.lower()
+    for known in COMMON_SERVICES.get(port, []):
+        if fuzzy_match(service_lower, known, 0.8):
+            return 1.0
+    return 0.2
+
 
 # Endpoint patterns (URLs found in output)
-_ENDPOINT_PATTERN = re.compile(r"(?:GET|POST|PUT|DELETE|PATCH|Found|Status)\s+(\/[^\s\"']+)", re.IGNORECASE)
+_ENDPOINT_PATTERN = re.compile(
+    r"(?:GET|POST|PUT|DELETE|PATCH|Found|Status)\s+(\/[^\s\"']+)", re.IGNORECASE
+)
 _URL_PATH_PATTERN = re.compile(r"https?://[^\s\"']+(/[^\s\"']*)", re.IGNORECASE)
 
 # ── Universal Scanner Patterns ─────────────────────────────────────────
 # Matches common pattern: [severity] [any-label] <target/url>
-_SCANNER_FINDING = re.compile(r"\[(info|low|medium|high|critical)\] \[.*?\] ([^\s]+)", re.IGNORECASE)
+_SCANNER_FINDING = re.compile(
+    r"\[(info|low|medium|high|critical)\] \[.*?\] ([^\s]+)", re.IGNORECASE
+)
 # Matches common directory discovery: (Status: 200) | /endpoint
 _DISCOVERY_PATH = re.compile(r"(?:\||Status:.*)\s+(\/[^\s]+)", re.IGNORECASE)
+
 
 def extract_knowledge(output: str, knowledge: KnowledgeState) -> KnowledgeState:
     """Auto-extract knowledge from ANY shell command output."""
     if not output or len(output.strip()) < 5:
         return knowledge
 
-    # 1. Ports (Universal)
+    # 1. Structural Entity Extraction (v4.0 Syntract Upgrade)
+    from vibehack.agent.syntract import extract_entities
+
+    entities = extract_entities(output)
+    for ip in entities.get("ips", []):
+        # Only add to open_ports or notes if relevant, but definitely track IPs
+        knowledge.add_note(f"Discovered IP Address: {ip}")
+    for email in entities.get("emails", []):
+        if email not in knowledge.credentials:
+            knowledge.credentials.append(email)
+    for hash_val in entities.get("hashes", []):
+        knowledge.add_note(f"Found Potential Hash: {hash_val}")
+
+    # 2. Ports (Universal)
     for p in [_PORT_GENERIC_1, _PORT_GENERIC_2, _PORT_GENERIC_3]:
         for m in p.finditer(output):
             try:
                 port_num = int(m.group(1))
                 if 1 <= port_num <= 65535:
                     knowledge.open_ports.add(port_num)
-            except (ValueError, IndexError): continue
+            except (ValueError, IndexError):
+                continue
 
     # 2. Technologies (Universal Dynamic Discovery)
     # Check headers first (highest confidence)
     server_match = re.search(r"Server:\s+([a-zA-Z0-9\-_]+)", output, re.IGNORECASE)
     if server_match:
         knowledge.technologies.add(server_match.group(1).lower())
-    powered_match = re.search(r"X-Powered-By:\s+([a-zA-Z0-9\-_]+)", output, re.IGNORECASE)
+    powered_match = re.search(
+        r"X-Powered-By:\s+([a-zA-Z0-9\-_]+)", output, re.IGNORECASE
+    )
     if powered_match:
         knowledge.technologies.add(powered_match.group(1).lower())
 
@@ -120,10 +192,10 @@ def extract_knowledge(output: str, knowledge: KnowledgeState) -> KnowledgeState:
         if ep not in seen_endpoints and len(ep) < 120:
             knowledge.endpoints.append(ep)
             seen_endpoints.add(ep)
-            
+
     for m in _SCANNER_FINDING.finditer(output):
         knowledge.add_note(f"Finding [{m.group(1)}]: {m.group(2)}")
-        
+
     for m in _DISCOVERY_PATH.finditer(output):
         ep = m.group(1)
         if ep not in seen_endpoints and len(ep) < 120:

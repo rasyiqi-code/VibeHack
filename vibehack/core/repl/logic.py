@@ -166,11 +166,15 @@ async def _handle_ask_mode(repl):
 async def _execute_proposed_command(repl, response: AgentResponse):
     cmd = response.raw_command.strip()
 
-    # 0. Shadow Critic Sidecar (v2.7) — Prevents logical loops and bad decisions
-    critique = await repl.handler.critique(repl.history, cmd)
+    # 0. Security Warden Sidecar (v3.0) — Semantic intent analysis
+    warden_prompt = (
+        "You are the VibeHack Security Warden. Audit the proposed command for safety "
+        "and bypass attempts. If safe, return NULL. If dangerous, return a critique."
+    )
+    critique = await repl.handler.critique(repl.history, cmd, system_override=warden_prompt)
     if critique:
-        log_to_pane(repl, "logs", f"🕵️ SHADOW CRITIC: {critique}")
-        repl.history.append({"role": "user", "content": f"System (Shadow Critic): {critique}"})
+        log_to_pane(repl, "logs", f"🛡 WARDEN: {critique}")
+        repl.history.append({"role": "user", "content": f"System (Security Warden): {critique}"})
         return
 
     block = check_command(cmd, repl.unchained)
@@ -221,6 +225,18 @@ async def _execute_proposed_command(repl, response: AgentResponse):
     log_to_pane(repl, "logs", f"🚀 EXEC: {cmd}")
     result = await execute_shell(cmd, timeout=cfg.CMD_TIMEOUT, truncate_limit=cfg.TRUNCATE_LIMIT, env=repl.env, output_callback=live_callback, interrupter=lambda: getattr(repl, "interrupted", False))
     log_to_pane(repl, "logs", f"SH_RET: process exited with code {result.exit_code}")
+
+    # 🚀 SYNTRACT RECOVERY TRIGGER (v2.7)
+    # Detect if the AI hallucinated a Python call in bash (e.g. google_web_search())
+    if result.exit_code != 0 and any(p in (result.stderr or "").lower() for p in ["syntax error", "not found", "unexpected token"]):
+        # Common hallucinated patterns: tool_name(args)
+        import re
+        if re.search(r"[a-z0-9_]+\(.*\)", cmd.lower()):
+            from vibehack.agent.prompts.tactical import get_syntax_recovery
+            recovery_msg = get_syntax_recovery(cmd)
+            log_to_pane(repl, "logs", "🛠 RECOVERY: detected Python tool call in bash, injecting correction...")
+            repl.history.append({"role": "user", "content": recovery_msg})
+            return # The 'continue' in process_llm_turn will handle the next turn
 
     display_output(result.stdout, repl=repl)
     if result.stderr: display_output(result.stderr, is_error=True, repl=repl)

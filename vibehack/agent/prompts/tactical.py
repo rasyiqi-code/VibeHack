@@ -14,6 +14,15 @@ def get_loop_recovery(detail: str = "Repetitive patterns identified") -> str:
         "approach or tool. Ensure you are making forward progress."
     )
 
+def get_syntax_recovery(command: str) -> str:
+    """Feedback when the AI mistakenly uses Python syntax in raw_command."""
+    return (
+        f"System: BASH SYNTAX ERROR. You attempted to run: `{command}`. "
+        "This failed because it is not a valid shell command — it looks like a Python function call. "
+        "VibeHack executes `raw_command` directly in bash. You must use shell binaries (e.g., `curl`, `nmap`) "
+        "or wrap Python snippets in `python3 -c '...'`. Do NOT use `google_web_search()` directly."
+    )
+
 def get_truncation_note(limit: int) -> str:
     """Note injected when shell output is truncated to save tokens."""
     return (

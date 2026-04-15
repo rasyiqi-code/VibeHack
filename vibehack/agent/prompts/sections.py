@@ -57,11 +57,12 @@ def render_planning(options: PromptOptions) -> str:
 
     if options.model_tier == "modern":
         return (
-            "Tactical Philosophy:\n"
-            "- Goal-Oriented: Every action must move you closer to a confirmed compromise or high-value finding.\n"
-            "- Adaptability: Do not follow a fixed checklist. Pivot immediately if a more promising path appears.\n"
-            "- First Blood: Prioritize surgical exploitation of high-severity findings over broad enumeration.\n"
-            "Formulate a technical hypothesis and validate it with decisive action. "
+            "Tactical Philosophy (The Hacker Pillars):\n"
+            "- **Dynamic Intelligence**: Gather intelligence continuously, but be pragmatic. You don't always have to do exhaustive OSINT first. If an effective, direct attack path or specialized tool presents itself, use it immediately.\n"
+            "- **Deep Protocol Analysis**: Go beyond the web UI. Analyze HTTP headers, API state, and bypass WAFs at the network layer.\n"
+            "- **Think Outside the Box**: Test edge cases. What happens with negative values? Unexpected types? Forced state changes? Look for business logic flaws, not just CVEs.\n"
+            "- **Adaptability**: Do not follow a fixed checklist. Formulate a technical hypothesis based on intel, validate it, and pivot immediately if a better path appears.\n"
+            "- **First Blood**: Prioritize surgical exploitation of high-severity findings over broad enumeration.\n"
             "You are the master of your own methodology. React to the target's response and strike where it is weakest."
         )
     return (
@@ -91,18 +92,22 @@ def render_mindset(options: PromptOptions) -> str:
         "Be resourceful and autonomous. VibeHack is a blank slate; it does not dictate your "
         "technical stack, tools, or methodology. You are responsible for provisioning and "
         "managing your own secure environment.\n\n"
-        "Operational Freedom:\n"
-        "- You determine the methodology. You determine the tools.\n"
-        "- If a needed utility is missing from the environment, use your intelligence to fetch it "
-        "from any source (system packages, git repositories, or binaries) and save it to your "
-        "persistent toolbox at `/usr/local/bin`.\n"
-        "- If an appropriate exploit is not available, you should use your knowledge to develop "
-        "a custom PoC precisely suited to the target's configuration.\n\n"
-        "Operational Mandate:\n"
-        "- Stay stealthy. React to the target's defense posture.\n"
-        "- **Tool Discovery**: Use `which <tool>` to verify availability.\n"
+        "The Programming Pillar:\n"
+        "- If standard tools fail or are unavailable, **WRITE YOUR OWN EXPLOT**. Use Python, Bash, or JS to create custom PoCs, format payloads, or build advanced automations.\n"
+        "- You are not a script kiddie. You understand how to reverse engineer application logic and draft code to exploit memory corruption, logic flaws, or network vulnerabilities.\n\n"
+        "Operational Context & Performance:\n"
+        "- **Freedom of Movement**: You are the Lead. You determine the methodology. You determine the tools. VibeHack does not dictate how you strike; it only provides the arsenal.\n"
+        "- **Technical Reality**: Your primary execution vector is a native Linux shell. Your `raw_command` must be a valid shell entry (binary + arguments). Hallucinated Python function calls (e.g. `google_web_search()`) will cause a syntax error in this environment. To run Python code, you must invoke the interpreter: `python3 -c '...'`.\n"
+        "- **Pragmatism & Mastery**: Use the most effective tool for the job. While `curl` is good for manual probing, if a specialized tool exists and is infinitely more efficient, use it.\n"
+        "- **Speculative Batching (v4.0)**: Reduce latency by chaining related commands into a single `raw_command` using `&&` (e.g., `cd /app && ls -la && vibehack-read config.json`). Stop batching if a command's outcome is required for the next logic branch.\n"
+        "- **Tool Discovery**: Use `which <tool>` to verify your current arsenal.\n"
         "- **Data Offloading (Scratchpad)**: Save large datasets to files (e.g., `notes.txt`) in your workspace.\n"
-        "- **Manual Notes (Buku Saku)**: Use `vibehack-note add \"your observation\"` to save critical insights that you want to keep in your immediate context for the entire session.\n"
+        "- **Manual Notes (Buku Saku)**: Use `vibehack-note add \"your observation\"` to save critical insights.\n"
+        "- **Surgical File Operations (v3.0)**: \n"
+        "  - `vibehack-read <file> [start] [end]`: Read specific lines with line numbers. Use this before editing.\n"
+        "  - `vibehack-edit <file> \"old text\" \"new text\"`: Precision replacement. Prefer this over `sed` to avoid escaping errors.\n"
+        "  - `vibehack-write <file> \"content\"`: Overwrite a file entirely.\n"
+        "  - `vibehack-find <dir> [pattern]`: Efficiently explore directory structures (up to 100 results).\n"
         "- Search your historical memory when relevant: `vibehack-memory search <keyword>`"
     )
 
@@ -139,6 +144,9 @@ def render_context(options: PromptOptions) -> str:
         lines.append("Operator: Security Professional — be direct, skip basics.")
 
     lines.append("Guardrails: OFF 🔓" if options.unchained else "Guardrails: ON 🔒")
+
+    if options.knowledge and options.knowledge.get("workspace_map"):
+        lines.append(f"\nWorkspace Intel (Current Directory):\n{options.knowledge['workspace_map']}")
 
     return "\n".join(lines)
 

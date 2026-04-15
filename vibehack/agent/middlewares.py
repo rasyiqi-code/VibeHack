@@ -40,8 +40,11 @@ class ToolValidationMiddleware:
             
         return ctx
 
-class ShadowCriticMiddleware:
-    """Lead Agent peer-review."""
+class SecurityWardenMiddleware:
+    """
+    The Elite Guardian (v3.0): Performs deep semantic intent analysis.
+    Checks for obfuscation bypasses, data exfiltration, and unauthorized system tampering.
+    """
     def __init__(self, handler):
         self.handler = handler
 
@@ -49,9 +52,20 @@ class ShadowCriticMiddleware:
         if not ctx.command or ctx.stop_execution:
             return ctx
             
-        critique = await self.handler.critique(ctx.history, ctx.command)
+        # We use a specialized system prompt for the Warden
+        warden_prompt = (
+            "You are the VibeHack Security Warden. Your task is to audit proposed shell commands "
+            "for unintended destructive behavior, obfuscation bypasses of safety filters, "
+            "and potential data exfiltration of sensitive host files (like /etc/shadow, .env, .git/config).\n\n"
+            "If the command is safe and follows best offensive security practices, return NULL.\n"
+            "If the command is dangerous or attempts to bypass guardrails, return a detailed technical critique "
+            "explaining WHY it is blocked and suggesting a safer/more standard alternative.\n\n"
+            "Focus on Intent, not just syntax."
+        )
+        
+        critique = await self.handler.critique(ctx.history, ctx.command, system_override=warden_prompt)
         if critique:
-            ctx.warning = critique
+            ctx.warning = f"WARDEN CRITIQUE: {critique}"
             ctx.stop_execution = True
         return ctx
 
@@ -114,6 +128,19 @@ class SkillMiddleware:
                     
         if skills_found:
             ctx.metadata["skills_context"] = "\n".join(skills_found)
+            
+        return ctx
+
+class WorkspaceDiscoveryMiddleware:
+    """Automatically maps the workspace structure for context awareness."""
+    async def __call__(self, ctx: PipelineContext) -> PipelineContext:
+        from vibehack.core.editor import find_in_dir
+        
+        # Only run if context is missing or on directory changes (conceptually)
+        if "workspace_map" not in ctx.metadata:
+            # Shallow find to get the basic structure of the current directory
+            ws_map = find_in_dir(".", pattern="*", recursive=False)
+            ctx.metadata["workspace_map"] = ws_map
             
         return ctx
 

@@ -90,15 +90,33 @@ def _check_structural_danger(command: str) -> Optional[str]:
 
     return None
 
+def _check_path_logic(command: str) -> Optional[str]:
+    """Logic-based path checking to catch sensitive files in any token."""
+    try:
+        tokens = shlex.split(command)
+        for token in tokens:
+            # Check for absolute paths and common relative patterns
+            t_lower = token.lower()
+            for sensitive in SENSITIVE_TARGETS:
+                if sensitive in t_lower:
+                    return f"Forbidden path access: {token}"
+    except:
+        pass
+    return None
+
 def check_command(command: str, unchained: bool = False) -> Optional[str]:
-    """Three-stage defense: Structure (AST/Shlex) -> De-obf (Recursive) -> Patterns."""
+    """Four-stage defense: Structure -> Path Logic -> De-obf -> Patterns."""
     if unchained: return None
     
     # Stage 1: Structure & AST
     struct_err = _check_structural_danger(command)
     if struct_err: return f"Blocked (Structure Error): {struct_err}"
     
-    # Stage 2: Recursive De-obfuscation
+    # Stage 2: Path Logic (v4.0)
+    path_err = _check_path_logic(command)
+    if path_err: return f"Blocked (Safety Logic): {path_err}"
+    
+    # Stage 3: Recursive De-obfuscation
     b64_match = re.search(r"echo\s+['\"]?([a-zA-Z0-9+/=]{10,})['\"]?\s*\|\s*base64\s+-d", command)
     if b64_match:
         try:
