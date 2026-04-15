@@ -266,29 +266,43 @@ def _sanitize_output(text: str) -> str:
     return text.strip()
 
 def _skeletonize_html(html: str) -> str:
-    """Strips layout bloat (div, span, p, etc) while keeping security-relevant tags."""
+    """Robust HTML strip using BeautifulSoup: only keeps attack-surface tags (form, input, a) with minimal attributes."""
     if "<html" not in html.lower() and "<form" not in html.lower() and "<input" not in html.lower():
-        return html # Probably not HTML
+        return html # Not HTML
         
-    # Remove Scripts, Styles, and Comments first
-    html = re.sub(r"<(script|style|svg|noscript|iframe|header|footer|nav).*?>.*?</\1>", "", html, flags=re.DOTALL | re.IGNORECASE)
-    html = re.sub(r"<!--.*?-->", "", html, flags=re.DOTALL)
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        # Fallback to simple regex if BS4 is missing (though we added it to pyproject.toml)
+        html = re.sub(r"<(script|style|svg|noscript|iframe|header|footer|nav).*?>.*?</\1>", "", html, flags=re.DOTALL | re.IGNORECASE)
+        return re.sub(r"<[^>]+>", "", html).strip()
 
-    # Keep only essential tags: form, input, button, select, textarea, a, meta, link
-    # We strip the tags but keep the content for non-essential ones, 
-    # OR we just strip the whole tag for generic containers.
+    soup = BeautifulSoup(html, "html.parser")
     
-    # 1. Strip generic containers entirely (both tag and content usually just text bloat)
-    # Actually, keep the text inside but remove the tag.
-    bloat_tags = ["div", "span", "p", "section", "article", "aside", "ul", "li", "ol", "br", "hr", "b", "i", "strong", "em"]
-    for tag in bloat_tags:
-        # Strip opening tag
-        html = re.sub(f"<{tag}.*?>", "", html, flags=re.IGNORECASE)
-        # Strip closing tag
-        html = re.sub(f"</{tag}>", "", html, flags=re.IGNORECASE)
+    # 1. Nuke trash tags and their content
+    for trash in soup(["script", "style", "svg", "noscript", "iframe", "header", "footer", "nav", "aside", "head", "object", "embed", "canvas"]):
+        trash.decompose()
 
-    # 2. Final cleanup of any tags that weren't in our "essential" list
-    # Essential list: a, form, input, button, select, textarea, meta, title, head, body, html
-    # But let's be even more aggressive: just keep a, form, input, button, title
+    # 2. Extract essential tags
+    essential_tags = ["form", "input", "button", "a", "select", "textarea", "title", "meta"]
+    essential_attrs = ["name", "value", "type", "action", "method", "href", "src"]
     
-    return html
+    # 3. Process every tag in the soup
+    for tag in soup.find_all(True):
+        if tag.name in essential_tags:
+            # Keep the tag but strip attributes
+            attrs = {}
+            for attr in essential_attrs:
+                if tag.has_attr(attr):
+                    attrs[attr] = tag[attr]
+            tag.attrs = attrs
+        else:
+            # For non-essential tags (div, span, p, etc), replace with their text content
+            tag.unwrap()
+
+    # 4. Clean up the resulting text
+    result = soup.decode()
+    
+    # Remove excessive blank lines
+    result = re.sub(r"\n\s*\n", "\n", result)
+    return result.strip()
