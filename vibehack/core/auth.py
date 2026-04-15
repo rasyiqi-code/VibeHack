@@ -233,6 +233,17 @@ def run_gemini_bridge(prompt: str, model: Optional[str] = None) -> Optional[str]
     # Add prompt as a single argument for one-shot execution
     args.append(prompt)
     
+    # Log the command being run for local debugging
+    log_to_pane = None
+    try:
+        from vibehack.ui.tui import log_to_pane as ltp
+        log_to_pane = ltp
+    except: pass
+
+    if log_to_pane:
+        cmd_preview = " ".join(args[:3])
+        log_to_pane(None, "logs", f"BRIDGE CALL: {cmd_preview} ...")
+
     try:
         process = subprocess.Popen(
             args,
@@ -249,7 +260,12 @@ def run_gemini_bridge(prompt: str, model: Optional[str] = None) -> Optional[str]
         if process.returncode == 0:
             return ""
 
-        console.print(f"[bold red]Bridge Error (Status {process.returncode}):[/bold red] {stderr or 'Terminated with error but no message.'}")
+        err_msg = stderr or 'Terminated with error but no message.'
+        console.print(f"[bold red]Bridge Error (Status {process.returncode}):[/bold red] {err_msg}")
+        
+        if log_to_pane:
+            log_to_pane(None, "logs", f"🚨 BRIDGE FAILURE: Status {process.returncode}")
+            
         return None
     except subprocess.TimeoutExpired:
         process.kill()
