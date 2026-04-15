@@ -92,5 +92,5 @@ echo -e "--------------------------------------------------------"
 echo -e "${YELLOW}Note: Run '/auth' inside VibeHack to set your API Key.${NC}\n"
 
 # Clean Exit: Deactivate and return to original folder
-deactivate
+# Installation finished
 cd - > /dev/null
