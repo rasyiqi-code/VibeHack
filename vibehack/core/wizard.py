@@ -67,33 +67,42 @@ def _pick_google_model():
 def _save_and_sync(final_env):
     """Helper to save and sync environment."""
     import collections
-    env_dict = collections.OrderedDict()
+    from pathlib import Path
     
-    if cfg.GLOBAL_ENV.exists():
-        with open(cfg.GLOBAL_ENV, "r") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" in line:
-                    k, v = line.split("=", 1)
-                    if k.startswith("VH_"):
-                        continue
-                    env_dict[k] = v
-    
-    for k, v in final_env.items():
-        env_dict[k] = v
+    # Update both Global and Local .env (if it exists) to prevent stubborn overrides
+    env_files = [cfg.GLOBAL_ENV]
+    if Path(".env").exists():
+        env_files.append(Path(".env"))
         
-    # Write to .env
-    with open(cfg.GLOBAL_ENV, "w") as f:
-        for k, v in env_dict.items():
-            f.write(f"{k}={v}\n")
-    
-    # Secure the file permissions (Owner RW only)
-    try:
-        os.chmod(cfg.GLOBAL_ENV, 0o600)
-    except Exception:
-        pass
+    for env_path in env_files:
+        env_dict = collections.OrderedDict()
+        if env_path.exists():
+            with open(env_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        env_dict[line] = None # Keep comments vaguely, though keys are deduplicated
+                        continue
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        if k.startswith("VH_") and k in ["VH_PROVIDER", "VH_MODEL", "VH_AUTH_TYPE", "VH_API_KEY", "VH_AUTH_FILE", "VH_API_BASE"]:
+                            continue
+                        env_dict[k] = v
+        
+        for k, v in final_env.items():
+            env_dict[k] = v
+            
+        with open(env_path, "w") as f:
+            for k, v in env_dict.items():
+                if v is None:
+                    f.write(f"{k}\n")
+                else:
+                    f.write(f"{k}={v}\n")
+        
+        try:
+            os.chmod(env_path, 0o600)
+        except Exception:
+            pass
 
     # ── KEYRING SYNC ──────────────────────────────────────────────────
     for k, v in final_env.items():

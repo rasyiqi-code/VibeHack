@@ -13,6 +13,21 @@ from rich.tree import Tree
 console = Console()
 _CONN_CACHE = {"status": "Unknown", "last_check": 0}
 
+def log_internal_error(error: Exception):
+    """Write critical tracebacks to a local log file for debugging."""
+    import traceback
+    from datetime import datetime
+    try:
+        from vibehack.config import cfg
+        log_file = cfg.HOME / "error.log"
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"\n[{now}] ERROR: {error}\n")
+            f.write(traceback.format_exc())
+            f.write("-" * 80 + "\n")
+    except:
+        pass
+
 async def update_connectivity():
     """Background task to update connectivity status."""
     import requests
@@ -152,7 +167,7 @@ def log_to_pane(repl, pane: str, message: str):
     buffer = getattr(repl, f"{pane}_buffer")
     
     # 1. Smarter Tag Stripping
-    # Strip Rich tags ONLY if they look like formatting [bold], [red], [/] 
+    # Strip Rich tags ONLY if they look like formatting [bold], [red], [/]
     # Protect potential technical data like [127.0.0.1] or [DEBUG]
     keywords = r"bold|italic|underline|dim|blink|red|green|blue|yellow|magenta|cyan|white|grey|black|strike|reverse|link|#?[a-fA-F0-9]+|ansi[a-z0-9]+|class:[a-z.-]+"
     fmt_tags = rf"\[(?:/?(?:{keywords})(?:\s+(?:{keywords}))*|/)\s*\]"
@@ -160,6 +175,10 @@ def log_to_pane(repl, pane: str, message: str):
     
     # Strip HTML-style tags often used in prompt-toolkit HTML
     clean_msg = re.sub(r"<(?:ansicyan|ansired|ansiyellow|ansigreen|ansiblue|ansimagenta|ansigray|b|u|i|/b|/u|/i)>", "", clean_msg)
+    
+    # CRITICAL: Strip raw ANSI escape codes that corrupt prompt-toolkit layout engine
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    clean_msg = ansi_escape.sub('', clean_msg)
     
     now = datetime.now()
     if pane == "logs":
@@ -186,8 +205,14 @@ def log_to_pane(repl, pane: str, message: str):
     buffer.cursor_position = len(buffer.text)
     
     # Force UI redraw to ensure immediate visibility of updates
+    # Throttled to prevent flickering from rapid-fire logs
     if repl and hasattr(repl, "app"):
-        repl.app.invalidate()
+        import time
+        now_ts = time.time()
+        last_ts = getattr(repl, "_last_invalidate", 0)
+        if now_ts - last_ts > 0.1:  # Max 10 redraws per second
+            repl._last_invalidate = now_ts
+            repl.app.invalidate()
 
 def pop_last_line_from_pane(repl, pane: str):
     """Removes the last line from a buffer. Useful for clearing 'Thinking...' status."""

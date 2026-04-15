@@ -98,9 +98,17 @@ async def handle_slash_command(repl, cmd: str) -> Union[bool, Tuple[str, str]]:
         from vibehack.config import load_config_env
         
         def _run_auth():
-            _setup_wizard()
-            load_config_env()
-            cfg.load()
+            import sys
+            old_out, old_err = sys.stdout, sys.stderr
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
+            try:
+                _setup_wizard()
+                load_config_env()
+                cfg.load()
+            finally:
+                sys.stdout = old_out
+                sys.stderr = old_err
         
         if repl and hasattr(repl, "app"):
             from prompt_toolkit.application import run_in_terminal

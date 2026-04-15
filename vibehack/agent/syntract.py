@@ -81,8 +81,8 @@ def detect_injection_risk(text: str) -> dict:
             detections.append(f"Framing: {desc}")
 
     # Layer 3: Encoding attempts (bypass techniques)
-    if re.search(r"\\u[0-9a-fA-F]{4}|\\\x[0-9a-fA-F]{2}", text):
-        detections.append("Encoding: Unicode/Hex escape")
+    if re.search(r"\\u[0-9a-fA-F]{4}", text):
+        detections.append("Encoding: Unicode escape")
     if re.search(r"&#\d+;|&#x[0-9a-fA-F]+;", text):
         detections.append("Encoding: HTML entity")
     if re.search(r"\{(?:\s*\{)+|(?:\}\s*\})+", text):

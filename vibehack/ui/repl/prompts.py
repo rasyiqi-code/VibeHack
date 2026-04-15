@@ -82,8 +82,8 @@ def get_repl_style():
         'version':        '#ffffff dim',
         'auth':           '#00ff00',
         'sandbox-safe':   '#00ff00',
-        'sandbox-warn':   '#ff0000 bold blink',
-        'status-thinking': 'noinherit #ff0000 bg:default bold blink',
+        'sandbox-warn':   '#ff0000 bold',
+        'status-thinking': 'noinherit #ff0000 bg:default bold',
         'status-listening': 'noinherit #ffd700 bg:default bold',
         
         # Frame & Border Styles (GOLD Theme)
@@ -129,7 +129,12 @@ def get_bottom_toolbar(repl):
     
     model_name = "AI"
     if hasattr(repl, 'handler') and hasattr(repl.handler, 'model'):
-        model_name = repl.handler.model.split("/")[-1]
+        m_name = str(repl.handler.model).split("/")[-1]
+        provider = getattr(repl.handler, "provider", "")
+        if provider:
+            model_name = f"[{provider.upper()}] {m_name}"
+        else:
+            model_name = m_name
         
     session_id = str(getattr(repl, 'session_id', 'UNKNOWN'))
     

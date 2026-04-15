@@ -6,14 +6,11 @@ from typing import NamedTuple, Optional, List
 
 # Exfiltration detection patterns (pre-execution)
 EXFIL_PATTERNS = [
-    (
-        r"curl.*(?:-d|--data|--data-binary)\s*['\"].*?(?:\$[a-zA-Z_]|~)",
-        "curl data exfil",
-    ),
-    (r"wget.*(?:-O|--output-document).*http", "wget exfil"),
-    (r"nc.*(?:-e|--exec).*http", "netcat remote exec"),
-    (r"python.*(?:\.send|\.post|urllib|http\.request).*http", "python exfil"),
-    (r"cat\s+(?:\~/|\/\.).*\|\s*(?:nc|wget|curl)", "pipe exfil"),
+    (r"curl\s+.*(?:-d|--data|--data-binary).*\$\(", "curl data exfil"),
+    (r"wget\s+.*(?:-O|--output-document)", "wget exfil"),
+    (r"nc\s+.*(?:-e|--exec)", "netcat remote exec"),
+    (r"python\s+-c.*urllib", "python exfil"),
+    (r"cat\s+.*\|\s*(?:nc|wget|curl)", "pipe exfil"),
     (r"base64.*\|\s*(?:nc|wget|curl)", "base64 exfil"),
     (r"\.env|\.git/config|authorized_keys", "credential file access"),
 ]
@@ -136,6 +133,7 @@ class PersistentSession:
                 await self.process.stdin.drain()
 
                 output_buffer = ""
+                last_sent_len = 0
                 exit_code = 0
                 start_time = asyncio.get_event_loop().time()
 
@@ -183,9 +181,6 @@ class PersistentSession:
 
                         output_buffer += chunk_str
 
-                        if callback:
-                            callback(chunk_str, False)
-
                         # Search for delimiter in the last part of the buffer
                         if delimiter in output_buffer:
                             parts = output_buffer.split(delimiter)
@@ -203,12 +198,25 @@ class PersistentSession:
                             else:
                                 final_stdout = ""
 
+                            if callback:
+                                to_send = final_stdout[last_sent_len:]
+                                if to_send:
+                                    callback(to_send, False)
+
                             return ShellResult(
                                 stdout=_sanitize_output(final_stdout),
                                 stderr="",
                                 exit_code=exit_code,
                                 truncated=False,
                             )
+                        else:
+                            # Not found yet. Safe to send up to the margin to prevent partial delimiter leak.
+                            if callback:
+                                safe_len = max(0, len(output_buffer) - len(delimiter) - 10)
+                                to_send = output_buffer[last_sent_len:safe_len]
+                                if to_send:
+                                    callback(to_send, False)
+                                    last_sent_len += len(to_send)
                     except asyncio.TimeoutError:
                         continue
                     except Exception as e:

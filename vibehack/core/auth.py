@@ -199,8 +199,18 @@ def exchange_code_for_token(code: str, client_id: str, client_secret: str, code_
              Console().print(f"[dim]Detail: {e.response.text}[/dim]")
         return None
 def is_cli_installed(cmd: str) -> bool:
-    """Check if a CLI command is available in PATH."""
-    return shutil.which(cmd) is not None
+    """Check if a CLI command is available in PATH or nvm paths."""
+    import shutil
+    from pathlib import Path
+    if shutil.which(cmd):
+        return True
+    # Check nvm paths for node-based tools
+    nvm_dir = Path.home() / ".nvm" / "versions" / "node"
+    if nvm_dir.exists():
+        for node_ver in sorted(nvm_dir.iterdir(), reverse=True):
+            if (node_ver / "bin" / cmd).exists():
+                return True
+    return False
 
 def verify_gemini_cli_bridge() -> bool:
     """Verify if gemini-cli is authenticated and usable."""
@@ -208,9 +218,9 @@ def verify_gemini_cli_bridge() -> bool:
         return False
     
     try:
-        # Check if authenticated/usable by getting version
+        gemini_bin = _resolve_gemini_binary()
         process = subprocess.Popen(
-            ["gemini", "--version"],
+            [gemini_bin, "--version"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
@@ -219,59 +229,85 @@ def verify_gemini_cli_bridge() -> bool:
     except Exception:
         return False
 
+def _resolve_gemini_binary() -> str:
+    """Resolve the full path to the gemini CLI binary, checking nvm paths."""
+    import shutil
+    from pathlib import Path
+
+    # 1. Already in PATH (normal shell, system install)
+    found = shutil.which("gemini")
+    if found:
+        return found
+
+    # 2. nvm-based install (most common on Linux/macOS dev machines)
+    nvm_dir = Path.home() / ".nvm" / "versions" / "node"
+    if nvm_dir.exists():
+        for node_ver in sorted(nvm_dir.iterdir(), reverse=True):
+            candidate = node_ver / "bin" / "gemini"
+            if candidate.exists():
+                return str(candidate)
+
+    # 3. npm global fallback locations
+    for prefix in [Path.home() / ".npm-global", Path("/usr/local"), Path("/usr")]:
+        candidate = prefix / "bin" / "gemini"
+        if candidate.exists():
+            return str(candidate)
+
+    return "gemini"  # Last resort, will fail with helpful error
+
+
 def run_gemini_bridge(prompt: str, model: Optional[str] = None) -> Optional[str]:
-    """Run prompt via official gemini CLI subprocess."""
-    from rich.console import Console
-    console = Console()
-    
-    args = ["gemini"]
+    """Run prompt via official gemini CLI subprocess (stdin-based one-shot mode)."""
+    from pathlib import Path
+
+    gemini_bin = _resolve_gemini_binary()
+    args = [gemini_bin]
     if model:
         # Strip LiteLLM prefixes for official CLI compatibility
         clean_model = model.replace("gemini/", "").replace("vertex_ai/", "")
         args.extend(["--model", clean_model])
-    
-    # Add prompt as a single argument for one-shot execution
-    args.append(prompt)
-    
-    # Log the command being run for local debugging
-    log_to_pane = None
+
+    # Build subprocess env with nvm node path injected so the gemini shebang works
+    env = os.environ.copy()
+    nvm_dir = Path.home() / ".nvm" / "versions" / "node"
+    if nvm_dir.exists():
+        for node_ver in sorted(nvm_dir.iterdir(), reverse=True):
+            node_bin = str(node_ver / "bin")
+            if node_bin not in env.get("PATH", ""):
+                env["PATH"] = node_bin + ":" + env.get("PATH", "")
+            break  # Only need the latest
+
     try:
         from vibehack.ui.tui import log_to_pane as ltp
-        log_to_pane = ltp
-    except: pass
-
-    if log_to_pane:
-        cmd_preview = " ".join(args[:3])
-        log_to_pane(None, "logs", f"BRIDGE CALL: {cmd_preview} ...")
+        ltp(None, "logs", f"🌉 BRIDGE: {' '.join(args[:2])} [stdin mode]")
+    except Exception:
+        pass
 
     try:
         process = subprocess.Popen(
             args,
+            stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            env=env
         )
-        stdout, stderr = process.communicate(timeout=300)
-        
-        if stdout:
-            return stdout.strip()
-        
-        # If no stdout but command was successful, return empty to trigger proper error handling
-        if process.returncode == 0:
-            return ""
+        stdout, stderr = process.communicate(input=prompt, timeout=300)
 
-        err_msg = stderr or 'Terminated with error but no message.'
-        console.print(f"[bold red]Bridge Error (Status {process.returncode}):[/bold red] {err_msg}")
-        
-        if log_to_pane:
-            log_to_pane(None, "logs", f"🚨 BRIDGE FAILURE: Status {process.returncode}")
+        if stdout and stdout.strip():
+            return stdout.strip()
+
+        if process.returncode != 0:
+            err_msg = (stderr or "").strip()
+            # If the CLI hits a quota or model issue, it usually complains in stderr
+            raise Exception(f"Bridge CLI Error (exit {process.returncode}): {err_msg}")
             
-        return None
+        return ""
+
     except subprocess.TimeoutExpired:
         process.kill()
-        console.print(f"[bold red]Bridge Timeout:[/bold red] 'gemini' CLI took too long (>300s).")
-        console.print("[dim]Hint: Large system prompts on some models can cause initial processing delay.[/dim]")
-        return None
+        raise Exception("Bridge Mode Timeout: 'gemini' CLI took too long (>300s) to respond.")
     except Exception as e:
-        console.print(f"[bold red]Bridge Exception:[/bold red] {str(e)}")
-        return None
+        # Re-raise to be handled by the main REPL loop
+        raise
+

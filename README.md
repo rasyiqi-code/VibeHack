@@ -2,10 +2,10 @@
   <img src="docs/assets/logo.png" width="160" alt="VibeHack Logo">
 </p>
 
-<h1 align="center">🌪️ VibeHack v4.3</h1>
+<h1 align="center">🌪️ VibeHack v4.2</h1>
 
 <p align="center">
-  <strong>The Industry-Leading Autonomous AI security agent for offensive security automation and stateful simulation.</strong>
+  <strong>The Intelligence & Optimization Release — Hardened Autonomous AI Security Agent</strong>
 </p>
 
 <p align="center">
@@ -17,7 +17,28 @@
 
 ---
 
-VibeHack is more than a tool; it is a **Body** for AI **Souls**. It provides the infrastructure—a hardened sandbox, a persistent shell, and long-term memory—while empowering the AI to autonomously discover, provision, and execute its own technical methodology without pre-defined dictates.
+## 🔒 Security Hardening (v4.2)
+
+| Feature | Description |
+| :--- | :--- |
+| **🏭 Mandatory Sandbox** | All commands execute inside Docker. No host fallback. |
+| **🔐 Read-Only Root** | Container filesystem is read-only (except workspace). |
+| **🛡️ Multi-Layer Injection Detection** | 4-layer risk analysis for prompt injection. |
+| **🚫 Exfiltration Pre-Scan** | Prevents data exfiltration before command execution. |
+| **🎭 Finding Validation** | Automatic hallucination detection for security findings. |
+| **📊 Fuzzy Knowledge** | Robust technology extraction with fuzzy matching. |
+
+### Sandbox Configuration
+
+```
+Memory:     512MB Limit
+CPU:        0.5 Cores
+Filesystem: Read-only (except /root/workspace)
+Capability: NET_RAW only (NET_ADMIN removed)
+Network:   Bridge isolated
+```
+
+---
 
 ## ⚡ Key Capabilities
 
@@ -29,49 +50,100 @@ VibeHack is more than a tool; it is a **Body** for AI **Souls**. It provides the
 | **🐚 Stateful Heart** | Long-running `bash` sessions that survive restarts. Arsenal building lives on. |
 | **🛡️ AST Guardrails** | Advanced Python AST and shell analysis to keep the host system safe while allowing tactical freedom. |
 
+---
+
 ## 🚀 Quick Start
 
-Launch the **Trinity Auth Wizard** or start an audit in seconds:
+### Prerequisites
+- Docker installed and running
+- Python 3.11+ (via UV)
+
+### Run
 
 ```bash
-# Install (Recommended)
-curl -sSL https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/install.sh | bash
-
-# Run interactive REPL
+# Using the installed script (recommended)
 vibehack
 
-# Start session with a target
-vibehack --target https://example.com
+# Or directly with UV
+cd /home/rasyiqi/Project/VibeHack
+uv run vibehack
+
+# With target
+vibehack --target http://localhost:3000
+
+# Health check
+vibehack check
 ```
 
-## 🛠️ Installation Modes
+### Installation (if not installed)
 
-### Option 1: Automatic Setup
-Ideal for fresh systems. Automatically prepares Python3, Git, and Docker.
 ```bash
-curl -sSL https://raw.githubusercontent.com/rasyiqi-code/VibeHack/main/install.sh | bash
+# Install via UV (recommended)
+uv pip install -e .
+
+# Or manual
+cp /home/rasyiqi/.local/bin/vibehack /home/rasyiqi/.local/bin/vibehack.new
+chmod +x /home/rasyiqi/.local/bin/vibehack.new
 ```
 
-### Option 2: Developer Mode
+---
+
+## 🛠️ Usage Examples
+
 ```bash
-git clone https://github.com/rasyiqi-code/VibeHack.git
-cd VibeHack
-pip install -e .
+# Start interactive REPL
+vibehack
+
+# Quick audit with target
+vibehack --target http://192.168.1.100
+
+# Resume previous session
+vibehack resume <session-id>
+
+# Generate report
+vibehack report <session-id>
+
+# Health check & tool discovery
+vibehack check
 ```
 
-## 🗺️ Roadmap to Swarm Intelligence
+---
+
+## 📋 Supported Environment Variables
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `VH_SANDBOX` | `false` | Enable sandbox mode (`true` to enable) |
+| `VH_PROVIDER` | `openrouter` | LLM provider |
+| `VH_API_KEY` | - | API key |
+| `VH_MODEL` | `google/gemini-2.0-flash-exp:free` | Model to use |
+| `VH_MAX_TURNS` | `20` | Conversation history limit |
+| `VH_TRUNCATE_LIMIT` | `4000` | Output truncation limit |
+
+---
+
+## 🗺️ Roadmap
 
 - [x] **v4.0: Stateful Engine** — Persistent Shell & Memory.
-- [x] **v4.2: Agnostic Autonomy** — Tool-specific registries removed.
-- [x] **v4.3: Tabula Rasa** — Universal patterns and AST-based safety gate.
-- [ ] **v4.8: Evidence Capture** — Screenshot & media analysis for reporting.
+- [x] **v4.2: Intelligence & Optimization** — Security hardening, injection detection, hallucination validation.
+- [ ] **v4.5: Evidence Capture** — Screenshot & media analysis for reporting.
 - [ ] **v5.0: Swarm Intelligence** — Multi-target collaborative auditing.
+
+---
 
 ## 📚 Resources & Support
 
 - 🌐 **[Official Website & Docs](https://vibehack.crediblemark.com/)**
 - 📖 **[User Guide](./docs/manual/INDEX.md)**
 - 🛡️ **[Ethical Framework](./docs/manual/GOVERNANCE.md)**
+
+---
+
+## ⚠️ Important Notes
+
+1. **Sandbox Required**: Set `VH_SANDBOX=true` in `.env` for hardened execution.
+2. **Authorized Testing Only**: Use only on systems you own or have explicit authorization.
+3. **Docker Needed**: The sandbox requires Docker to be installed and running.
 
 ---
 

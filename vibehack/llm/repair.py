@@ -27,9 +27,19 @@ def repair_json(text: str) -> Optional[dict]:
     # Last resort: find first {...} block
     match = re.search(r"\{.*\}", text, re.DOTALL)
     if match:
+        extracted = match.group()
         try:
-            return json.loads(match.group())
+            return json.loads(extracted)
         except json.JSONDecodeError:
+            pass
+            
+        # Very last resort: ast.literal_eval for Python dict string outputs
+        try:
+            import ast
+            parsed = ast.literal_eval(extracted)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
             pass
 
     return None

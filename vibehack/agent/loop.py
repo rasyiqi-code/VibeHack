@@ -547,6 +547,29 @@ class AgentLoop:
                             "[yellow]⚡ Auto-Allow enabled for this session.[/yellow]"
                         )
 
+                    # [v4.2] Pre-execution: Check tool availability
+                    cmd_tool = cmd.strip().split()[0] if cmd.strip() else ""
+                    if cmd_tool:
+                        from vibehack.toolkit.security import (
+                            is_tool_available,
+                            install_tool,
+                        )
+
+                        if not is_tool_available(cmd_tool):
+                            console.print(
+                                f"[yellow]⚠️ Tool '{cmd_tool}' not found. Attempting to install...[/yellow]"
+                            )
+                            # use_sudo=None will prompt if password needed
+                            installed = install_tool(cmd_tool, use_sudo=None)
+                            if installed:
+                                console.print(
+                                    f"[green]✅ Tool '{cmd_tool}' installed successfully![/green]"
+                                )
+                            else:
+                                console.print(
+                                    f"[red]❌ Failed to install '{cmd_tool}'. Trying anyway...[/red]"
+                                )
+
                     # 3d. Execute
                     result = await execute_shell(
                         cmd,
@@ -569,6 +592,17 @@ class AgentLoop:
                     display_output(result.stdout)
                     if result.stderr:
                         display_output(result.stderr, is_error=True)
+
+                    # [v4.2 Dynamic Learning] Register command result
+                    from vibehack.memory.adaptive import register_command_result
+
+                    success = result.exit_code == 0 and len(result.stdout) > 10
+                    tech = (
+                        list(self.knowledge.technologies)[0]
+                        if self.knowledge.technologies
+                        else ""
+                    )
+                    register_command_result(cmd, success, tech)
 
                     # Refine tech hint from tool output
                     self._refine_tech_hint(result.stdout)

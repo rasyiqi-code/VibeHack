@@ -153,10 +153,8 @@ def start_sandbox():
             "512m",
             "--cpus",
             "0.5",
-            "--cap-drop",
-            "ALL",
-            # REMOVED: NET_ADMIN (dangerous for pivot attacks)
-            # Keep NET_RAW only for packet crafting (nmap, hping3)
+            # We rely on default Docker capabilities so apt-get setuid/setgid doesn't fail
+            # Just add NET_RAW for packet crafting (nmap, hping3)
             "--cap-add",
             "NET_RAW",
             # Network isolation: disallow external egress except necessary ports
@@ -173,8 +171,6 @@ def start_sandbox():
             f"{tmp_dir.absolute()}:/tmp:rw",
             "-w",
             "/root/workspace",
-            # Read-only root filesystem (except mounted dirs)
-            "--read-only",
             IMAGE_NAME,
             "tail",
             "-f",

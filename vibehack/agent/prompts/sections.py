@@ -8,6 +8,7 @@ Each function:
   - Is independently testable and reusable
   - Contains NO business logic, only text generation
 """
+
 from vibehack.agent.prompts.options import PromptOptions
 
 
@@ -17,7 +18,7 @@ def render_identity(options: PromptOptions) -> str:
         return ""
 
     legacy_note = " (Compatibility Mode)" if options.model_tier == "legacy" else ""
-    
+
     if options.persona == "pro":
         return (
             "You are the Ghost Lead — an elite offensive security operative. "
@@ -35,16 +36,15 @@ def render_identity(options: PromptOptions) -> str:
 
     if options.interactive:
         return (
-            base +
-            "You own your session and maintain a high-intensity offensive edge. "
+            base + "You own your session and maintain a high-intensity offensive edge. "
             "You decide when to strike. However, as an elite operator, you prioritize EFFICIENCY and STEALTH. "
             "Launching a noisy scan on a simple greeting (e.g. 'halo', 'test') is a sign of an amateur. "
             "Acknowledge the operator and stay ready, but only initiate technical actions when the mission objective is clear or a target vulnerability is identified."
         )
     else:
         return (
-            base +
-            "You are executing a directed security audit. Work independently through the "
+            base
+            + "You are executing a directed security audit. Work independently through the "
             "full attack lifecycle: recon, enumeration, exploitation, and reporting. "
             "Do not wait for guidance — act decisively."
         )
@@ -102,11 +102,11 @@ def render_mindset(options: PromptOptions) -> str:
         "- **Speculative Batching (v4.0)**: Reduce latency by chaining related commands into a single `raw_command` using `&&` (e.g., `cd /app && ls -la && vibehack-read config.json`). Stop batching if a command's outcome is required for the next logic branch.\n"
         "- **Tool Discovery**: Use `which <tool>` to verify your current arsenal.\n"
         "- **Data Offloading (Scratchpad)**: Save large datasets to files (e.g., `notes.txt`) in your workspace.\n"
-        "- **Manual Notes (Buku Saku)**: Use `vibehack-note add \"your observation\"` to save critical insights.\n"
+        '- **Manual Notes (Buku Saku)**: Use `vibehack-note add "your observation"` to save critical insights.\n'
         "- **Surgical File Operations (v3.0)**: \n"
         "  - `vibehack-read <file> [start] [end]`: Read specific lines with line numbers. Use this before editing.\n"
-        "  - `vibehack-edit <file> \"old text\" \"new text\"`: Precision replacement. Prefer this over `sed` to avoid escaping errors.\n"
-        "  - `vibehack-write <file> \"content\"`: Overwrite a file entirely.\n"
+        '  - `vibehack-edit <file> "old text" "new text"`: Precision replacement. Prefer this over `sed` to avoid escaping errors.\n'
+        '  - `vibehack-write <file> "content"`: Overwrite a file entirely.\n'
         "  - `vibehack-find <dir> [pattern]`: Efficiently explore directory structures (up to 100 results).\n"
         "- Search your historical memory when relevant: `vibehack-memory search <keyword>`"
     )
@@ -125,28 +125,35 @@ def render_safety(options: PromptOptions) -> str:
     ]
 
     if not options.unchained:
-        lines.append("- Destructive commands require operator approval. Set is_destructive: true.")
+        lines.append(
+            "- Destructive commands require operator approval. Set is_destructive: true."
+        )
 
     return "\n".join(lines)
+
 
 def render_context(options: PromptOptions) -> str:
     """Live runtime context — target, persona, guardrails."""
     # We no longer list tools to save tokens. We just indicate existence.
     tools_count = len(options.tools) if options.tools else 0
     lines = [
-        f"Target: {options.target}", 
-        f"Arsenal: {tools_count} binaries available in $PATH (Not listed to save space)."
+        f"Target: {options.target}",
+        f"Arsenal: {tools_count} binaries available in $PATH (Not listed to save space).",
     ]
 
     if options.persona == "dev-safe" and options.education:
-        lines.append("Operator: Developer — explain what each command does and suggest code fixes.")
+        lines.append(
+            "Operator: Developer — explain what each command does and suggest code fixes."
+        )
     else:
         lines.append("Operator: Security Professional — be direct, skip basics.")
 
     lines.append("Guardrails: OFF 🔓" if options.unchained else "Guardrails: ON 🔒")
 
     if options.knowledge and options.knowledge.get("workspace_map"):
-        lines.append(f"\nWorkspace Intel (Current Directory):\n{options.knowledge['workspace_map']}")
+        lines.append(
+            f"\nWorkspace Intel (Current Directory):\n{options.knowledge['workspace_map']}"
+        )
 
     return "\n".join(lines)
 
@@ -163,6 +170,7 @@ def render_sandbox(options: PromptOptions) -> str:
         "- Tools installed via /install are automatically added to your PATH."
     )
 
+
 def render_knowledge(options: PromptOptions) -> str:
     """Accumulated intelligence from the session."""
     ks = options.knowledge
@@ -175,7 +183,9 @@ def render_knowledge(options: PromptOptions) -> str:
     if ks.get("technologies"):
         lines.append(f"- Tech stack: {', '.join(ks['technologies'])}")
     if ks.get("endpoints"):
-        lines.append(f"- Map: {len(ks['endpoints'])} endpoints discovered (Stored in session memory. Use `vibehack-memory search endpoints` to recall).")
+        lines.append(
+            f"- Map: {len(ks['endpoints'])} endpoints discovered (Stored in session memory. Use `vibehack-memory search endpoints` to recall)."
+        )
     if ks.get("credentials"):
         lines.append(f"- Credentials: {len(ks['credentials'])} found")
     if ks.get("notes"):
@@ -193,8 +203,40 @@ def render_findings(options: PromptOptions) -> str:
     if not options.findings:
         return ""
 
-    confirmed = "\n".join(f"- [{f.severity.upper()}] {f.title}" for f in options.findings)
+    confirmed = "\n".join(
+        f"- [{f.severity.upper()}] {f.title}" for f in options.findings
+    )
     return f"Confirmed findings (skip these):\n{confirmed}"
+
+
+def render_adaptive_learning(options: PromptOptions) -> str:
+    """Dynamic learning context - learned patterns and CVEs."""
+    if not options.knowledge:
+        return ""
+
+    ks = options.knowledge
+    techs = list(ks.get("technologies", []))
+
+    if not techs:
+        return ""
+
+    lines = []
+
+    # Get learned patterns for detected technologies
+    try:
+        from vibehack.memory.adaptive import get_learned_tactics
+
+        for tech in techs[:2]:
+            tactics = get_learned_tactics(tech)
+            if tactics:
+                lines.append(f"\n### {tech.upper()} - Learned Patterns:")
+                for t in tactics[:2]:
+                    conf = int(t["confidence"] * 10) / 10
+                    lines.append(f"- (conf: {conf}) {t['tactic'][:80]}")
+    except:
+        pass
+
+    return "\n".join(lines)
 
 
 def render_context_hints(options: PromptOptions) -> str:
@@ -221,7 +263,7 @@ def render_strategic_techniques(options: PromptOptions) -> str:
     """Advanced technical maneuvers muated from dynamic skills."""
     if not options.skills:
         return ""
-        
+
     content = "\n\n".join(options.skills)
     return f"Tactical Guidance:\n{content}"
 

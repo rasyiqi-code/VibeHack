@@ -25,6 +25,7 @@ Architecture:
       ↓
   Final prompt (string)
 """
+
 import os
 from vibehack.agent.prompts.options import PromptOptions
 from vibehack.agent.prompts.sections import (
@@ -37,6 +38,7 @@ from vibehack.agent.prompts.sections import (
     render_sandbox,
     render_knowledge,
     render_findings,
+    render_adaptive_learning,
     render_exploits,
     render_context_hints,
     render_strategic_techniques,
@@ -56,10 +58,11 @@ RENDER_PIPELINE = [
     render_sandbox,
     render_knowledge,
     render_findings,
+    render_adaptive_learning,  # v4.2: Dynamic learning
     render_exploits,
     render_context_hints,
     render_strategic_techniques,
-    render_schema,        # Always last = strongest anchor for the AI
+    render_schema,  # Always last = strongest anchor for the AI
 ]
 
 
@@ -99,6 +102,7 @@ def build_system_prompt(options: PromptOptions, overrides: dict = None) -> str:
 def _substitute_variables(prompt: str, options: PromptOptions) -> str:
     """Replace ${var} placeholders in override templates."""
     from vibehack.toolkit.discovery import get_tools_context_string
+
     tools_csv = get_tools_context_string(options.tools)
     replacements = {
         "${target}": options.target,
@@ -114,6 +118,7 @@ def _substitute_variables(prompt: str, options: PromptOptions) -> str:
 def _export_debug(prompt: str):
     """Write the generated prompt to disk for inspection."""
     from vibehack.config import cfg
+
     debug_path = cfg.HOME / "debug_prompt.md"
     try:
         debug_path.parent.mkdir(parents=True, exist_ok=True)

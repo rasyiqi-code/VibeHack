@@ -79,12 +79,31 @@ async def process_llm_turn(repl, user_message: str, force_ask: bool = False):
         except Exception as e:
             pop_last_line_from_pane(repl, "history")
             err_msg = str(e)
-            if "QUOTA_EXHAUSTED" in err_msg or "429" in err_msg:
-                log_to_pane(repl, "logs", f"🛑 API Quota Exhausted: {err_msg}")
-                log_to_pane(repl, "logs", f"Session {repl.session_id} has been saved.")
-                log_to_pane(repl, "logs", f"Resume later: vibehack resume {repl.session_id}")
+            from vibehack.ui.tui import log_internal_error
+            log_internal_error(e)
+
+            # Sanitize: extract first clean line only — avoids raw JSON blobs in pane
+            first_line = err_msg.split("\n")[0][:120]
+
+            is_quota = (
+                "QUOTA_EXHAUSTED" in err_msg
+                or "RESOURCE_EXHAUSTED" in err_msg
+                or "429" in err_msg
+                or "rate_limit" in err_msg.lower()
+                or "capacity exhausted" in err_msg.lower()
+                or "no capacity available" in err_msg.lower()
+            )
+            
+            if is_quota:
+                log_to_pane(repl, "logs", "🛑 Quota Exhausted — Google Gemini limit hit.")
+                log_to_pane(repl, "logs", "   Try: /switch openrouter  or wait a few minutes.")
+                log_to_pane(repl, "logs", f"   Session saved → vibehack resume {repl.session_id}")
+            elif "Bridge CLI Error" in err_msg:
+                # Extract just the main error line from CLI output
+                clean_err = err_msg.split("):")[-1].split("\n")[0].strip()[:100]
+                log_to_pane(repl, "logs", f"🌉 Bridge Error: {clean_err}")
             else:
-                log_to_pane(repl, "logs", f"🚨 LLM error: {e}")
+                log_to_pane(repl, "logs", f"🚨 LLM error: {first_line} (see error.log)")
             
             repl._persist()
             if repl.history and repl.history[-1]["role"] == "user":
@@ -173,7 +192,7 @@ async def _execute_proposed_command(repl, response: AgentResponse):
     )
     critique = await repl.handler.critique(repl.history, cmd, system_override=warden_prompt)
     if critique:
-        log_to_pane(repl, "logs", f"🛡 WARDEN: {critique}")
+        log_to_pane(repl, "logs", f"🛡 WARDEN: {str(critique)[:120]}")
         repl.history.append({"role": "user", "content": f"System (Security Warden): {critique}"})
         return
 

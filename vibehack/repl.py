@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import List, Dict, Optional
 
 from prompt_toolkit import Application, PromptSession
+from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.filters import Condition
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout import Layout, HSplit, VSplit, Window, ConditionalContainer
@@ -245,7 +246,7 @@ class VibehackREPL:
             "saved_at": datetime.now().isoformat(),
         })
 
-        log_to_pane(self, "logs", f"PERSIST: state saved successfully to db and session storage.")
+        # Silent persist — no log spam
 
     def _trim_history(self):
         limit = cfg.MAX_TURN_MEMORY * 2
@@ -283,7 +284,9 @@ class VibehackREPL:
                 await process_llm_turn(self, user_input)
                 
         except Exception as e:
-            log_to_pane(self, "logs", f"🚨 System Error: {e}")
+            from vibehack.ui.tui import log_internal_error
+            log_internal_error(e)
+            log_to_pane(self, "logs", f"🚨 System Error (see error.log): {e}")
         finally:
             # ALWAYS return to Listening mode
             self.status = "LISTENING"
@@ -310,7 +313,7 @@ class VibehackREPL:
             await update_connectivity() # Initial check
             while True:
                 try:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(5)  # 5s is enough for telemetry; 1s caused visible flickering
                     self.app.invalidate()
                 except asyncio.CancelledError:
                     break
@@ -323,8 +326,9 @@ class VibehackREPL:
         if self.target:
             log_to_pane(self, "logs", f"Target: [bold yellow]{self.target}[/bold yellow]")
 
-        # Start the fullscreen application
-        await self.app.run_async()
+        # Start the fullscreen application with stdout pathing to prevent ANY UI corruption
+        with patch_stdout(raw=True):
+            await self.app.run_async()
 
         # Shutdown cleanup
         for t in getattr(self, '_bg_tasks', []):
